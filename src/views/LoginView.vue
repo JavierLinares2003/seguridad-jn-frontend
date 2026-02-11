@@ -1,5 +1,17 @@
 <template>
-  <v-container class="fill-height bg-grey-lighten-4" fluid>
+  <v-container class="fill-height" fluid>
+    <!-- Boton cambiar tema -->
+    <v-btn
+      class="theme-toggle-btn"
+      icon
+      position="fixed"
+      style="top: 16px; right: 16px; z-index: 10;"
+      variant="tonal"
+      @click="toggleTheme"
+    >
+      <v-icon>{{ theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+    </v-btn>
+
     <v-row align="center" justify="center">
       <v-col cols="12" lg="4" md="5" sm="10">
         <v-card
@@ -100,7 +112,7 @@
 
           <v-divider class="mx-6" />
 
-          <v-card-actions class="justify-center pa-4">
+          <!-- <v-card-actions class="justify-center pa-4">
             <span class="text-body-2 text-medium-emphasis">¿No tienes cuenta?</span>
             <v-btn
               class="text-none font-weight-medium"
@@ -110,12 +122,12 @@
             >
               Regístrate aquí
             </v-btn>
-          </v-card-actions>
+          </v-card-actions> -->
         </v-card>
 
         <!-- Footer opcional -->
         <p class="text-center text-caption text-medium-emphasis mt-6">
-          © {{ new Date().getFullYear() }} Tu Empresa. Todos los derechos reservados.
+          © {{ new Date().getFullYear() }} SeguridadJN. Todos los derechos reservados.
         </p>
       </v-col>
     </v-row>
@@ -124,16 +136,32 @@
 
 <script setup>
   import { useField, useForm } from 'vee-validate'
-  import { ref } from 'vue'
+  import { onMounted, ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
+  import { useTheme } from 'vuetify'
   import * as yup from 'yup'
   import { useAuthStore } from '@/stores/auth'
 
   const router = useRouter()
   const route = useRoute()
   const authStore = useAuthStore()
+  const theme = useTheme()
 
   const showPassword = ref(false)
+
+  // Cambiar tema
+  function toggleTheme () {
+    theme.global.name.value = theme.global.current.value.dark ? 'light' : 'dark'
+    localStorage.setItem('theme', theme.global.name.value)
+  }
+
+  // Cargar tema guardado
+  onMounted(() => {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme) {
+      theme.global.name.value = savedTheme
+    }
+  })
 
   // Esquema de validación con Yup
   const validationSchema = yup.object({
@@ -170,7 +198,7 @@
     })
 
     if (result.success) {
-      const redirect = route.query.redirect || '/dashboard'
+      const redirect = route.query.redirect || '/inicio'
       router.push(redirect)
     }
   })

@@ -142,7 +142,7 @@
             <p class="text-body-1 font-weight-medium mb-0">{{ item.apellidos }}, {{ item.nombres }}</p>
             <p class="text-caption text-medium-emphasis mb-0">
               <v-icon class="mr-1" icon="mdi-card-account-details-outline" size="12" />
-              {{ item.dpi }}
+              {{ formatDPI(item.dpi) }}
             </p>
           </div>
         </template>
@@ -154,7 +154,7 @@
 
         <!-- Telefono -->
         <template #item.telefono="{ item }">
-          <span class="text-body-2">{{ item.telefono }}</span>
+          <span class="text-body-2">{{ formatPhone(item.telefono) }}</span>
         </template>
 
         <!-- Estado -->
@@ -324,6 +324,8 @@
   import { useCatalogos } from '@/composables/useCatalogos'
   import { CATALOGOS } from '@/services/catalogoService'
   import { usePersonalStore } from '@/stores/personal'
+  import { formatDPI } from '@/utils/dpiFormatter'
+  import { formatPhone } from '@/utils/phoneFormatter'
 
   const store = usePersonalStore()
 

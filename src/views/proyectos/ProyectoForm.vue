@@ -29,7 +29,6 @@
                     <v-col cols="12" md="6">
                       <v-select
                         v-model="tipo_proyecto_id"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.tipo_proyecto_id"
                         item-title="nombre"
@@ -44,7 +43,6 @@
                     <!-- Correlativo (Readonly) -->
                     <v-col cols="12" md="6">
                       <v-text-field
-                        bg-color="grey-lighten-4"
                         density="comfortable"
                         hint="Generado automáticamente al guardar"
                         label="Correlativo"
@@ -54,7 +52,7 @@
                         variant="outlined"
                       >
                         <template #prepend-inner>
-                          <v-icon color="grey-darken-1">mdi-pound</v-icon>
+                          <v-icon color="grey">mdi-pound</v-icon>
                         </template>
                       </v-text-field>
                     </v-col>
@@ -63,7 +61,6 @@
                     <v-col cols="12">
                       <v-text-field
                         v-model="nombre_proyecto"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.nombre_proyecto"
                         label="Nombre del Proyecto *"
@@ -76,7 +73,6 @@
                     <v-col cols="12">
                       <v-text-field
                         v-model="empresa_cliente"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.empresa_cliente"
                         label="Empresa Cliente *"
@@ -90,7 +86,6 @@
                       <v-textarea
                         v-model="descripcion"
                         auto-grow
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.descripcion"
                         label="Descripción"
@@ -108,7 +103,6 @@
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="fecha_inicio_estimada"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.fecha_inicio_estimada"
                         label="Fecha Inicio Estimada"
@@ -119,7 +113,6 @@
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="fecha_fin_estimada"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.fecha_fin_estimada"
                         label="Fecha Fin Estimada"
@@ -131,7 +124,6 @@
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="fecha_inicio_real"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.fecha_inicio_real"
                         label="Fecha Inicio Real"
@@ -142,7 +134,6 @@
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="fecha_fin_real"
-                        bg-color="grey-lighten-5"
                         density="comfortable"
                         :error-messages="errors.fecha_fin_real"
                         label="Fecha Fin Real"
@@ -209,7 +200,6 @@
             <v-card-text class="pa-5">
               <v-select
                 v-model="estado_proyecto"
-                bg-color="grey-lighten-5"
                 density="comfortable"
                 hide-details="auto"
                 item-title="text"

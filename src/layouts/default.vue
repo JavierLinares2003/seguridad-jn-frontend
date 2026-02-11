@@ -122,17 +122,7 @@
           prepend-icon="mdi-home-outline"
           rounded="lg"
           title="Inicio"
-          to="/"
-        />
-
-        <v-list-item
-          v-if="authStore.isAuthenticated"
-          class="mb-1"
-          color="primary"
-          prepend-icon="mdi-view-dashboard-outline"
-          rounded="lg"
-          title="Dashboard"
-          :to="{ name: 'dashboard' }"
+          :to="{ name: 'inicio' }"
         />
 
         <v-list-item
@@ -173,6 +163,39 @@
           rounded="lg"
           title="Asistencia"
           :to="{ name: 'operaciones-asistencia' }"
+        />
+
+        <v-divider v-if="authStore.hasPermission('view-users')" class="my-2" />
+        <v-list-subheader v-if="authStore.hasPermission('view-users')" class="text-overline">Configuracion</v-list-subheader>
+
+        <v-list-item
+          v-if="authStore.hasPermission('view-users')"
+          class="mb-1"
+          color="primary"
+          prepend-icon="mdi-account-cog-outline"
+          rounded="lg"
+          title="Usuarios"
+          :to="{ name: 'configuracion-usuarios' }"
+        />
+
+        <v-list-item
+          v-if="authStore.hasPermission('view-roles')"
+          class="mb-1"
+          color="primary"
+          prepend-icon="mdi-shield-lock-outline"
+          rounded="lg"
+          title="Roles"
+          :to="{ name: 'configuracion-roles' }"
+        />
+
+        <v-list-item
+          v-if="authStore.hasPermission('view-bitacora')"
+          class="mb-1"
+          color="primary"
+          prepend-icon="mdi-history"
+          rounded="lg"
+          title="Bitacora"
+          :to="{ name: 'configuracion-bitacora' }"
         />
       </v-list>
 

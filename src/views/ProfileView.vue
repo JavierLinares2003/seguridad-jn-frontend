@@ -92,7 +92,7 @@
             <v-btn
               color="primary"
               prepend-icon="mdi-arrow-left"
-              :to="{ name: 'dashboard' }"
+              :to="{ name: 'inicio' }"
               variant="text"
             >
               Volver

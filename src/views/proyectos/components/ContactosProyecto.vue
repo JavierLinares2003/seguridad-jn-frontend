@@ -21,6 +21,10 @@
       :items="items"
       :loading="loading"
     >
+      <template #item.telefono="{ item }">
+        {{ formatPhone(item.telefono) }}
+      </template>
+
       <template #item.es_contacto_principal="{ item }">
         <v-chip
           v-if="item.es_contacto_principal"
@@ -70,11 +74,14 @@
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  v-model="editedItem.telefono"
                   density="comfortable"
                   label="Teléfono *"
+                  maxlength="9"
+                  :model-value="telefonoDisplay"
+                  placeholder="0000-0000"
                   :rules="[v => !!v || 'Requerido']"
                   variant="outlined"
+                  @update:model-value="onTelefonoInput"
                 />
               </v-col>
               <v-col cols="12" md="6">
@@ -154,6 +161,7 @@
   import { computed, onMounted, ref, watch } from 'vue'
   import { useAuthStore } from '@/stores/auth'
   import { useProyectosStore } from '@/stores/proyectos'
+  import { cleanPhone, formatPhone, formatPhoneInput } from '@/utils/phoneFormatter'
 
   const props = defineProps({
     proyectoId: {
@@ -201,6 +209,14 @@
   }
   const editedItem = ref({ ...defaultItem })
   const itemToDelete = ref(null)
+
+  // Telefono formateado para visualizacion
+  const telefonoDisplay = computed(() => formatPhoneInput(editedItem.value.telefono))
+
+  // Handler para input de telefono
+  function onTelefonoInput(value) {
+    editedItem.value.telefono = cleanPhone(value)
+  }
 
   async function loadItems () {
     loading.value = true

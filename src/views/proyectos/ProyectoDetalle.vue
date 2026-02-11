@@ -140,7 +140,7 @@
                     <v-list density="compact">
                       <v-list-item>
                         <template #prepend>
-                          <v-icon class="mr-2" icon="mdi-map-utils" size="small" />
+                          <v-icon class="mr-2" icon="mdi-map-marker-check" size="small" />
                         </template>
                         <v-list-item-title>Departamento / Municipio</v-list-item-title>
                         <v-list-item-subtitle>

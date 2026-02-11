@@ -15,7 +15,13 @@ const manualRoutes = [
   {
     path: '/',
     name: 'home',
-    redirect: '/dashboard',
+    redirect: '/inicio',
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/inicio',
+    name: 'inicio',
+    component: () => import('@/views/WelcomeView.vue'),
     meta: { requiresAuth: true },
   },
   {
@@ -29,12 +35,6 @@ const manualRoutes = [
     name: 'register',
     component: () => import('@/views/RegisterView.vue'),
     meta: { requiresAuth: false, layout: 'blank' },
-  },
-  {
-    path: '/dashboard',
-    name: 'dashboard',
-    component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true },
   },
   {
     path: '/forbidden',
@@ -140,6 +140,25 @@ const manualRoutes = [
     name: 'operaciones-planillas-detalle',
     component: () => import('@/views/planillas/PlanillaDetalle.vue'),
     meta: { requiresAuth: true, permissions: ['view-planillas'] },
+  },
+  // Configuracion
+  {
+    path: '/configuracion/usuarios',
+    name: 'configuracion-usuarios',
+    component: () => import('@/views/configuracion/UsersIndex.vue'),
+    meta: { requiresAuth: true, permissions: ['view-users'] },
+  },
+  {
+    path: '/configuracion/roles',
+    name: 'configuracion-roles',
+    component: () => import('@/views/configuracion/RolesIndex.vue'),
+    meta: { requiresAuth: true, permissions: ['view-roles'] },
+  },
+  {
+    path: '/configuracion/bitacora',
+    name: 'configuracion-bitacora',
+    component: () => import('@/views/configuracion/BitacoraIndex.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bitacora'] },
   },
 ]
 

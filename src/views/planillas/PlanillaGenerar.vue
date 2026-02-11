@@ -187,7 +187,7 @@
                 {{ item.personal?.nombres }} {{ item.personal?.apellidos }}
               </div>
               <div class="text-caption text-medium-emphasis">
-                DPI: {{ item.personal?.dpi }}
+                DPI: {{ formatDPI(item.personal?.dpi) }}
               </div>
             </div>
           </template>
@@ -262,6 +262,7 @@
   import { useRouter } from 'vue-router'
   import proyectoService from '@/services/proyectoService'
   import { usePlanillaStore } from '@/stores/planilla'
+  import { formatDPI } from '@/utils/dpiFormatter'
 
   const router = useRouter()
   const planillaStore = usePlanillaStore()

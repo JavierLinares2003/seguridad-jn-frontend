@@ -202,7 +202,7 @@
                     <div>
                       <span class="font-weight-medium">{{ item.nombres }} {{ item.apellidos }}</span>
                       <br>
-                      <span class="text-caption text-medium-emphasis">{{ item.dpi }}</span>
+                      <span class="text-caption text-medium-emphasis">{{ formatDPI(item.dpi) }}</span>
                     </div>
                   </template>
 
@@ -449,6 +449,7 @@
   import catalogoService from '@/services/catalogoService'
   import { useOperacionesStore } from '@/stores/operaciones'
   import { useProyectosStore } from '@/stores/proyectos'
+  import { formatDPI } from '@/utils/dpiFormatter'
 
   const props = defineProps({
     modelValue: {

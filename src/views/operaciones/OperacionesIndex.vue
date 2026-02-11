@@ -98,7 +98,7 @@
                         {{ persona.nombres }} {{ persona.apellidos }}
                       </div>
                       <div class="text-caption text-medium-emphasis">
-                        {{ persona.dpi }}
+                        {{ formatDPI(persona.dpi) }}
                       </div>
                     </div>
                     <div class="text-right">
@@ -300,7 +300,7 @@
                         {{ selectedPersonal?.nombres }} {{ selectedPersonal?.apellidos }}
                       </div>
                       <div class="text-caption text-medium-emphasis">
-                        {{ selectedPersonal?.dpi }}
+                        {{ formatDPI(selectedPersonal?.dpi) }}
                       </div>
                       <v-chip
                         class="mt-1"
@@ -582,6 +582,7 @@
   import personalService from '@/services/personalService'
   import { useOperacionesStore } from '@/stores/operaciones'
   import { useProyectosStore } from '@/stores/proyectos'
+  import { formatDPI } from '@/utils/dpiFormatter'
 
   const operacionesStore = useOperacionesStore()
   const proyectosStore = useProyectosStore()

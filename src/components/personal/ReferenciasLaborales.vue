@@ -48,12 +48,15 @@
 
               <v-col cols="12" md="6">
                 <v-text-field
-                  v-model="form.telefono"
                   density="compact"
                   :error-messages="formErrors.telefono"
                   label="Teléfono *"
+                  maxlength="9"
+                  :model-value="telefonoDisplay"
+                  placeholder="0000-0000"
                   prepend-inner-icon="mdi-phone"
                   variant="outlined"
+                  @update:model-value="onTelefonoInput"
                 />
               </v-col>
 
@@ -184,7 +187,7 @@
         <div v-if="item.telefono">
           <div class="text-caption">
             <v-icon size="x-small">mdi-phone</v-icon>
-            {{ item.telefono }}
+            {{ formatPhone(item.telefono) }}
           </div>
         </div>
         <span v-else class="text-grey">-</span>
@@ -252,6 +255,7 @@
 <script setup>
   import { computed, reactive, ref, watch } from 'vue'
   import personalService from '@/services/personalService'
+  import { cleanPhone, formatPhone, formatPhoneInput } from '@/utils/phoneFormatter'
 
   const props = defineProps({
     personalId: {
@@ -298,6 +302,14 @@
     fecha_fin: '',
     motivo_retiro: '',
   })
+
+  // Telefono formateado para visualizacion
+  const telefonoDisplay = computed(() => formatPhoneInput(form.telefono))
+
+  // Handler para input de telefono
+  function onTelefonoInput(value) {
+    form.telefono = cleanPhone(value)
+  }
 
   // Dialog eliminar
   const deleteDialog = ref(false)

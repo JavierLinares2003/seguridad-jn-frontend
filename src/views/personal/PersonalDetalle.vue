@@ -160,7 +160,7 @@
                             <v-icon color="grey" icon="mdi-identifier" size="20" />
                           </template>
                           <v-list-item-subtitle class="text-caption">DPI</v-list-item-subtitle>
-                          <v-list-item-title class="font-weight-medium">{{ personal.dpi }}</v-list-item-title>
+                          <v-list-item-title class="font-weight-medium">{{ formatDPI(personal.dpi) }}</v-list-item-title>
                         </v-list-item>
                         <v-divider />
                         <v-list-item>
@@ -306,7 +306,7 @@
                             <v-icon color="grey" icon="mdi-phone-outline" size="20" />
                           </template>
                           <v-list-item-subtitle class="text-caption">Telefono</v-list-item-subtitle>
-                          <v-list-item-title>{{ personal.telefono }}</v-list-item-title>
+                          <v-list-item-title>{{ formatPhone(personal.telefono) }}</v-list-item-title>
                         </v-list-item>
                       </v-list>
                     </v-card-text>
@@ -425,6 +425,9 @@
                     {{ item.parentesco?.nombre || '-' }}
                   </v-chip>
                 </template>
+                <template #item.telefono="{ item }">
+                  {{ formatPhone(item.telefono) }}
+                </template>
                 <template #item.actions="{ item }">
                   <v-tooltip location="top" text="Editar">
                     <template #activator="{ props }">
@@ -513,7 +516,7 @@
                           :href="red.url_perfil"
                           target="_blank"
                         >
-                          {{ red.url_perfil }}
+                          Click para ver perfil
                         </a>
                       </div>
                       <v-tooltip location="top" text="Eliminar">
@@ -672,12 +675,15 @@
 
               <v-col cols="12">
                 <v-text-field
-                  v-model="familiarForm.telefono"
                   density="compact"
                   :error-messages="familiarErrors.telefono"
                   label="Teléfono *"
+                  maxlength="9"
+                  :model-value="familiarTelefonoDisplay"
+                  placeholder="0000-0000"
                   prepend-inner-icon="mdi-phone"
                   variant="outlined"
+                  @update:model-value="onFamiliarTelefonoInput"
                 />
               </v-col>
 
@@ -830,6 +836,8 @@
   import personalService from '@/services/personalService'
   import { useCatalogosStore } from '@/stores/catalogos'
   import { usePersonalStore } from '@/stores/personal'
+  import { formatDPI } from '@/utils/dpiFormatter'
+  import { cleanPhone, formatPhone, formatPhoneInput } from '@/utils/phoneFormatter'
 
   const route = useRoute()
   const router = useRouter()
@@ -869,6 +877,14 @@
   const savingFamiliar = ref(false)
   const familiarError = ref(null)
   const familiarFormRef = ref(null)
+
+  // Telefono familiar formateado para visualizacion
+  const familiarTelefonoDisplay = computed(() => formatPhoneInput(familiarForm.value.telefono))
+
+  // Handler para input de telefono familiar
+  function onFamiliarTelefonoInput (value) {
+    familiarForm.value.telefono = cleanPhone(value)
+  }
 
   // Catálogos
   const parentescos = computed(() => catalogosStore.getCatalogo(CATALOGOS.PARENTESCOS))
@@ -1139,12 +1155,27 @@
       valid = false
     }
 
-    if (redForm.url_perfil && !/^https?:\/\/.+/.test(redForm.url_perfil)) {
-      redErrors.url_perfil = 'La URL debe ser válida (comenzar con http:// o https://)'
-      valid = false
+    // La URL es opcional, si se proporciona se validará el formato básico
+    if (redForm.url_perfil && redForm.url_perfil.trim()) {
+      // Validar que tenga un formato básico de URL (dominio.extension)
+      const urlWithoutProtocol = redForm.url_perfil.replace(/^https?:\/\//, '')
+      if (!/^[\w-]+(\.[\w-]+)+/.test(urlWithoutProtocol)) {
+        redErrors.url_perfil = 'La URL no tiene un formato válido'
+        valid = false
+      }
     }
 
     return valid
+  }
+
+  // Función para normalizar URL (agregar https:// si no tiene protocolo)
+  function normalizeUrl (url) {
+    if (!url || !url.trim()) return null
+    const trimmed = url.trim()
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return `https://${trimmed}`
+    }
+    return trimmed
   }
 
   async function saveRedSocial () {
@@ -1157,7 +1188,7 @@
       const data = {
         red_social_id: redForm.red_social_id,
         nombre_usuario: redForm.nombre_usuario,
-        url_perfil: redForm.url_perfil || null,
+        url_perfil: normalizeUrl(redForm.url_perfil),
       }
 
       await (editingRed.value ? personalService.updateRedSocial(route.params.id, editingRed.value, data) : personalService.createRedSocial(route.params.id, data))
@@ -1209,11 +1240,11 @@
 
   async function downloadCV () {
     if (!personal.value?.id) return
-    
+
     try {
       downloadingCV.value = true
       const response = await personalService.downloadCV(personal.value.id)
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
       const link = document.createElement('a')
       link.href = url

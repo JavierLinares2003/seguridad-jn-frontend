@@ -163,7 +163,7 @@
                   {{ item.asignacion?.personal?.nombres }} {{ item.asignacion?.personal?.apellidos }}
                 </div>
                 <div class="text-caption text-medium-emphasis">
-                  {{ item.asignacion?.personal?.dpi }}
+                  {{ formatDPI(item.asignacion?.personal?.dpi) }}
                 </div>
               </div>
             </div>
@@ -404,7 +404,7 @@
                 </v-avatar>
               </template>
               <v-list-item-title>{{ persona.nombres }} {{ persona.apellidos }}</v-list-item-title>
-              <v-list-item-subtitle>{{ persona.dpi }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{ formatDPI(persona.dpi) }}</v-list-item-subtitle>
               <template #append>
                 <v-icon v-if="selectedReemplazoItem?.reemplazoLocal?.id === persona.id" color="success">
                   mdi-check-circle
@@ -517,6 +517,7 @@
   import TransaccionesPersonal from '@/components/personal/TransaccionesPersonal.vue'
   import { useOperacionesStore } from '@/stores/operaciones'
   import { useProyectosStore } from '@/stores/proyectos'
+  import { formatDPI } from '@/utils/dpiFormatter'
 
   const operacionesStore = useOperacionesStore()
   const proyectosStore = useProyectosStore()

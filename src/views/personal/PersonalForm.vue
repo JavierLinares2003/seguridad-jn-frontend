@@ -41,12 +41,14 @@
 
                 <v-col cols="12" md="4">
                   <v-text-field
-                    v-model="dpi"
                     :error-messages="errors.dpi"
                     label="DPI *"
-                    maxlength="13"
+                    maxlength="15"
+                    :model-value="dpiDisplay"
+                    placeholder="0000-00000-0000"
                     variant="outlined"
                     @blur="validateField('dpi')"
+                    @update:model-value="onDpiInput"
                   />
                 </v-col>
                 <v-col cols="12" md="4">
@@ -205,10 +207,13 @@
                 </v-col>
                 <v-col cols="12" md="6">
                   <v-text-field
-                    v-model="telefono"
                     :error-messages="errors.telefono"
                     label="Teléfono *"
+                    maxlength="9"
+                    :model-value="telefonoDisplay"
+                    placeholder="0000-0000"
                     variant="outlined"
+                    @update:model-value="onTelefonoInput"
                   />
                 </v-col>
               </v-row>
@@ -414,6 +419,8 @@
   import { CATALOGOS } from '@/services/catalogoService'
   import { useCatalogosStore } from '@/stores/catalogos'
   import { usePersonalStore } from '@/stores/personal'
+  import { cleanDPI, formatDPIInput } from '@/utils/dpiFormatter'
+  import { cleanPhone, formatPhoneInput } from '@/utils/phoneFormatter'
 
   const route = useRoute()
   const router = useRouter()
@@ -459,7 +466,10 @@
       .required('El DPI es requerido')
       .matches(/^\d{13}$/, 'El DPI debe tener 13 dígitos'),
     email: yup.string().required('El email es requerido').email('Email inválido'),
-    telefono: yup.string().required('El teléfono es requerido'),
+    telefono: yup
+      .string()
+      .required('El teléfono es requerido')
+      .matches(/^\d{8}$/, 'El teléfono debe tener 8 dígitos'),
     fecha_nacimiento: yup.string().required('La fecha de nacimiento es requerida'),
     sexo_id: yup.number().required('El sexo es requerido'),
     estado_civil_id: yup.number().required('El estado civil es requerido'),
@@ -513,6 +523,24 @@
   const { value: observaciones } = useField('observaciones')
   const { value: es_alergico } = useField('es_alergico', undefined, { initialValue: false })
   const { value: alergias } = useField('alergias')
+
+  // DPI formateado para visualizacion
+  const dpiDisplay = computed(() => formatDPIInput(dpi.value))
+
+  // Handler para input de DPI
+  function onDpiInput(value) {
+    // Guardar solo los digitos
+    dpi.value = cleanDPI(value)
+  }
+
+  // Telefono formateado para visualizacion
+  const telefonoDisplay = computed(() => formatPhoneInput(telefono.value))
+
+  // Handler para input de telefono
+  function onTelefonoInput(value) {
+    // Guardar solo los digitos
+    telefono.value = cleanPhone(value)
+  }
 
   // Edad calculada
   const edad = ref(null)

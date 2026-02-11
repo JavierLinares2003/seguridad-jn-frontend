@@ -107,7 +107,7 @@
         <div>
           <span class="font-weight-medium">{{ item.personal?.nombres }} {{ item.personal?.apellidos }}</span>
           <br>
-          <span class="text-caption text-medium-emphasis">{{ item.personal?.dpi }}</span>
+          <span class="text-caption text-medium-emphasis">{{ formatDPI(item.personal?.dpi) }}</span>
         </div>
       </template>
 
@@ -284,6 +284,7 @@
   import { computed, onMounted, ref, watch } from 'vue'
   import { useAuthStore } from '@/stores/auth'
   import { useOperacionesStore } from '@/stores/operaciones'
+  import { formatDPI } from '@/utils/dpiFormatter'
   import AsignarPersonalForm from './AsignarPersonalForm.vue'
 
   const props = defineProps({

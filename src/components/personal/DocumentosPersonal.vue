@@ -798,8 +798,12 @@
           await writable.write(blob)
           await writable.close()
           return
-        } catch {
-        // Usuario canceló o navegador no soporta, continuar con método tradicional
+        } catch (error) {
+          // Si el usuario canceló el diálogo, no continuar con la descarga
+          if (error.name === 'AbortError') {
+            return
+          }
+          // Solo continuar con método tradicional si hay otro tipo de error
         }
       }
 
