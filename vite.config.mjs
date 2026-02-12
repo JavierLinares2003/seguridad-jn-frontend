@@ -13,7 +13,7 @@ import Layouts from 'vite-plugin-vue-layouts-next'
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     VueRouter(),
     Layouts(),
@@ -77,4 +77,7 @@ export default defineConfig({
   server: {
     port: 3000,
   },
-})
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+  },
+}))

@@ -744,10 +744,20 @@
       closeUploadDialog()
       emit('updated')
     } catch (error) {
-      uploadError.value
-        = error.apiMessage
-          || error.response?.data?.message
-          || 'Error al subir documento'
+      // Extraer errores de validación específicos
+      const apiErrors = error.apiErrors || error.response?.data?.errors
+      if (apiErrors && typeof apiErrors === 'object') {
+        // Convertir el objeto de errores en un mensaje legible
+        const errorMessages = Object.values(apiErrors)
+          .flat()
+          .join('. ')
+        uploadError.value = errorMessages || error.apiMessage || 'Error de validación'
+      } else {
+        uploadError.value
+          = error.apiMessage
+            || error.response?.data?.message
+            || 'Error al subir documento'
+      }
       emit('error', uploadError.value)
     } finally {
       uploading.value = false
