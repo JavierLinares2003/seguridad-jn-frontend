@@ -123,6 +123,7 @@ export const proyectoService = {
 
     const response = await api.post(`/proyectos/${proyectoId}/documentos`, data, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60_000,
     })
     return response.data
   },

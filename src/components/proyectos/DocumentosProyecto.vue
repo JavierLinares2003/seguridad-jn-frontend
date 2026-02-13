@@ -202,7 +202,7 @@
                   <strong>haz clic para seleccionar</strong>
                 </p>
                 <p class="text-caption text-grey">
-                  PDF, Word, Imágenes (máx. 10MB)
+                  PDF, Word, Imágenes (máx. {{ maxFileSizeMB }}MB)
                 </p>
               </template>
 
@@ -515,7 +515,11 @@
   // Helpers de formato
   function formatDate (date) {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('es-GT', {
+    // Extraer solo la parte de fecha para evitar desfase por timezone
+    const dateOnly = typeof date === 'string' && date.includes('T')
+      ? date.split('T')[0]
+      : date
+    return new Date(dateOnly + 'T12:00:00').toLocaleDateString('es-GT', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -642,10 +646,11 @@
     }
   }
 
+  const maxFileSizeMB = Number(import.meta.env.VITE_MAX_FILE_SIZE_MB) || 2
+
   function handleFile (file) {
-    // Validar tamaño (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      uploadError.value = 'El archivo excede el tamaño máximo de 10MB'
+    if (file.size > maxFileSizeMB * 1024 * 1024) {
+      uploadError.value = `El archivo excede el tamaño máximo de ${maxFileSizeMB}MB`
       return
     }
 
@@ -743,10 +748,18 @@
       closeUploadDialog()
       emit('updated')
     } catch (error) {
-      uploadError.value
-        = error.apiMessage
-          || error.response?.data?.message
-          || 'Error al subir documento'
+      // Mostrar errores específicos de validación del backend si existen
+      const validationErrors = error.apiErrors || error.response?.data?.errors
+      if (validationErrors) {
+        const detalles = Object.values(validationErrors).flat().join('. ')
+        uploadError.value = detalles || error.apiMessage || 'Error de validación'
+      } else {
+        uploadError.value
+          = error.apiMessage
+            || error.response?.data?.message
+            || 'Error al subir documento'
+      }
+      console.error('Error upload documento:', error.response?.data || error)
       emit('error', uploadError.value)
     } finally {
       uploading.value = false

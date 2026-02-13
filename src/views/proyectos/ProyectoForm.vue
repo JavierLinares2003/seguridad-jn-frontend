@@ -105,28 +105,7 @@
                         v-model="fecha_inicio_estimada"
                         density="comfortable"
                         :error-messages="errors.fecha_inicio_estimada"
-                        label="Fecha Inicio Estimada"
-                        type="date"
-                        variant="outlined"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model="fecha_fin_estimada"
-                        density="comfortable"
-                        :error-messages="errors.fecha_fin_estimada"
-                        label="Fecha Fin Estimada"
-                        type="date"
-                        variant="outlined"
-                      />
-                    </v-col>
-
-                    <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model="fecha_inicio_real"
-                        density="comfortable"
-                        :error-messages="errors.fecha_inicio_real"
-                        label="Fecha Inicio Real"
+                        label="Fecha Estimada de Inicio"
                         type="date"
                         variant="outlined"
                       />
@@ -136,7 +115,7 @@
                         v-model="fecha_fin_real"
                         density="comfortable"
                         :error-messages="errors.fecha_fin_real"
-                        label="Fecha Fin Real"
+                        label="Fecha Real de Finalización"
                         type="date"
                         variant="outlined"
                       />
@@ -472,6 +451,11 @@
           moneda: 'GTQ',
         },
       }
+
+      // Sincronizar fechas: copiar inicio estimada a inicio real,
+      // y fin real a fin estimada para mantener compatibilidad con backend
+      payload.fecha_inicio_real = payload.fecha_inicio_estimada
+      payload.fecha_fin_estimada = payload.fecha_fin_real
 
       // Limpiar campos planos
       delete payload.ubicacion_departamento_geo_id

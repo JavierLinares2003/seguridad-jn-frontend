@@ -377,7 +377,11 @@
 
   function formatDate (date) {
     if (!date) return '-'
-    return format(new Date(date), 'dd MMM yyyy', { locale: es })
+    // Extraer solo la parte de fecha (yyyy-MM-dd) para evitar desfase por timezone
+    const dateOnly = typeof date === 'string' && date.includes('T')
+      ? date.split('T')[0]
+      : date
+    return format(new Date(dateOnly + 'T12:00:00'), 'dd MMM yyyy', { locale: es })
   }
 
   onMounted(() => {

@@ -202,7 +202,7 @@
                   <strong>haz clic para seleccionar</strong>
                 </p>
                 <p class="text-caption text-grey">
-                  PDF, Word, Imágenes (máx. 10MB)
+                  PDF, Word, Imágenes (máx. {{ maxFileSizeMB }}MB)
                 </p>
               </template>
 
@@ -643,10 +643,11 @@
     }
   }
 
+  const maxFileSizeMB = Number(import.meta.env.VITE_MAX_FILE_SIZE_MB) || 2
+
   function handleFile (file) {
-    // Validar tamaño (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      uploadError.value = 'El archivo excede el tamaño máximo de 10MB'
+    if (file.size > maxFileSizeMB * 1024 * 1024) {
+      uploadError.value = `El archivo excede el tamaño máximo de ${maxFileSizeMB}MB`
       return
     }
 
