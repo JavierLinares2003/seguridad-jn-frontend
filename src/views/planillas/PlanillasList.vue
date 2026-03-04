@@ -384,12 +384,9 @@
         ...filtros,
       }
 
-      const response = await planillaStore.fetchPlanillas(params)
-      planillas.value = response.data || []
-
-      if (response.meta) {
-        Object.assign(meta, response.meta)
-      }
+      await planillaStore.fetchPlanillas(params)
+      planillas.value = planillaStore.planillas
+      Object.assign(meta, planillaStore.meta)
     } catch {
       showSnackbar('Error al cargar planillas', 'error')
     } finally {
@@ -424,7 +421,7 @@
       showSnackbar('Planilla aprobada exitosamente', 'success')
       cargarPlanillas()
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al aprobar planilla', 'error')
+      showSnackbar(error.apiMessage || 'Error al aprobar planilla', 'error')
     } finally {
       loading.value = false
     }
@@ -441,7 +438,7 @@
       showSnackbar('Planilla marcada como pagada', 'success')
       cargarPlanillas()
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al marcar como pagada', 'error')
+      showSnackbar(error.apiMessage || 'Error al marcar como pagada', 'error')
     } finally {
       loading.value = false
     }
@@ -463,7 +460,7 @@
       dialogCancelar.value = false
       cargarPlanillas()
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al cancelar planilla', 'error')
+      showSnackbar(error.apiMessage || 'Error al cancelar planilla', 'error')
     } finally {
       loading.value = false
     }
@@ -513,7 +510,8 @@
 
   function formatDate (date) {
     if (!date) return '-'
-    return format(new Date(date + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })
+    const d = date.includes('T') ? new Date(date) : new Date(date + 'T12:00:00')
+    return format(d, 'dd/MM/yyyy', { locale: es })
   }
 
   function formatCurrency (value) {

@@ -41,6 +41,16 @@ export const useProyectosStore = defineStore('proyectos', () => {
 
   // Helper para extraer paginación
   function extractPagination (response) {
+    // Verificar primero en response directamente (paginación Laravel estándar)
+    if (response?.current_page !== undefined) {
+      return {
+        page: response.current_page,
+        perPage: response.per_page || 15,
+        total: response.total || 0,
+        lastPage: response.last_page || 1,
+      }
+    }
+
     const data = response?.data || response
 
     // Si hay meta directamente
@@ -53,7 +63,7 @@ export const useProyectosStore = defineStore('proyectos', () => {
       }
     }
 
-    // Si es paginación de Laravel directamente
+    // Si es paginación de Laravel en data
     if (data?.current_page !== undefined) {
       return {
         page: data.current_page,

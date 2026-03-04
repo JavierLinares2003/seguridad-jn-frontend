@@ -50,7 +50,7 @@
                 <v-text-field
                   density="compact"
                   :error-messages="formErrors.telefono"
-                  label="Teléfono *"
+                  label="Teléfono"
                   maxlength="9"
                   :model-value="telefonoDisplay"
                   placeholder="0000-0000"
@@ -75,7 +75,7 @@
                   v-model="form.fecha_inicio"
                   density="compact"
                   :error-messages="formErrors.fecha_inicio"
-                  label="Fecha Inicio *"
+                  label="Fecha Inicio"
                   type="date"
                   variant="outlined"
                 />
@@ -168,18 +168,23 @@
 
       <!-- Período -->
       <template #item.periodo="{ item }">
-        <div class="text-caption">
-          {{ formatDate(item.fecha_inicio) }} -
-          {{ !item.fecha_fin ? 'Actual' : formatDate(item.fecha_fin) }}
-        </div>
-        <v-chip
-          v-if="!item.fecha_fin"
-          color="success"
-          size="x-small"
-          variant="tonal"
-        >
-          Empleo Actual
-        </v-chip>
+        <template v-if="!item.fecha_inicio && !item.fecha_fin">
+          <div class="text-caption">--</div>
+        </template>
+        <template v-else>
+          <div class="text-caption">
+            {{ formatDate(item.fecha_inicio) }} -
+            {{ item.fecha_inicio && !item.fecha_fin ? 'Actual' : formatDate(item.fecha_fin) }}
+          </div>
+          <v-chip
+            v-if="item.fecha_inicio && !item.fecha_fin"
+            color="success"
+            size="x-small"
+            variant="tonal"
+          >
+            Empleo Actual
+          </v-chip>
+        </template>
       </template>
 
       <!-- Contacto -->
@@ -371,7 +376,7 @@
         fecha_fin: item.fecha_fin || '',
         motivo_retiro: item.motivo_retiro || '',
       })
-      empleoActual.value = !item.fecha_fin
+      empleoActual.value = item.fecha_inicio && !item.fecha_fin
     }
 
     showForm.value = true
@@ -401,16 +406,6 @@
 
     if (!form.puesto_ocupado.trim()) {
       formErrors.puesto_ocupado = 'El puesto es requerido'
-      valid = false
-    }
-
-    if (!form.telefono.trim()) {
-      formErrors.telefono = 'El teléfono es requerido'
-      valid = false
-    }
-
-    if (!form.fecha_inicio) {
-      formErrors.fecha_inicio = 'La fecha de inicio es requerida'
       valid = false
     }
 
@@ -457,9 +452,9 @@
       const data = {
         nombre_empresa: form.nombre_empresa,
         puesto_ocupado: form.puesto_ocupado,
-        telefono: form.telefono,
+        telefono: form.telefono || null,
         direccion: form.direccion || null,
-        fecha_inicio: form.fecha_inicio,
+        fecha_inicio: form.fecha_inicio || null,
         fecha_fin: empleoActual.value ? null : form.fecha_fin || null,
         motivo_retiro: empleoActual.value ? null : form.motivo_retiro || null,
       }

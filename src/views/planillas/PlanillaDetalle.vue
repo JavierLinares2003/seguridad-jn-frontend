@@ -142,6 +142,8 @@
               Exportar Excel
             </v-btn>
 
+            <!-- Exportar PDF - Oculto temporalmente -->
+            <!--
             <v-btn
               color="error"
               variant="outlined"
@@ -150,6 +152,7 @@
               <v-icon start>mdi-file-pdf-box</v-icon>
               Exportar PDF
             </v-btn>
+            -->
 
             <v-spacer />
 
@@ -303,6 +306,18 @@
                 {{ formatCurrency(item.salario_neto) }}
               </span>
             </template>
+
+            <!-- Acciones -->
+            <template #item.acciones="{ item }">
+              <v-btn
+                color="primary"
+                density="comfortable"
+                icon="mdi-eye"
+                size="small"
+                variant="text"
+                @click="verHistorial(item)"
+              />
+            </template>
           </v-data-table>
         </v-card-text>
       </v-card>
@@ -378,6 +393,146 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog Historial -->
+    <v-dialog v-model="dialogHistorial" max-width="900" scrollable>
+      <v-card rounded="xl">
+        <v-card-title class="pa-4 bg-primary-lighten-5">
+          <div class="d-flex align-center">
+            <v-icon color="primary" start>mdi-history</v-icon>
+            <div>
+              <span class="text-primary font-weight-bold">Historial de {{ historialPersonalNombre }}</span>
+            </div>
+            <v-spacer />
+            <v-btn icon="mdi-close" size="small" variant="text" @click="dialogHistorial = false" />
+          </div>
+        </v-card-title>
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <!-- Loading -->
+          <div v-if="loadingHistorial" class="text-center py-8">
+            <v-progress-circular color="primary" indeterminate size="48" />
+            <p class="mt-3 text-medium-emphasis">Cargando historial...</p>
+          </div>
+
+          <template v-else-if="historialData">
+            <!-- Resumen -->
+            <v-row class="mb-4">
+              <v-col cols="6" sm="4" md="2">
+                <div class="text-center">
+                  <div class="text-h5 font-weight-bold text-info">
+                    {{ historialData.resumen?.dias_trabajados || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Días Trabajados</div>
+                </div>
+              </v-col>
+              <v-col cols="6" sm="4" md="2">
+                <div class="text-center">
+                  <div class="text-h5 font-weight-bold text-error">
+                    {{ historialData.resumen?.dias_ausente || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Días Ausente</div>
+                </div>
+              </v-col>
+              <v-col cols="6" sm="4" md="2">
+                <div class="text-center">
+                  <div class="text-h5 font-weight-bold text-warning">
+                    {{ historialData.resumen?.dias_descanso || 0 }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Días Descanso</div>
+                </div>
+              </v-col>
+              <v-col cols="6" sm="4" md="3">
+                <div class="text-center">
+                  <div class="text-h6 font-weight-bold text-success">
+                    {{ formatCurrency(historialData.resumen?.total_ingresos) }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Ingresos</div>
+                </div>
+              </v-col>
+              <v-col cols="6" sm="4" md="3">
+                <div class="text-center">
+                  <div class="text-h6 font-weight-bold text-error">
+                    {{ formatCurrency(historialData.resumen?.total_descuentos) }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Descuentos</div>
+                </div>
+              </v-col>
+            </v-row>
+
+            <v-divider class="mb-4" />
+
+            <!-- Filtro tipo -->
+            <div class="d-flex align-center mb-4">
+              <v-btn-toggle
+                v-model="tipoHistorial"
+                color="primary"
+                density="compact"
+                mandatory
+                rounded="lg"
+                variant="outlined"
+                @update:model-value="cargarHistorial(historialPersonalId)"
+              >
+                <v-btn value="todos">Todos</v-btn>
+                <v-btn value="asistencia">Asistencias</v-btn>
+                <v-btn value="transaccion">Transacciones</v-btn>
+              </v-btn-toggle>
+            </div>
+
+            <!-- Lista de historial -->
+            <v-list v-if="historialData.data?.length" density="compact" lines="three">
+              <template v-for="(registro, idx) in historialData.data" :key="idx">
+                <v-list-item>
+                  <template #prepend>
+                    <v-avatar :color="getTipoHistorialColor(registro.tipo)" size="36">
+                      <v-icon color="white" size="20">{{ getTipoHistorialIcon(registro.tipo) }}</v-icon>
+                    </v-avatar>
+                  </template>
+                  <v-list-item-title class="font-weight-medium">
+                    {{ registro.tipo === 'transaccion' ? registro.tipo_label : getTipoHistorialLabel(registro.tipo) }}
+                    <v-chip
+                      v-if="registro.estado && registro.tipo !== 'transaccion'"
+                      class="ml-2"
+                      :color="getEstadoAsistenciaColor(registro.estado)"
+                      size="x-small"
+                      variant="flat"
+                    >
+                      {{ registro.estado }}
+                    </v-chip>
+                    <span v-if="registro.registrado_por" class="text-caption text-medium-emphasis font-weight-regular ml-1">
+                      — {{ registro.registrado_por.name }}
+                    </span>
+                  </v-list-item-title>
+                  <v-list-item-subtitle v-if="registro.descripcion">
+                    {{ registro.descripcion }}
+                  </v-list-item-subtitle>
+                  <v-list-item-subtitle class="text-caption">
+                    {{ formatDate(registro.fecha) }}
+                    <span v-if="registro.hora_entrada"> | {{ registro.hora_entrada }} - {{ registro.hora_salida || '...' }}</span>
+                  </v-list-item-subtitle>
+                  <template #append>
+                    <span
+                      v-if="registro.monto != null"
+                      class="font-weight-bold"
+                      :class="registro.tipo === 'transaccion' ? 'text-error' : (Number(registro.monto) >= 0 ? 'text-success' : 'text-error')"
+                    >
+                      {{ formatCurrency(Math.abs(registro.monto)) }}
+                    </span>
+                  </template>
+                </v-list-item>
+                <v-divider v-if="idx < historialData.data.length - 1" />
+              </template>
+            </v-list>
+
+            <div v-else class="text-center py-6 text-medium-emphasis">
+              <v-icon class="mb-2" size="48">mdi-history</v-icon>
+              <p>No se encontraron registros</p>
+            </div>
+          </template>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -402,6 +557,7 @@
   import { onMounted, reactive, ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { usePlanillaStore } from '@/stores/planilla'
+  import planillaService from '@/services/planillaService'
   import { formatDPI } from '@/utils/dpiFormatter'
 
   const route = useRoute()
@@ -415,6 +571,12 @@
   const busqueda = ref('')
   const dialogCancelar = ref(false)
   const motivoCancelacion = ref('')
+  const dialogHistorial = ref(false)
+  const historialData = ref(null)
+  const loadingHistorial = ref(false)
+  const tipoHistorial = ref('todos')
+  const historialPersonalNombre = ref('')
+  const historialPersonalId = ref(null)
 
   // Snackbar
   const snackbar = reactive({
@@ -432,6 +594,7 @@
     { title: 'Devengado', key: 'salario_devengado', sortable: true, align: 'end' },
     { title: 'Descuentos', key: 'descuentos', sortable: false, align: 'center' },
     { title: 'Neto', key: 'salario_neto', sortable: true, align: 'end' },
+    { title: '', key: 'acciones', sortable: false, width: '60px', align: 'center' },
   ]
 
   // Funciones
@@ -459,7 +622,7 @@
       planilla.value = response.data
       showSnackbar('Planilla aprobada exitosamente', 'success')
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al aprobar planilla', 'error')
+      showSnackbar(error.apiMessage || 'Error al aprobar planilla', 'error')
     } finally {
       loadingAction.value = false
     }
@@ -476,7 +639,7 @@
       planilla.value = response.data
       showSnackbar('Planilla marcada como pagada', 'success')
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al marcar como pagada', 'error')
+      showSnackbar(error.apiMessage || 'Error al marcar como pagada', 'error')
     } finally {
       loadingAction.value = false
     }
@@ -490,7 +653,7 @@
       dialogCancelar.value = false
       showSnackbar('Planilla cancelada', 'success')
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al cancelar planilla', 'error')
+      showSnackbar(error.apiMessage || 'Error al cancelar planilla', 'error')
     } finally {
       loadingAction.value = false
     }
@@ -503,6 +666,78 @@
     } catch {
       showSnackbar('Error al exportar planilla', 'error')
     }
+  }
+
+  async function verHistorial (item) {
+    const personal = item.personal
+    historialPersonalNombre.value = personal
+      ? `${personal.nombres} ${personal.apellidos}`
+      : 'Empleado'
+    historialPersonalId.value = personal?.id || item.personal_id
+    tipoHistorial.value = 'todos'
+    dialogHistorial.value = true
+    await cargarHistorial(historialPersonalId.value)
+  }
+
+  async function cargarHistorial (personalId) {
+    loadingHistorial.value = true
+    historialData.value = null
+    try {
+      const params = {
+        planilla_id: route.params.id,
+      }
+      if (tipoHistorial.value !== 'todos') {
+        params.tipo = tipoHistorial.value
+      }
+      const response = await planillaService.getHistorialPersonal(personalId, params)
+      // Response: { success, data: [...items], resumen: {...}, meta: {...} }
+      historialData.value = response
+    } catch {
+      showSnackbar('Error al cargar historial del personal', 'error')
+    } finally {
+      loadingHistorial.value = false
+    }
+  }
+
+  function getTipoHistorialLabel (tipo) {
+    const labels = {
+      asistencia: 'Asistencia',
+      transaccion: 'Transacción',
+      descuento: 'Descuento',
+      ingreso: 'Ingreso',
+    }
+    return labels[tipo] || tipo
+  }
+
+  function getTipoHistorialColor (tipo) {
+    const colores = {
+      asistencia: 'info',
+      transaccion: 'warning',
+      descuento: 'error',
+      ingreso: 'success',
+    }
+    return colores[tipo] || 'grey'
+  }
+
+  function getTipoHistorialIcon (tipo) {
+    const iconos = {
+      asistencia: 'mdi-clock-outline',
+      transaccion: 'mdi-cash-sync',
+      descuento: 'mdi-cash-minus',
+      ingreso: 'mdi-cash-plus',
+    }
+    return iconos[tipo] || 'mdi-file-document'
+  }
+
+  function getEstadoAsistenciaColor (estado) {
+    const colores = {
+      presente: 'success',
+      ausente: 'error',
+      tardanza: 'warning',
+      descanso: 'grey',
+      permiso: 'info',
+    }
+    return colores[estado] || 'grey'
   }
 
   function getEstadoColor (estado) {
@@ -540,7 +775,8 @@
 
   function formatDate (date) {
     if (!date) return '-'
-    return format(new Date(date + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })
+    const d = date.includes('T') ? new Date(date) : new Date(date + 'T12:00:00')
+    return format(d, 'dd/MM/yyyy', { locale: es })
   }
 
   function formatDateTime (datetime) {

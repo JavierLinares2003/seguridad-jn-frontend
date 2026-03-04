@@ -42,13 +42,19 @@ export const usePlanillaStore = defineStore('planilla', {
       this.error = null
       try {
         const response = await planillaService.getPlanillas(params)
-        this.planillas = response.data
-        if (response.meta) {
-          this.meta = response.meta
+        // Response: { success, data: [...items], meta: { current_page, last_page, per_page, total } }
+        this.planillas = Array.isArray(response?.data) ? response.data : []
+        if (response?.meta) {
+          this.meta = {
+            current_page: response.meta.current_page || 1,
+            last_page: response.meta.last_page || 1,
+            per_page: response.meta.per_page || 15,
+            total: response.meta.total || 0,
+          }
         }
         return response
       } catch (error) {
-        this.error = error.response?.data?.message || 'Error al cargar planillas'
+        this.error = error.apiMessage || error.response?.data?.message || 'Error al cargar planillas'
         throw error
       } finally {
         this.loading = false
@@ -132,13 +138,18 @@ export const usePlanillaStore = defineStore('planilla', {
       this.loading = true
       this.error = null
       try {
-        const blob = await planillaService.exportarPlanilla(id, formato)
-        // Crear URL del blob y descargar
-        const url = window.URL.createObjectURL(blob)
+        const response = await planillaService.exportarPlanilla(id, formato)
+        const disposition = response.headers?.['content-disposition']
+        const fileName = disposition
+          ? disposition.split('filename=')[1]?.replace(/"/g, '')
+          : `planilla_${id}.${formato === 'excel' ? 'xlsx' : 'pdf'}`
+        const url = window.URL.createObjectURL(new Blob([response.data]))
         const link = document.createElement('a')
         link.href = url
-        link.download = `planilla_${id}.${formato === 'excel' ? 'xlsx' : 'pdf'}`
+        link.setAttribute('download', fileName)
+        document.body.appendChild(link)
         link.click()
+        link.remove()
         window.URL.revokeObjectURL(url)
       } catch (error) {
         this.error = error.response?.data?.message || 'Error al exportar planilla'

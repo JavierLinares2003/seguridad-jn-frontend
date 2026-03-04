@@ -131,7 +131,7 @@
             Proyectos Activos
             <v-spacer />
             <v-chip color="white" size="small" variant="flat">
-              {{ proyectosFiltrados.length }}
+              {{ proyectosFiltrados.length }} de {{ proyectosPagination.total }}
             </v-chip>
           </v-card-title>
 
@@ -164,7 +164,7 @@
           </v-card-text>
 
           <!-- Lista de Proyectos (Drop Zones) -->
-          <v-card-text class="overflow-y-auto" style="max-height: 60vh;">
+          <v-card-text class="overflow-y-auto" style="max-height: 60vh;" @scroll="onProyectosScroll">
             <v-progress-linear v-if="loadingProyectos" color="secondary" indeterminate />
 
             <div v-else-if="proyectosFiltrados.length === 0" class="text-center pa-8">
@@ -231,7 +231,7 @@
                             size="x-small"
                             variant="tonal"
                           >
-                            {{ puesto.nombre_puesto }}: {{ puesto.faltantes }} vacante(s)
+                            {{ puesto.tipo_personal || puesto.nombre_puesto || 'Puesto' }}: {{ puesto.faltantes }} vacante(s)
                           </v-chip>
                         </div>
                       </div>
@@ -260,8 +260,74 @@
                       variant="text"
                     />
                   </div>
+
+                  <!-- Personal asignado -->
+                  <div v-if="proyecto.asignaciones?.length > 0" class="mt-3">
+                    <v-divider class="mb-2" />
+                    <div class="text-caption text-medium-emphasis mb-2 d-flex align-center">
+                      <v-icon class="mr-1" size="14">mdi-account-check</v-icon>
+                      Personal asignado ({{ proyecto.asignaciones.length }})
+                    </div>
+                    <div class="d-flex flex-column gap-1">
+                      <div
+                        v-for="asig in proyecto.asignaciones"
+                        :key="asig.asignacion_id || asig.id"
+                        class="d-flex align-center pa-2 rounded asignacion-row"
+                      >
+                        <v-avatar class="mr-2" color="primary" size="28">
+                          <span class="text-white text-caption font-weight-bold">
+                            {{ asig.personal?.iniciales || asig.personal?.nombre_completo?.split(' ').map(n => n.charAt(0)).slice(0, 2).join('') }}
+                          </span>
+                        </v-avatar>
+                        <div class="flex-grow-1" style="min-width: 0;">
+                          <div class="text-body-2 font-weight-medium text-truncate">
+                            {{ asig.personal?.nombre_completo }}
+                          </div>
+                          <div class="text-caption text-medium-emphasis text-truncate">
+                            {{ asig.puesto_nombre || asig.configuracion_puesto?.tipo_personal?.nombre || 'Sin puesto' }}
+                            · {{ asig.turno?.nombre || 'Sin turno' }}
+                          </div>
+                        </div>
+                        <v-chip
+                          v-if="asig.estado"
+                          :color="getEstadoAsignacionColor(asig.estado)"
+                          class="mr-2"
+                          size="x-small"
+                        >
+                          {{ asig.estado }}
+                        </v-chip>
+                        <v-btn
+                          class="mr-1"
+                          color="primary"
+                          icon="mdi-pencil"
+                          size="x-small"
+                          variant="tonal"
+                          @click.stop="editarAsignacion(asig, proyecto)"
+                        >
+                          <v-icon size="14">mdi-pencil</v-icon>
+                          <v-tooltip activator="parent" location="top">Editar asignación</v-tooltip>
+                        </v-btn>
+                        <v-btn
+                          color="error"
+                          icon="mdi-account-minus"
+                          size="x-small"
+                          variant="tonal"
+                          @click.stop="abrirDesasignar(asig, proyecto)"
+                        >
+                          <v-icon size="14">mdi-account-minus</v-icon>
+                          <v-tooltip activator="parent" location="top">Desasignar</v-tooltip>
+                        </v-btn>
+                      </div>
+                    </div>
+                  </div>
                 </v-card-text>
               </v-card>
+            </div>
+
+            <!-- Indicador de carga infinite scroll -->
+            <div v-if="loadingMoreProyectos" class="text-center py-3">
+              <v-progress-circular color="secondary" indeterminate size="24" />
+              <div class="text-caption text-medium-emphasis mt-1">Cargando más proyectos...</div>
             </div>
           </v-card-text>
         </v-card>
@@ -566,6 +632,195 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog de Confirmación para force_assignment -->
+    <v-dialog v-model="showConfirmDialog" max-width="500px" persistent>
+      <v-card>
+        <v-card-title class="bg-warning text-white">
+          <v-icon start>mdi-alert</v-icon>
+          Confirmar Asignación con Advertencias
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <v-alert class="mb-3" type="warning" variant="tonal">
+            El personal seleccionado <strong>NO cumple</strong> con todos los requisitos del puesto.
+          </v-alert>
+
+          <div class="text-subtitle-2 font-weight-bold mb-2">Advertencias:</div>
+          <ul class="mb-3">
+            <li v-for="(warning, idx) in confirmWarnings" :key="idx" class="text-error">
+              {{ warning }}
+            </li>
+          </ul>
+
+          <v-alert density="compact" type="info" variant="tonal">
+            ¿Desea continuar con la asignación de todas formas?
+          </v-alert>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="cancelConfirm">
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="warning"
+            :loading="saving"
+            variant="elevated"
+            @click="confirmForceAssignment"
+          >
+            <v-icon start>mdi-alert-circle-check</v-icon>
+            Sí, Asignar de Todas Formas
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog Editar Asignación -->
+    <v-dialog v-model="dialogEditar" max-width="500px" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-primary pa-4">
+          <v-icon start>mdi-pencil</v-icon>
+          Editar Asignación
+          <v-spacer />
+          <v-btn density="compact" icon="mdi-close" variant="text" @click="dialogEditar = false" />
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <v-alert class="mb-4" color="info" density="compact" variant="tonal">
+            <strong>{{ editingAsignacion?.personal?.nombre_completo }}</strong>
+            <div class="text-caption">{{ editingProyecto?.nombre_proyecto }}</div>
+          </v-alert>
+
+          <v-form ref="formEditar" v-model="validEditar">
+            <v-row dense>
+              <v-col cols="12">
+                <v-select
+                  v-model="editData.configuracion_puesto_id"
+                  density="comfortable"
+                  item-title="displayName"
+                  item-value="id"
+                  :items="editConfiguraciones"
+                  label="Puesto/Plaza *"
+                  :loading="loadingEditConfiguraciones"
+                  :rules="[v => !!v || 'Seleccione un puesto']"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-select
+                  v-model="editData.turno_id"
+                  density="comfortable"
+                  item-title="nombre"
+                  item-value="id"
+                  :items="turnos"
+                  label="Turno *"
+                  :rules="[v => !!v || 'Seleccione un turno']"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="6">
+                <v-text-field
+                  v-model="editData.fecha_inicio"
+                  density="comfortable"
+                  label="Fecha Inicio *"
+                  :rules="[v => !!v || 'Requerido']"
+                  type="date"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="6">
+                <v-text-field
+                  v-model="editData.fecha_fin"
+                  density="comfortable"
+                  hint="Vacío = indefinido"
+                  label="Fecha Fin"
+                  persistent-hint
+                  type="date"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="editData.notas"
+                  counter="500"
+                  density="comfortable"
+                  label="Notas"
+                  rows="2"
+                  variant="outlined"
+                />
+              </v-col>
+            </v-row>
+          </v-form>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogEditar = false">Cancelar</v-btn>
+          <v-btn
+            color="primary"
+            :loading="saving"
+            variant="elevated"
+            @click="guardarEdicionAsignacion"
+          >
+            <v-icon start>mdi-check</v-icon>
+            Guardar Cambios
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog Confirmar Finalización de Asignación -->
+    <v-dialog v-model="dialogDesasignar" max-width="500px" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-error text-white pa-4">
+          <v-icon start>mdi-account-minus</v-icon>
+          Finalizar Asignación
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <p class="mb-3">
+            ¿Está seguro que desea finalizar la asignación de
+            <strong>{{ desasignarAsignacion?.personal?.nombre_completo }}</strong>
+            del proyecto <strong>{{ desasignarProyecto?.nombre_proyecto }}</strong>?
+          </p>
+
+          <v-textarea
+            v-model="motivoFinalizacion"
+            counter="500"
+            density="comfortable"
+            label="Motivo de finalización"
+            placeholder="Ej: Renuncia, cambio de proyecto, fin de contrato..."
+            rows="3"
+            variant="outlined"
+          />
+
+          <v-alert class="mt-2" density="compact" type="warning" variant="tonal">
+            Esta acción finalizará la asignación del personal en este proyecto.
+          </v-alert>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogDesasignar = false">Cancelar</v-btn>
+          <v-btn
+            color="error"
+            :loading="saving"
+            variant="elevated"
+            @click="ejecutarDesasignacion"
+          >
+            <v-icon start>mdi-account-minus</v-icon>
+            Finalizar Asignación
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar de confirmación -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">
       {{ snackbarText }}
@@ -577,9 +832,11 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, ref } from 'vue'
+  import { computed, onMounted, ref, watch } from 'vue'
   import catalogoService from '@/services/catalogoService'
+  import operacionesService from '@/services/operacionesService'
   import personalService from '@/services/personalService'
+  import proyectoService from '@/services/proyectoService'
   import { useOperacionesStore } from '@/stores/operaciones'
   import { useProyectosStore } from '@/stores/proyectos'
   import { formatDPI } from '@/utils/dpiFormatter'
@@ -606,12 +863,22 @@
   const filtroDepartamento = ref(null)
   const filtroTipoPersonal = ref(null)
 
+  // Paginación de proyectos (infinite scroll)
+  const loadingMoreProyectos = ref(false)
+  const proyectosPagination = ref({
+    currentPage: 0,
+    lastPage: 1,
+    total: 0,
+  })
+
   // Filtros Proyectos
   const filtroProyecto = ref('')
   const filtroEstadoProyecto = ref('activo')
   const estadosProyecto = [
     { title: 'Activo', value: 'activo' },
     { title: 'Planificación', value: 'planificacion' },
+    { title: 'Suspendido', value: 'suspendido' },
+    { title: 'Finalizado', value: 'finalizado' },
     { title: 'Todos', value: null },
   ]
 
@@ -634,6 +901,33 @@
     notas: '',
   })
   const asignacionWarnings = ref([])
+
+  // Confirmation dialog (force_assignment)
+  const showConfirmDialog = ref(false)
+  const confirmWarnings = ref([])
+  const pendingPayload = ref(null)
+
+  // Edit assignment state
+  const dialogEditar = ref(false)
+  const formEditar = ref(null)
+  const validEditar = ref(false)
+  const editingAsignacion = ref(null)
+  const editingProyecto = ref(null)
+  const editConfiguraciones = ref([])
+  const loadingEditConfiguraciones = ref(false)
+  const editData = ref({
+    configuracion_puesto_id: null,
+    turno_id: null,
+    fecha_inicio: null,
+    fecha_fin: null,
+    notas: '',
+  })
+
+  // Desasignar (finalizar) state
+  const dialogDesasignar = ref(false)
+  const desasignarAsignacion = ref(null)
+  const desasignarProyecto = ref(null)
+  const motivoFinalizacion = ref('')
 
   // Computed: Configuración seleccionada
   const selectedConfiguracion = computed(() => {
@@ -718,24 +1012,19 @@
     return resultado
   })
 
-  // Computed: Proyectos filtrados
-  const proyectosFiltrados = computed(() => {
-    let resultado = proyectos.value
+  // Computed: Proyectos filtrados (filtrado server-side via API)
+  const proyectosFiltrados = computed(() => proyectos.value)
 
-    if (filtroProyecto.value) {
-      const busqueda = filtroProyecto.value.toLowerCase()
-      resultado = resultado.filter(p =>
-        p.nombre_proyecto?.toLowerCase().includes(busqueda)
-        || p.correlativo?.toLowerCase().includes(busqueda)
-        || p.empresa_cliente?.toLowerCase().includes(busqueda),
-      )
-    }
-
-    if (filtroEstadoProyecto.value) {
-      resultado = resultado.filter(p => p.estado_proyecto === filtroEstadoProyecto.value)
-    }
-
-    return resultado
+  // Watchers: recargar proyectos al cambiar filtros
+  let busquedaTimeout = null
+  watch(filtroEstadoProyecto, () => {
+    loadProyectos()
+  })
+  watch(filtroProyecto, () => {
+    clearTimeout(busquedaTimeout)
+    busquedaTimeout = setTimeout(() => {
+      loadProyectos()
+    }, 400)
   })
 
   // Drag and Drop handlers
@@ -812,15 +1101,16 @@
     try {
       const response = await proyectosStore.fetchConfiguracionPersonal(proyectoId)
 
-      // Obtener estadísticas para saber vacantes
-      const stats = await operacionesStore.fetchEstadisticasProyecto(proyectoId)
+      // Usar estadísticas que ya vienen en el proyecto cargado
+      const proyecto = proyectos.value.find(p => p.id === proyectoId)
+      const stats = proyecto?.estadisticas
 
       configuracionesProyecto.value = (response || []).map(config => {
         const statPuesto = stats?.puestos?.find(p => p.configuracion_id === config.id)
         return {
           ...config,
           displayName: `${config.tipo_personal?.nombre || 'Puesto'} - ${config.turno?.nombre || 'Sin turno'}`,
-          faltantes: statPuesto?.faltantes || config.cantidad_requerida,
+          faltantes: statPuesto?.faltantes ?? config.cantidad_requerida,
           cantidad_asignada: statPuesto?.cantidad_asignada || 0,
         }
       })
@@ -860,9 +1150,18 @@
         notas: asignacionData.value.notas || null,
       }
 
-      await operacionesStore.asignarPersonal(payload)
+      const result = await operacionesStore.asignarPersonal(payload)
+      const resData = result?.response || result?.data
 
-      // Recargar datos
+      // Backend retorna 200 con success: false cuando requiere confirmación
+      if (resData?.success === false && resData?.requiere_confirmacion) {
+        pendingPayload.value = { ...payload }
+        confirmWarnings.value = resData.errores || []
+        showConfirmDialog.value = true
+        return
+      }
+
+      // Recargar proyectos para mostrar la nueva asignación
       await loadProyectos()
 
       showSnackbar('Asignación creada correctamente', 'success')
@@ -870,6 +1169,124 @@
     } catch (error) {
       console.error('Error al asignar:', error)
       showSnackbar(error.apiMessage || 'Error al crear la asignación', 'error')
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function confirmForceAssignment () {
+    if (!pendingPayload.value) return
+
+    showConfirmDialog.value = false
+    saving.value = true
+    try {
+      const payload = { ...pendingPayload.value, force_assignment: true }
+      await operacionesStore.asignarPersonal(payload)
+
+      pendingPayload.value = null
+      await loadProyectos()
+      showSnackbar('Asignación creada con advertencias', 'success')
+      closeAsignarDialog()
+    } catch (error) {
+      console.error('Error al forzar asignación:', error)
+      showSnackbar(error.apiMessage || 'Error al crear la asignación', 'error')
+    } finally {
+      saving.value = false
+    }
+  }
+
+  function cancelConfirm () {
+    showConfirmDialog.value = false
+    confirmWarnings.value = []
+    pendingPayload.value = null
+  }
+
+  // ==================== EDITAR ASIGNACIÓN ====================
+
+  function getEstadoAsignacionColor (estado) {
+    const colors = {
+      activo: 'success',
+      suspendido: 'warning',
+      finalizado: 'grey',
+      planificacion: 'info',
+    }
+    return colors[estado] || 'grey'
+  }
+
+  async function editarAsignacion (asignacion, proyecto) {
+    editingAsignacion.value = asignacion
+    editingProyecto.value = proyecto
+    editData.value = {
+      configuracion_puesto_id: asignacion.configuracion_puesto_id,
+      turno_id: asignacion.turno?.id || asignacion.turno_id,
+      fecha_inicio: asignacion.fecha_inicio,
+      fecha_fin: asignacion.fecha_fin || null,
+      notas: asignacion.notas || '',
+    }
+
+    await loadEditConfiguraciones(proyecto.id)
+    dialogEditar.value = true
+  }
+
+  async function loadEditConfiguraciones (proyectoId) {
+    loadingEditConfiguraciones.value = true
+    try {
+      const response = await proyectosStore.fetchConfiguracionPersonal(proyectoId)
+      editConfiguraciones.value = (response || []).map(config => ({
+        ...config,
+        displayName: `${config.tipo_personal?.nombre || 'Puesto'} - ${config.turno?.nombre || 'Sin turno'}`,
+      }))
+    } catch (error) {
+      console.error('Error loading configuraciones:', error)
+    } finally {
+      loadingEditConfiguraciones.value = false
+    }
+  }
+
+  async function guardarEdicionAsignacion () {
+    const { valid } = await formEditar.value.validate()
+    if (!valid) return
+
+    saving.value = true
+    try {
+      await operacionesService.updateAsignacion(editingAsignacion.value.asignacion_id || editingAsignacion.value.id, {
+        turno_id: editData.value.turno_id,
+        fecha_fin: editData.value.fecha_fin || null,
+        notas: editData.value.notas || null,
+      })
+
+      await loadProyectos()
+      showSnackbar('Asignación actualizada correctamente', 'success')
+      dialogEditar.value = false
+    } catch (error) {
+      console.error('Error al actualizar asignación:', error)
+      showSnackbar(error.apiMessage || 'Error al actualizar la asignación', 'error')
+    } finally {
+      saving.value = false
+    }
+  }
+
+  // ==================== DESASIGNAR ====================
+
+  function abrirDesasignar (asignacion, proyecto) {
+    desasignarAsignacion.value = asignacion
+    desasignarProyecto.value = proyecto
+    motivoFinalizacion.value = ''
+    dialogDesasignar.value = true
+  }
+
+  async function ejecutarDesasignacion () {
+    saving.value = true
+    try {
+      const id = desasignarAsignacion.value.asignacion_id || desasignarAsignacion.value.id
+      await operacionesService.finalizarAsignacion(id, motivoFinalizacion.value || null)
+
+      await loadProyectos()
+      showSnackbar('Asignación finalizada correctamente', 'success')
+      dialogDesasignar.value = false
+    } catch (error) {
+      console.error('Error al finalizar asignación:', error)
+      showSnackbar(error.apiMessage || 'Error al finalizar la asignación', 'error')
     } finally {
       saving.value = false
     }
@@ -919,32 +1336,96 @@
     }
   }
 
+  function mapProyectoConStats (proyecto) {
+    // Handle both list endpoint (nombre, estado, puestos, resumen)
+    // and detail endpoint (nombre_proyecto, estado_proyecto, estadisticas_personal)
+    const puestos = proyecto.puestos || proyecto.estadisticas_personal?.puestos || []
+    const resumen = proyecto.resumen || proyecto.estadisticas_personal?.resumen || null
+
+    // Flatten assigned personnel from all puestos
+    const asignaciones = puestos.flatMap(p =>
+      (p.asignados || []).map(a => ({
+        ...a,
+        puesto_nombre: p.tipo_personal || p.nombre_puesto,
+        configuracion_puesto_id: p.configuracion_id,
+      })),
+    )
+
+    return {
+      ...proyecto,
+      nombre_proyecto: proyecto.nombre || proyecto.nombre_proyecto,
+      estado_proyecto: proyecto.estado || proyecto.estado_proyecto,
+      estadisticas: resumen ? { resumen, puestos } : null,
+      puestosDisponibles: puestos.filter(p => p.faltantes > 0),
+      asignaciones,
+    }
+  }
+
+  function buildProyectosParams (page = 1) {
+    const params = { page, per_page: 15 }
+    if (filtroEstadoProyecto.value) {
+      params.estado = filtroEstadoProyecto.value
+    }
+    if (filtroProyecto.value) {
+      params.buscar = filtroProyecto.value
+    }
+    return params
+  }
+
   async function loadProyectos () {
     loadingProyectos.value = true
+    proyectos.value = []
+    proyectosPagination.value = { currentPage: 0, lastPage: 1, total: 0 }
+
     try {
-      await proyectosStore.fetchAll(true)
+      const response = await operacionesService.getProyectosAsignaciones(buildProyectosParams(1))
+      // Response: { success, data: { current_page, data: [...], last_page, total } }
+      const paginated = response?.data || response || {}
+      const items = paginated?.data || []
 
-      // Cargar estadísticas de cada proyecto
-      const proyectosConStats = await Promise.all(
-        proyectosStore.items.map(async proyecto => {
-          try {
-            const stats = await operacionesStore.fetchEstadisticasProyecto(proyecto.id)
-            return {
-              ...proyecto,
-              estadisticas: stats,
-              puestosDisponibles: stats?.puestos?.filter(p => p.faltantes > 0) || [],
-            }
-          } catch {
-            return { ...proyecto, estadisticas: null, puestosDisponibles: [] }
-          }
-        }),
-      )
+      proyectosPagination.value = {
+        currentPage: paginated.current_page || 1,
+        lastPage: paginated.last_page || 1,
+        total: paginated.total || 0,
+      }
 
-      proyectos.value = proyectosConStats
+      proyectos.value = items.map(mapProyectoConStats)
     } catch (error) {
       console.error('Error loading proyectos:', error)
     } finally {
       loadingProyectos.value = false
+    }
+  }
+
+  async function loadMoreProyectos () {
+    const { currentPage, lastPage } = proyectosPagination.value
+    if (loadingMoreProyectos.value || currentPage >= lastPage) return
+
+    loadingMoreProyectos.value = true
+    try {
+      const nextPage = currentPage + 1
+      const response = await operacionesService.getProyectosAsignaciones(buildProyectosParams(nextPage))
+      const paginated = response?.data || response || {}
+      const items = paginated?.data || []
+
+      proyectosPagination.value = {
+        currentPage: paginated.current_page || nextPage,
+        lastPage: paginated.last_page || lastPage,
+        total: paginated.total || proyectosPagination.value.total,
+      }
+
+      proyectos.value = [...proyectos.value, ...items.map(mapProyectoConStats)]
+    } catch (error) {
+      console.error('Error loading more proyectos:', error)
+    } finally {
+      loadingMoreProyectos.value = false
+    }
+  }
+
+  function onProyectosScroll (event) {
+    const { scrollTop, scrollHeight, clientHeight } = event.target
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      loadMoreProyectos()
     }
   }
 
@@ -954,7 +1435,7 @@
         catalogoService.get('departamentos'),
         catalogoService.get('tipos-personal'),
         catalogoService.get('turnos'),
-        catalogoService.get('sexos'),
+        catalogoService.get('sexos', { contexto: 'configuracion' }),
       ])
       departamentos.value = deps || []
       tiposPersonal.value = tipos || []
@@ -1031,6 +1512,15 @@
 
 .drop-indicator.active {
   background: rgba(var(--v-theme-primary), 0.1);
+}
+
+.asignacion-row {
+  background-color: rgba(var(--v-theme-surface-variant), 0.3);
+  transition: background-color 0.2s ease;
+}
+
+.asignacion-row:hover {
+  background-color: rgba(var(--v-theme-surface-variant), 0.6);
 }
 
 .gap-1 {

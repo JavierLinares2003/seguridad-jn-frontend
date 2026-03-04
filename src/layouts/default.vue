@@ -165,6 +165,29 @@
           :to="{ name: 'operaciones-asistencia' }"
         />
 
+        <!-- Vista Agrupada oculta temporalmente -->
+        <!--
+        <v-list-item
+          v-if="authStore.hasPermission('view-operaciones')"
+          class="mb-1"
+          color="primary"
+          prepend-icon="mdi-chart-box-outline"
+          rounded="lg"
+          title="Vista Agrupada"
+          :to="{ name: 'operaciones-vista-agrupada' }"
+        />
+        -->
+
+        <v-list-item
+          v-if="authStore.hasPermission('view-planillas')"
+          class="mb-1"
+          color="primary"
+          prepend-icon="mdi-cash-multiple"
+          rounded="lg"
+          title="Planillas"
+          :to="{ name: 'operaciones-planillas' }"
+        />
+
         <v-divider v-if="authStore.hasPermission('view-users')" class="my-2" />
         <v-list-subheader v-if="authStore.hasPermission('view-users')" class="text-overline">Configuracion</v-list-subheader>
 

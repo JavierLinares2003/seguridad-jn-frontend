@@ -62,7 +62,7 @@
                 clearable
                 density="comfortable"
                 hint="Dejar vacío para incluir todo el personal"
-                item-title="nombre_proyecto"
+                item-title="label"
                 item-value="id"
                 :items="proyectos"
                 label="Proyecto (Opcional)"
@@ -71,6 +71,22 @@
                 variant="outlined"
               />
             </v-col>
+
+            <!-- Tipo de Cálculo - Oculto temporalmente (siempre se envía 'caso_1') -->
+            <!--
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="formData.tipo_calculo"
+                density="comfortable"
+                hint="Método de cálculo de salario"
+                :items="tiposCalculo"
+                label="Tipo de Cálculo"
+                persistent-hint
+                prepend-inner-icon="mdi-calculator-variant"
+                variant="outlined"
+              />
+            </v-col>
+            -->
 
             <!-- Observaciones -->
             <v-col cols="12">
@@ -280,7 +296,17 @@
     periodo_fin: '',
     proyecto_id: null,
     observaciones: '',
+    tipo_calculo: 'caso_1', // Siempre se envía 'caso_1' por defecto
   })
+
+  // Tipos de cálculo - Comentado temporalmente
+  /*
+  const tiposCalculo = [
+    { title: 'Caso 1 (Por defecto)', value: 'caso_1' },
+    { title: 'Caso 2', value: 'caso_2' },
+    { title: 'Caso 3', value: 'caso_3' },
+  ]
+  */
 
   // Snackbar
   const snackbar = reactive({
@@ -312,15 +338,22 @@
   // Funciones
   async function cargarProyectos () {
     try {
-      const response = await proyectoService.getProyectos({ estado: 'activo' })
-      proyectos.value = response.data || []
+      const response = await proyectoService.getAll({ estado: 'activo', per_page: 100 })
+      // Response: { success, data: { current_page, data: [...], ... } } or { success, data: [...] }
+      const paginated = response?.data || response || {}
+      const items = Array.isArray(paginated) ? paginated : (paginated.data || [])
+      proyectos.value = items.map(p => ({
+        ...p,
+        label: p.nombre_proyecto || p.nombre || `Proyecto ${p.id}`,
+      }))
     } catch (error) {
       console.error('Error cargando proyectos:', error)
     }
   }
 
   async function generarPlanilla () {
-    if (!form.value.validate()) return
+    const { valid } = await form.value.validate()
+    if (!valid) return
 
     loading.value = true
     try {
@@ -328,7 +361,7 @@
       planillaGenerada.value = response.data
       showSnackbar('Planilla generada exitosamente', 'success')
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error al generar planilla', 'error')
+      showSnackbar(error.apiMessage || 'Error al generar planilla', 'error')
     } finally {
       loading.value = false
     }
@@ -339,6 +372,7 @@
     formData.periodo_fin = ''
     formData.proyecto_id = null
     formData.observaciones = ''
+    formData.tipo_calculo = 'caso_1'
     form.value?.reset()
   }
 
@@ -355,7 +389,9 @@
 
   function formatDate (date) {
     if (!date) return '-'
-    return format(new Date(date + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })
+    // Si la fecha ya tiene timestamp, usarla directamente; si no, agregar T12:00:00
+    const dateString = date.includes('T') ? date : date + 'T12:00:00'
+    return format(new Date(dateString), 'dd/MM/yyyy', { locale: es })
   }
 
   function formatCurrency (value) {

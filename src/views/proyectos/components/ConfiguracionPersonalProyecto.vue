@@ -136,12 +136,10 @@
                   v-model="editedItem.sexo_id"
                   clearable
                   density="comfortable"
-                  hint="Dejar vacío si es indistinto"
                   item-title="nombre"
                   item-value="id"
                   :items="catalogs.sexos"
                   label="Sexo Requerido"
-                  persistent-hint
                   variant="outlined"
                 />
               </v-col>
@@ -338,7 +336,7 @@
       const [tp, tur, sex, edu] = await Promise.all([
         catalogoService.get('tipos-personal'),
         catalogoService.get('turnos'),
-        catalogoService.get('sexos'),
+        catalogoService.get('sexos', { contexto: 'configuracion' }),
         catalogoService.get('niveles-estudio'),
       ])
       catalogs.value.tiposPersonal = tp || []

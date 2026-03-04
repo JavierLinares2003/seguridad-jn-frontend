@@ -18,6 +18,10 @@ export const useOperacionesStore = defineStore('operaciones', () => {
   const resumenAsistencia = ref(null)
   const historialAsistencia = ref(null)
   const reemplazosDisponibles = ref([])
+  const motivosAusencia = ref([])
+  const vistaAgrupada = ref(null)
+  const calendarioTurno = ref(null)
+  const departamentosDisponibles = ref([])
 
   // Paginación para asignaciones
   const pagination = ref({
@@ -360,16 +364,56 @@ export const useOperacionesStore = defineStore('operaciones', () => {
   }
 
   /**
-     * Obtener asistencia de proyecto por fecha
+     * Obtener asistencia por fecha
+     * @param {string} fecha
+     * @param {Object} params - { proyecto_id?, per_page?, page?, sin_asignar?, buscar?, departamento_id? }
      */
-  async function fetchAsistenciaPorFecha (fecha, proyectoId) {
+  async function fetchAsistenciaPorFecha (fecha, params = {}) {
     loading.value = true
     error.value = null
 
     try {
-      const response = await operacionesService.getAsistenciaPorFecha(fecha, proyectoId)
-      asistenciasDia.value = extractData(response) || []
-      return asistenciasDia.value
+      const response = await operacionesService.getAsistenciaPorFecha(fecha, params)
+
+      // Guardar pagination y meta antes de extraer data
+      const pagination = response?.pagination || null
+      const meta = response?.meta || {}
+      const data = extractData(response)
+
+      // Paginado (todos los proyectos): { current_page, data: [...], per_page, total }
+      if (data?.data && data?.current_page !== undefined) {
+        asistenciasDia.value = data.data
+        return {
+          items: data.data,
+          pagination: {
+            page: data.current_page,
+            perPage: data.per_page,
+            total: data.total,
+            lastPage: data.last_page,
+          },
+          meta,
+        }
+      }
+
+      // Departamento específico con paginación: data es un objeto con { departamento, personal }
+      if (pagination && !Array.isArray(data)) {
+        asistenciasDia.value = data
+        return {
+          items: data,
+          pagination: {
+            page: pagination.current_page,
+            perPage: pagination.per_page,
+            total: pagination.total,
+            lastPage: pagination.last_page,
+          },
+          meta,
+        }
+      }
+
+      // Array simple (sin_asignar sin filtro, proyecto especifico, etc.)
+      const items = Array.isArray(data) ? data : []
+      asistenciasDia.value = items
+      return { items, pagination: null, meta }
     } catch (error_) {
       error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar asistencia'
       throw error_
@@ -525,6 +569,102 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     }
   }
 
+  // ==================== AUSENCIAS Y VISTAS ====================
+
+  /**
+     * Obtener catálogo de motivos de ausencia
+     */
+  async function fetchMotivosAusencia () {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.getMotivosAusencia()
+      motivosAusencia.value = extractData(response) || []
+      return motivosAusencia.value
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar motivos de ausencia'
+      throw error_
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+     * Registrar ausencia
+     */
+  async function registrarAusencia (asistenciaId, data) {
+    saving.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.registrarAusencia(asistenciaId, data)
+      return { data: extractData(response), response }
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al registrar ausencia'
+      throw error_
+    } finally {
+      saving.value = false
+    }
+  }
+
+  /**
+     * Obtener vista agrupada de asistencia
+     */
+  async function fetchVistaAgrupada (params = {}) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.getVistaAgrupada(params)
+      vistaAgrupada.value = extractData(response)
+      return vistaAgrupada.value
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar vista agrupada'
+      throw error_
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+     * Obtener calendario de turno de un agente
+     */
+  async function fetchCalendarioTurno (personalAsignadoId, params = {}) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.getCalendarioTurno(personalAsignadoId, params)
+      calendarioTurno.value = extractData(response)
+      return calendarioTurno.value
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar calendario de turno'
+      throw error_
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+     * Obtener departamentos disponibles con personal sin asignar
+     */
+  async function fetchDepartamentosDisponibles (fecha) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.getDepartamentosDisponibles(fecha)
+      departamentosDisponibles.value = extractData(response) || []
+      return departamentosDisponibles.value
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar departamentos disponibles'
+      throw error_
+    } finally {
+      loading.value = false
+    }
+  }
+
   // ==================== UTILIDADES ====================
 
   function setFilters (newFilters) {
@@ -556,6 +696,10 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     personalDisponible.value = []
     calendarioPersonal.value = {}
     estadisticasProyecto.value = null
+    motivosAusencia.value = []
+    vistaAgrupada.value = null
+    calendarioTurno.value = null
+    departamentosDisponibles.value = []
     loading.value = false
     saving.value = false
     error.value = null
@@ -581,6 +725,10 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     resumenAsistencia,
     historialAsistencia,
     reemplazosDisponibles,
+    motivosAusencia,
+    vistaAgrupada,
+    calendarioTurno,
+    departamentosDisponibles,
 
     // Getters
     totalAsignaciones,
@@ -615,6 +763,11 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     marcarSalida,
     generarDescansos,
     fetchReemplazosDisponibles,
+    fetchMotivosAusencia,
+    registrarAusencia,
+    fetchVistaAgrupada,
+    fetchCalendarioTurno,
+    fetchDepartamentosDisponibles,
 
     // Utilidades
     setFilters,

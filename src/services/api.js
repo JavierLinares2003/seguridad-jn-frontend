@@ -53,9 +53,20 @@ api.interceptors.response.use(
 
     // Manejar errores de autenticación
     if (status === 401) {
-      // Limpiar token y redirigir a login
+      // Limpiar token y estado de autenticación
       localStorage.removeItem('auth_token_jn')
-      router.push({ name: 'login' })
+
+      // Limpiar store de auth sin importar dependencias circulares
+      const { useAuthStore } = await import('@/stores/auth')
+      const authStore = useAuthStore()
+      authStore.user = null
+      authStore.token = null
+      authStore.permissions = []
+
+      // Redirigir a login solo si no estamos ya en login
+      if (router.currentRoute.value.name !== 'login') {
+        router.push({ name: 'login' })
+      }
     }
 
     // Manejar errores de autorización

@@ -43,12 +43,29 @@ export const usePersonalStore = defineStore('personal', () => {
 
   // Helper para extraer paginación
   function extractPagination (response) {
-    // Posibles estructuras:
-    // { data: [...], meta: {...} }
-    // { data: { data: [...], meta: {...} } }
+    // Verificar primero en response directamente (paginación Laravel estándar)
+    if (response?.current_page !== undefined) {
+      return {
+        page: response.current_page,
+        perPage: response.per_page || 15,
+        total: response.total || 0,
+        lastPage: response.last_page || 1,
+      }
+    }
+
+    // Verificar meta en response directamente (Laravel API Resource)
+    if (response?.meta) {
+      return {
+        page: response.meta.current_page || 1,
+        perPage: response.meta.per_page || 15,
+        total: response.meta.total || 0,
+        lastPage: response.meta.last_page || 1,
+      }
+    }
+
     const data = response?.data || response
 
-    // Si hay meta directamente
+    // Si hay meta en data
     if (data?.meta) {
       return {
         page: data.meta.current_page || 1,
@@ -58,7 +75,7 @@ export const usePersonalStore = defineStore('personal', () => {
       }
     }
 
-    // Si es paginación de Laravel directamente
+    // Si es paginación de Laravel en data
     if (data?.current_page !== undefined) {
       return {
         page: data.current_page,

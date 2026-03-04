@@ -56,6 +56,14 @@ export const planillaService = {
     const response = await api.get(`/operaciones/planillas/${id}/export/${formato}`, {
       responseType: 'blob',
     })
+    return response
+  },
+
+  /**
+     * Obtener historial de personal en contexto de planilla
+     */
+  async getHistorialPersonal (personalId, params = {}) {
+    const response = await api.get(`/personal/${personalId}/historial`, { params })
     return response.data
   },
 }

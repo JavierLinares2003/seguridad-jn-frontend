@@ -295,15 +295,9 @@
     nombre_proyecto: yup.string().required('El nombre del proyecto es requerido').max(255),
     empresa_cliente: yup.string().required('La empresa cliente es requerida').max(200),
     fecha_inicio_estimada: yup.date().nullable(),
-    fecha_fin_estimada: yup.date().nullable().min(
-      yup.ref('fecha_inicio_estimada'),
-      'La fecha fin debe ser posterior a la fecha de inicio',
-    ),
+    fecha_fin_estimada: yup.date().nullable(),
     fecha_inicio_real: yup.date().nullable(),
-    fecha_fin_real: yup.date().nullable().min(
-      yup.ref('fecha_inicio_real'),
-      'La fecha fin real debe ser posterior a la fecha de inicio real',
-    ),
+    fecha_fin_real: yup.date().nullable(),
     estado_proyecto: yup.string().nullable(),
 
     // Ubicación Validation

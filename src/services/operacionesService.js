@@ -67,6 +67,15 @@ export const operacionesService = {
     return response.data
   },
 
+  /**
+     * Listar proyectos para asignaciones (con estadísticas)
+     * @param {Object} params - { estado?, page?, per_page?, buscar? }
+     */
+  async getProyectosAsignaciones (params = {}) {
+    const response = await api.get('/operaciones/asignaciones/proyectos', { params })
+    return response.data
+  },
+
   // ==================== CONSULTAS DE DISPONIBILIDAD ====================
 
   /**
@@ -142,14 +151,15 @@ export const operacionesService = {
   },
 
   /**
-     * Obtener asistencia de proyecto por fecha
+     * Obtener asistencia por fecha
      * @param {string} fecha - Fecha en formato YYYY-MM-DD
-     * @param {number} proyectoId - ID del proyecto
+     * @param {Object} params - { proyecto_id?, per_page?, page? }
+     *   - Sin proyecto_id: retorna todos los proyectos (paginado)
+     *   - Con proyecto_id: retorna solo ese proyecto
+     *   - Con proyecto_id=0: retorna solo sin asignar
      */
-  async getAsistenciaPorFecha (fecha, proyectoId) {
-    const response = await api.get(`/operaciones/asistencia/fecha/${fecha}`, {
-      params: { proyecto_id: proyectoId },
-    })
+  async getAsistenciaPorFecha (fecha, params = {}) {
+    const response = await api.get(`/operaciones/asistencia/fecha/${fecha}`, { params })
     return response.data
   },
 
@@ -203,6 +213,52 @@ export const operacionesService = {
     const response = await api.get('/operaciones/asistencia/reemplazos-disponibles', {
       params: { fecha },
     })
+    return response.data
+  },
+
+  /**
+     * Obtener catálogo de motivos de ausencia
+     */
+  async getMotivosAusencia () {
+    const response = await api.get('/operaciones/asistencia/motivos-ausencia')
+    return response.data
+  },
+
+  /**
+     * Registrar ausencia de un agente
+     * @param {number} asistenciaId - ID del registro de asistencia
+     * @param {Object} data - { motivo_ausencia_id, descripcion? }
+     */
+  async registrarAusencia (asistenciaId, data) {
+    const response = await api.post(`/operaciones/asistencia/${asistenciaId}/ausencia`, data)
+    return response.data
+  },
+
+  /**
+     * Obtener vista agrupada de asistencia
+     * @param {Object} params - { fecha, agrupar_por: 'proyecto'|'departamento' }
+     */
+  async getVistaAgrupada (params = {}) {
+    const response = await api.get('/operaciones/asistencia/vista-agrupada', { params })
+    return response.data
+  },
+
+  /**
+     * Obtener departamentos disponibles con personal sin asignar
+     * @param {string} fecha - Fecha en formato YYYY-MM-DD
+     */
+  async getDepartamentosDisponibles (fecha) {
+    const response = await api.get(`/operaciones/asistencia/departamentos-disponibles/${fecha}`)
+    return response.data
+  },
+
+  /**
+     * Obtener calendario de turno de un agente
+     * @param {number} personalAsignadoId - ID de la asignación
+     * @param {Object} params - { fecha_inicio, fecha_fin }
+     */
+  async getCalendarioTurno (personalAsignadoId, params = {}) {
+    const response = await api.get(`/operaciones/asistencia/calendario-turno/${personalAsignadoId}`, { params })
     return response.data
   },
 

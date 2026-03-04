@@ -189,7 +189,7 @@
             >
               <input
                 ref="fileInputRef"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                :accept="acceptAttribute"
                 hidden
                 type="file"
                 @change="onFileSelect"
@@ -202,7 +202,12 @@
                   <strong>haz clic para seleccionar</strong>
                 </p>
                 <p class="text-caption text-grey">
-                  PDF, Word, Imágenes (máx. {{ maxFileSizeMB }}MB)
+                  <template v-if="extensionesPermitidas.length > 0">
+                    Extensiones permitidas: {{ extensionesPermitidas.join(', ').toUpperCase() }} (máx. {{ maxFileSizeMB }}MB)
+                  </template>
+                  <template v-else>
+                    Seleccione un tipo de documento primero (máx. {{ maxFileSizeMB }}MB)
+                  </template>
                 </p>
               </template>
 
@@ -471,6 +476,21 @@
     catalogosStore.getCatalogo(CATALOGOS.TIPOS_DOCUMENTOS_PERSONAL),
   )
 
+  // Tipo de documento seleccionado y extensiones permitidas
+  const tipoDocumentoSeleccionado = computed(() =>
+    tiposDocumento.value.find(t => t.id === uploadForm.tipo_documento_id),
+  )
+
+  const extensionesPermitidas = computed(() =>
+    tipoDocumentoSeleccionado.value?.extensiones_permitidas || [],
+  )
+
+  const acceptAttribute = computed(() =>
+    extensionesPermitidas.value.length > 0
+      ? extensionesPermitidas.value.map(ext => `.${ext}`).join(',')
+      : '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif',
+  )
+
   // Headers de la tabla
   const headers = [
     { title: 'Documento', key: 'nombre', sortable: true },
@@ -515,7 +535,10 @@
   // Helpers de formato
   function formatDate (date) {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('es-GT', {
+    // Extraer solo la parte de fecha (yyyy-MM-dd) para evitar desfase por timezone
+    const dateStr = String(date)
+    const dateOnly = dateStr.split(/[T ]/)[0]
+    return new Date(dateOnly + 'T12:00:00').toLocaleDateString('es-GT', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -651,17 +674,10 @@
       return
     }
 
-    // Validar tipo
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ]
-    if (!allowedTypes.includes(file.type)) {
-      uploadError.value = 'Tipo de archivo no permitido'
+    // Validar extensión contra las permitidas del tipo de documento seleccionado
+    const fileExt = file.name.split('.').pop().toLowerCase()
+    if (extensionesPermitidas.value.length > 0 && !extensionesPermitidas.value.includes(fileExt)) {
+      uploadError.value = `Extensión .${fileExt} no permitida para este tipo de documento. Permitidas: ${extensionesPermitidas.value.join(', ').toUpperCase()}`
       return
     }
 
@@ -889,6 +905,19 @@
       deleting.value = false
     }
   }
+
+  // Re-validar archivo cuando cambia el tipo de documento
+  watch(() => uploadForm.tipo_documento_id, () => {
+    if (selectedFile.value && extensionesPermitidas.value.length > 0) {
+      const fileExt = selectedFile.value.name.split('.').pop().toLowerCase()
+      if (extensionesPermitidas.value.includes(fileExt)) {
+        uploadError.value = null
+      } else {
+        uploadError.value = `El archivo .${fileExt} no es compatible con este tipo de documento. Permitidas: ${extensionesPermitidas.value.join(', ').toUpperCase()}`
+        clearFile()
+      }
+    }
+  })
 
   // Watch personalId para recargar
   watch(

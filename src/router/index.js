@@ -118,6 +118,12 @@ const manualRoutes = [
     meta: { requiresAuth: true, permissions: ['view-operaciones'] },
   },
   {
+    path: '/operaciones/asistencia/vista-agrupada',
+    name: 'operaciones-vista-agrupada',
+    component: () => import('@/views/operaciones/VistaAgrupadaView.vue'),
+    meta: { requiresAuth: true, permissions: ['view-operaciones'] },
+  },
+  {
     path: '/operaciones/alertas-cobertura',
     name: 'operaciones-alertas-cobertura',
     component: () => import('@/views/operaciones/AlertasCoberturaView.vue'),

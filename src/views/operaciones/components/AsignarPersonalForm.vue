@@ -520,7 +520,7 @@
   // Confirmation dialog
   const showConfirmDialog = ref(false)
   const confirmWarnings = ref([])
-  const forceAssignment = ref(false)
+  const pendingPayload = ref(null)
 
   // Headers para tabla de personal
   const headersPersonal = [
@@ -737,39 +737,51 @@
         fecha_inicio: formData.value.fecha_inicio,
         fecha_fin: formData.value.fecha_fin || null,
         notas: formData.value.notas || null,
-        force_assignment: forceAssignment.value,
       }
 
-      await operacionesStore.asignarPersonal(payload)
+      const result = await operacionesStore.asignarPersonal(payload)
+      const resData = result?.response || result?.data
+
+      // Backend retorna 200 con success: false cuando requiere confirmación
+      if (resData?.success === false && resData?.requiere_confirmacion) {
+        pendingPayload.value = { ...payload }
+        confirmWarnings.value = resData.errores || []
+        showConfirmDialog.value = true
+        return
+      }
 
       emit('saved')
       closeDialog()
-
-      // Reset force flag
-      forceAssignment.value = false
     } catch (error) {
       console.error('Error al guardar asignación:', error)
-
-      // Si el backend requiere confirmación, mostrar diálogo
-      if (error.response?.data?.requiere_confirmacion) {
-        confirmWarnings.value = error.response.data.errores || []
-        showConfirmDialog.value = true
-      }
     } finally {
       saving.value = false
     }
   }
 
-  function confirmSave () {
-    forceAssignment.value = true
+  async function confirmSave () {
+    if (!pendingPayload.value) return
+
     showConfirmDialog.value = false
-    save()
+    saving.value = true
+    try {
+      const payload = { ...pendingPayload.value, force_assignment: true }
+      await operacionesStore.asignarPersonal(payload)
+
+      pendingPayload.value = null
+      emit('saved')
+      closeDialog()
+    } catch (error) {
+      console.error('Error al forzar asignación:', error)
+    } finally {
+      saving.value = false
+    }
   }
 
   function cancelConfirm () {
     showConfirmDialog.value = false
     confirmWarnings.value = []
-    forceAssignment.value = false
+    pendingPayload.value = null
   }
 
   onMounted(() => {

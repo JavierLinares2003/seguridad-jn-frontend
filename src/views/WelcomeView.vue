@@ -67,6 +67,20 @@
               </v-card>
             </v-col>
 
+            <v-col v-if="authStore.hasPermission('view-planillas')" cols="12" sm="6" md="4">
+              <v-card
+                class="pa-4 h-100 quick-action-card"
+                color="teal"
+                rounded="xl"
+                variant="tonal"
+                :to="{ name: 'operaciones-planillas' }"
+              >
+                <v-icon class="mb-3" size="40">mdi-cash-multiple</v-icon>
+                <h3 class="text-subtitle-1 font-weight-bold mb-1">Planillas</h3>
+                <p class="text-caption text-medium-emphasis mb-0">Gestionar planillas</p>
+              </v-card>
+            </v-col>
+
             <v-col v-if="authStore.hasPermission('view-users')" cols="12" sm="6" md="4">
               <v-card
                 class="pa-4 h-100 quick-action-card"

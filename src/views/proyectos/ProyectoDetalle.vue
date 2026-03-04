@@ -76,20 +76,12 @@
                   <v-card-title>Fechas Clave</v-card-title>
                   <v-card-text>
                     <v-row>
-                      <v-col cols="6" md="3">
-                        <div class="text-caption text-medium-emphasis">Inicio Estimado</div>
+                      <v-col cols="6">
+                        <div class="text-caption text-medium-emphasis">Fecha Estimada de Inicio</div>
                         <div class="text-body-1">{{ formatDate(proyecto.fecha_inicio_estimada) }}</div>
                       </v-col>
-                      <v-col cols="6" md="3">
-                        <div class="text-caption text-medium-emphasis">Fin Estimado</div>
-                        <div class="text-body-1">{{ formatDate(proyecto.fecha_fin_estimada) }}</div>
-                      </v-col>
-                      <v-col cols="6" md="3">
-                        <div class="text-caption text-medium-emphasis">Inicio Real</div>
-                        <div class="text-body-1">{{ formatDate(proyecto.fecha_inicio_real) }}</div>
-                      </v-col>
-                      <v-col cols="6" md="3">
-                        <div class="text-caption text-medium-emphasis">Fin Real</div>
+                      <v-col cols="6">
+                        <div class="text-caption text-medium-emphasis">Fecha Real de Finalización</div>
                         <div class="text-body-1">{{ formatDate(proyecto.fecha_fin_real) }}</div>
                       </v-col>
                     </v-row>

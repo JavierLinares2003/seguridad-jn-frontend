@@ -569,7 +569,7 @@
                 <v-timeline-item
                   v-for="proyecto in proyectos"
                   :key="proyecto.id"
-                  :dot-color="proyecto.activo ? 'success' : 'grey'"
+                  :dot-color="getAsignacionColor(proyecto.estado_asignacion)"
                   fill-dot
                   size="small"
                 >
@@ -590,13 +590,13 @@
                       </p>
                       <v-chip
                         class="font-weight-medium"
-                        :color="proyecto.activo ? 'success' : 'grey'"
+                        :color="getAsignacionColor(proyecto.estado_asignacion)"
                         label
                         size="small"
                         variant="flat"
                       >
-                        <v-icon size="14" start>{{ proyecto.activo ? 'mdi-check-circle' : 'mdi-check' }}</v-icon>
-                        {{ proyecto.activo ? 'Activo' : 'Finalizado' }}
+                        <v-icon size="14" start>{{ getAsignacionIcon(proyecto.estado_asignacion) }}</v-icon>
+                        {{ getAsignacionLabel(proyecto.estado_asignacion) }}
                       </v-chip>
                     </v-card-text>
                   </v-card>
@@ -942,6 +942,21 @@
   function getEstadoIcon (estado) {
     const icons = { activo: 'mdi-check-circle', inactivo: 'mdi-close-circle', suspendido: 'mdi-pause-circle' }
     return icons[estado] || 'mdi-circle'
+  }
+
+  function getAsignacionColor (estado) {
+    const colors = { activa: 'success', suspendida: 'warning', finalizada: 'grey' }
+    return colors[estado] || 'grey'
+  }
+
+  function getAsignacionIcon (estado) {
+    const icons = { activa: 'mdi-check-circle', suspendida: 'mdi-pause-circle', finalizada: 'mdi-stop-circle' }
+    return icons[estado] || 'mdi-circle'
+  }
+
+  function getAsignacionLabel (estado) {
+    const labels = { activa: 'Activa', suspendida: 'Suspendida', finalizada: 'Finalizada' }
+    return labels[estado] || estado || 'Sin estado'
   }
 
   function getRedSocialIcon (slug) {

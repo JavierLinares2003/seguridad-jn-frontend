@@ -141,7 +141,7 @@
                   <v-text-field
                     v-model.number="peso"
                     :error-messages="errors.peso"
-                    label="Peso (lb) *"
+                    label="Peso (lb)"
                     min="0"
                     placeholder="150"
                     step="0.1"
@@ -150,29 +150,30 @@
                   />
                 </v-col>
 
-                <!-- Habilidades de lectura y escritura -->
-                <v-col cols="12" md="3">
-                  <v-checkbox
-                    v-model="sabe_leer"
-                    hide-details
-                    label="Sabe leer"
-                  />
-                </v-col>
-                <v-col cols="12" md="3">
-                  <v-checkbox
-                    v-model="sabe_escribir"
-                    hide-details
-                    label="Sabe escribir"
-                  />
-                </v-col>
-
-                <!-- Alergias -->
+                <!-- Habilidades y alergias -->
                 <v-col cols="12">
-                  <v-checkbox
-                    v-model="es_alergico"
-                    hide-details
-                    label="¿Es alérgico?"
-                  />
+                  <div class="d-flex flex-wrap ga-4">
+                    <v-checkbox
+                      v-model="sabe_leer"
+                      hide-details
+                      label="Sabe leer"
+                    />
+                    <v-checkbox
+                      v-model="sabe_escribir"
+                      hide-details
+                      label="Sabe escribir"
+                    />
+                    <v-checkbox
+                      v-model="sabe_usar_computadora"
+                      hide-details
+                      label="Sabe usar computadora"
+                    />
+                    <v-checkbox
+                      v-model="es_alergico"
+                      hide-details
+                      label="¿Es alérgico?"
+                    />
+                  </div>
                 </v-col>
                 <v-col v-if="es_alergico" cols="12">
                   <v-textarea
@@ -306,6 +307,59 @@
               </v-row>
             </v-card-text>
           </v-card>
+
+          <!-- Información Bancaria (solo si tipo de pago es Transferencia) -->
+          <v-expand-transition>
+            <v-card v-if="esTipoTransferencia" class="mb-4">
+              <v-card-title>
+                <v-icon start>mdi-bank</v-icon>
+                Información Bancaria
+              </v-card-title>
+              <v-card-text>
+                <v-alert class="mb-4" density="compact" type="info" variant="tonal">
+                  Los datos bancarios son necesarios para realizar el pago por depósito o transferencia.
+                </v-alert>
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="banco"
+                      :error-messages="errors.banco"
+                      label="Banco *"
+                      placeholder="Ej: Banco Industrial, Banrural, etc."
+                      variant="outlined"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="tipo_cuenta"
+                      :error-messages="errors.tipo_cuenta"
+                      :items="tiposCuenta"
+                      label="Tipo de Cuenta *"
+                      variant="outlined"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="numero_cuenta"
+                      :error-messages="errors.numero_cuenta"
+                      label="Número de Cuenta *"
+                      placeholder="Ingrese el número de cuenta"
+                      variant="outlined"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="confirmar_numero_cuenta"
+                      :error-messages="errors.confirmar_numero_cuenta"
+                      label="Confirmar Número de Cuenta *"
+                      placeholder="Confirme el número de cuenta"
+                      variant="outlined"
+                    />
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+          </v-expand-transition>
         </v-col>
 
         <!-- Columna Lateral -->
@@ -439,6 +493,14 @@
   const tiposContratacion = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_CONTRATACION))
   const tiposPago = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_PAGO))
 
+  // Detectar si el tipo de pago seleccionado es Transferencia
+  const esTipoTransferencia = computed(() => {
+    const tipoPago = tiposPago.value.find(t => t.id === tipo_pago_id.value)
+    return tipoPago?.nombre?.toLowerCase().includes('transferencia') || false
+  })
+
+  const tiposCuenta = ['Ahorro', 'Corriente', 'Monetaria']
+
   // Ref para componente DireccionForm
   const direccionFormRef = ref(null)
 
@@ -465,7 +527,7 @@
       .string()
       .required('El DPI es requerido')
       .matches(/^\d{13}$/, 'El DPI debe tener 13 dígitos'),
-    email: yup.string().required('El email es requerido').email('Email inválido'),
+    email: yup.string().nullable().email('Email inválido'),
     telefono: yup
       .string()
       .required('El teléfono es requerido')
@@ -474,7 +536,7 @@
     sexo_id: yup.number().required('El sexo es requerido'),
     estado_civil_id: yup.number().required('El estado civil es requerido'),
     altura: yup.number().required('La altura es requerida').min(0.5, 'Altura mínima 0.5m').max(2.5, 'Altura máxima 2.5m'),
-    peso: yup.number().required('El peso es requerido').min(50, 'Peso mínimo 50 lb').max(400, 'Peso máximo 400 lb'),
+    peso: yup.number().nullable().min(50, 'Peso mínimo 50 lb').max(400, 'Peso máximo 400 lb'),
     direccion_completa: yup.string().required('La dirección es requerida'),
     zona: yup.number().nullable().min(1, 'Mínimo zona 1').max(25, 'Máximo zona 25'),
     departamento_id: yup.number().required('El departamento es requerido'),
@@ -482,6 +544,11 @@
     tipo_contratacion_id: yup.number().required('El tipo de contratación es requerido'),
     tipo_pago_id: yup.number().required('El tipo de pago es requerido'),
     salario_base: yup.number().required('El salario base es requerido').min(0, 'El salario debe ser mayor a 0'),
+    banco: yup.string().nullable(),
+    tipo_cuenta: yup.string().nullable(),
+    numero_cuenta: yup.string().nullable(),
+    confirmar_numero_cuenta: yup.string().nullable()
+      .oneOf([yup.ref('numero_cuenta'), null], 'Los números de cuenta no coinciden'),
     es_alergico: yup.boolean(),
     alergias: yup.string().when('es_alergico', {
       is: true,
@@ -490,7 +557,7 @@
     }),
   })
 
-  const { handleSubmit, errors, meta, validateField, setValues, resetForm } = useForm({
+  const { handleSubmit, errors, meta, validateField, setValues, resetForm, setFieldError } = useForm({
     validationSchema,
   })
 
@@ -510,6 +577,7 @@
   const { value: peso } = useField('peso')
   const { value: sabe_leer } = useField('sabe_leer', undefined, { initialValue: true })
   const { value: sabe_escribir } = useField('sabe_escribir', undefined, { initialValue: true })
+  const { value: sabe_usar_computadora } = useField('sabe_usar_computadora', undefined, { initialValue: false })
   const { value: direccion_completa } = useField('direccion_completa')
   const { value: departamento_geografico_id } = useField('departamento_geografico_id')
   const { value: municipio_id } = useField('municipio_id')
@@ -519,6 +587,10 @@
   const { value: tipo_contratacion_id } = useField('tipo_contratacion_id')
   const { value: tipo_pago_id } = useField('tipo_pago_id')
   const { value: salario_base } = useField('salario_base')
+  const { value: banco } = useField('banco')
+  const { value: tipo_cuenta } = useField('tipo_cuenta')
+  const { value: numero_cuenta } = useField('numero_cuenta')
+  const { value: confirmar_numero_cuenta } = useField('confirmar_numero_cuenta')
   const { value: estado } = useField('estado', undefined, { initialValue: 'activo' })
   const { value: observaciones } = useField('observaciones')
   const { value: es_alergico } = useField('es_alergico', undefined, { initialValue: false })
@@ -599,13 +671,15 @@
   async function loadCatalogos () {
     catalogosLoading.value = true
     try {
-      await catalogosStore.loadCatalogos([
-        CATALOGOS.SEXOS,
-        CATALOGOS.ESTADOS_CIVILES,
-        CATALOGOS.TIPOS_SANGRE,
-        CATALOGOS.DEPARTAMENTOS,
-        CATALOGOS.TIPOS_CONTRATACION,
-        CATALOGOS.TIPOS_PAGO,
+      await Promise.all([
+        catalogosStore.loadCatalogo(CATALOGOS.SEXOS, { params: { contexto: 'personal' } }),
+        catalogosStore.loadCatalogos([
+          CATALOGOS.ESTADOS_CIVILES,
+          CATALOGOS.TIPOS_SANGRE,
+          CATALOGOS.DEPARTAMENTOS,
+          CATALOGOS.TIPOS_CONTRATACION,
+          CATALOGOS.TIPOS_PAGO,
+        ]),
       ])
     } finally {
       catalogosLoading.value = false
@@ -632,10 +706,16 @@
         departamento_id: data.departamento?.id || data.departamento_id,
         tipo_contratacion_id: data.tipo_contratacion?.id || data.tipo_contratacion_id,
         tipo_pago_id: data.tipo_pago?.id || data.tipo_pago_id,
+        // Datos bancarios
+        banco: data.banco || '',
+        tipo_cuenta: data.tipo_cuenta || '',
+        numero_cuenta: data.numero_cuenta || '',
+        confirmar_numero_cuenta: data.numero_cuenta || '',
         // Booleanos
         es_alergico: !!data.es_alergico,
         sabe_leer: data.sabe_leer !== false, // default true
         sabe_escribir: data.sabe_escribir !== false, // default true
+        sabe_usar_computadora: !!data.sabe_usar_computadora,
         // Mapear campos de dirección
         direccion_completa: direccionData.direccion_completa || data.direccion_completa || '',
         departamento_geografico_id: direccionData.departamento_geografico?.id || direccionData.departamento_geografico_id || direccionData.departamento_geo_id || data.departamento_geografico_id,
@@ -653,6 +733,28 @@
 
   // Enviar formulario
   const onSubmit = handleSubmit(async values => {
+    // Validar campos bancarios si es transferencia
+    if (esTipoTransferencia.value) {
+      let bancarioValido = true
+      const camposBancarios = {
+        banco: 'El banco es requerido',
+        tipo_cuenta: 'El tipo de cuenta es requerido',
+        numero_cuenta: 'El número de cuenta es requerido',
+        confirmar_numero_cuenta: 'Confirme el número de cuenta',
+      }
+      for (const [campo, mensaje] of Object.entries(camposBancarios)) {
+        if (!values[campo]?.trim()) {
+          setFieldError(campo, mensaje)
+          bancarioValido = false
+        }
+      }
+      if (values.numero_cuenta && values.confirmar_numero_cuenta && values.numero_cuenta !== values.confirmar_numero_cuenta) {
+        setFieldError('confirmar_numero_cuenta', 'Los números de cuenta no coinciden')
+        bancarioValido = false
+      }
+      if (!bancarioValido) return
+    }
+
     try {
       const data = { ...values }
 
@@ -674,6 +776,16 @@
       delete data.departamento_geografico_id
       delete data.municipio_id
       delete data.zona
+
+      // Limpiar campo de confirmación (no se envía al backend)
+      delete data.confirmar_numero_cuenta
+
+      // Si no es transferencia, limpiar datos bancarios
+      if (!esTipoTransferencia.value) {
+        data.banco = null
+        data.tipo_cuenta = null
+        data.numero_cuenta = null
+      }
 
       // No enviar relaciones anidadas (tienen sus propios endpoints)
       delete data.redes_sociales

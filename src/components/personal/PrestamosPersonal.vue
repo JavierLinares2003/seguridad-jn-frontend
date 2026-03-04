@@ -262,7 +262,8 @@
             </span>
           </template>
 
-          <!-- Progreso -->
+          <!-- Progreso - Oculto temporalmente -->
+          <!--
           <template #item.progreso="{ item }">
             <div style="min-width: 150px;">
               <v-progress-linear
@@ -279,6 +280,7 @@
               </v-progress-linear>
             </div>
           </template>
+          -->
 
           <!-- Fecha -->
           <template #item.fecha="{ item }">
@@ -572,7 +574,7 @@
   const headersPrestamos = [
     { title: 'Monto Total', key: 'monto_total', sortable: true },
     { title: 'Saldo Pendiente', key: 'saldo_pendiente', sortable: true },
-    { title: 'Progreso', key: 'progreso', sortable: false, width: '180px' },
+    // { title: 'Progreso', key: 'progreso', sortable: false, width: '180px' },
     { title: 'Fecha', key: 'fecha', sortable: true },
     { title: 'Estado', key: 'estado', sortable: true },
     { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '100px' },

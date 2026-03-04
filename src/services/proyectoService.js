@@ -12,8 +12,8 @@ export const proyectoService = {
   /**
      * Obtener detalle de un proyecto
      */
-  async getById(id) {
-    const response = await api.get(`/proyectos/${id}`)
+  async getById(id, params = {}) {
+    const response = await api.get(`/proyectos/${id}`, { params })
     return response.data
   },
 
