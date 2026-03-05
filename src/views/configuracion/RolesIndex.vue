@@ -8,7 +8,7 @@
             <v-icon icon="mdi-shield-lock" size="28" />
           </v-avatar>
           <div>
-            <h1 class="text-h4 font-weight-bold text-grey-darken-3">Roles y Permisos</h1>
+            <h1 class="text-h4 font-weight-bold">Roles y Permisos</h1>
             <p class="text-body-2 text-medium-emphasis mb-0">Visualiza los roles del sistema y sus permisos</p>
           </div>
         </div>

@@ -69,7 +69,7 @@ export const operacionesService = {
 
   /**
      * Listar proyectos para asignaciones (con estadísticas)
-     * @param {Object} params - { estado?, page?, per_page?, buscar? }
+     * @param {Object} params - { estado?, page?, per_page?, search? }
      */
   async getProyectosAsignaciones (params = {}) {
     const response = await api.get('/operaciones/asignaciones/proyectos', { params })

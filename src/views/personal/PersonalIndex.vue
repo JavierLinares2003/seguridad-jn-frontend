@@ -8,7 +8,7 @@
             <v-icon icon="mdi-account-group" size="28" />
           </v-avatar>
           <div>
-            <h1 class="text-h4 font-weight-bold text-grey-darken-3">Gestion de Personal</h1>
+            <h1 class="text-h4 font-weight-bold">Gestion de Personal</h1>
             <p class="text-body-2 text-medium-emphasis mb-0">Administra el personal de tu organizacion</p>
           </div>
         </div>
@@ -120,7 +120,6 @@
         :items="store.items"
         :items-length="store.pagination.total"
         :loading="store.loading"
-        :search="searchQuery"
         @update:options="onOptionsUpdate"
       >
         <!-- Foto -->

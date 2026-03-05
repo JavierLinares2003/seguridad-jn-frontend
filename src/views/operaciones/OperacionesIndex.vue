@@ -19,7 +19,7 @@
             Personal Disponible
             <v-spacer />
             <v-chip color="white" size="small" variant="flat">
-              {{ personalFiltrado.length }}
+              {{ personal.length }}
             </v-chip>
           </v-card-title>
 
@@ -70,14 +70,14 @@
           <v-card-text class="overflow-y-auto" style="max-height: 60vh;">
             <v-progress-linear v-if="loadingPersonal" color="primary" indeterminate />
 
-            <div v-else-if="personalFiltrado.length === 0" class="text-center pa-8">
+            <div v-else-if="personal.length === 0" class="text-center pa-8">
               <v-icon color="grey-lighten-1" size="64">mdi-account-search</v-icon>
               <p class="text-medium-emphasis mt-2">No se encontró personal</p>
             </div>
 
             <div v-else class="d-flex flex-column gap-2">
               <v-card
-                v-for="persona in personalFiltrado"
+                v-for="persona in personal"
                 :key="persona.id"
                 class="personal-card cursor-grab"
                 :class="{ 'dragging': draggedPersonal?.id === persona.id }"
@@ -989,29 +989,6 @@
   const snackbarText = ref('')
   const snackbarColor = ref('success')
 
-  // Computed: Personal filtrado
-  const personalFiltrado = computed(() => {
-    let resultado = personal.value
-
-    if (filtroPersonal.value) {
-      const busqueda = filtroPersonal.value.toLowerCase()
-      resultado = resultado.filter(p =>
-        `${p.nombres} ${p.apellidos}`.toLowerCase().includes(busqueda)
-        || p.dpi?.includes(busqueda),
-      )
-    }
-
-    if (filtroDepartamento.value) {
-      resultado = resultado.filter(p => p.departamento_id === filtroDepartamento.value)
-    }
-
-    if (filtroTipoPersonal.value) {
-      resultado = resultado.filter(p => p.tipo_personal_id === filtroTipoPersonal.value)
-    }
-
-    return resultado
-  })
-
   // Computed: Proyectos filtrados (filtrado server-side via API)
   const proyectosFiltrados = computed(() => proyectos.value)
 
@@ -1025,6 +1002,18 @@
     busquedaTimeout = setTimeout(() => {
       loadProyectos()
     }, 400)
+  })
+
+  // Watchers: recargar personal al cambiar filtros (con debounce en texto)
+  let personalSearchTimeout = null
+  watch(filtroPersonal, () => {
+    clearTimeout(personalSearchTimeout)
+    personalSearchTimeout = setTimeout(() => {
+      loadPersonal()
+    }, 400)
+  })
+  watch([filtroDepartamento, filtroTipoPersonal], () => {
+    loadPersonal()
   })
 
   // Drag and Drop handlers
@@ -1327,8 +1316,18 @@
   async function loadPersonal () {
     loadingPersonal.value = true
     try {
-      const response = await personalService.getAll({ per_page: 100, estado: 'activo' })
-      personal.value = response?.data || response || []
+      const params = {
+        per_page: 50,
+        estado: 'activo',
+        sort_by: 'apellidos',
+        sort_order: 'asc',
+      }
+      if (filtroPersonal.value) params.buscar = filtroPersonal.value
+      if (filtroDepartamento.value) params.departamento_id = filtroDepartamento.value
+      if (filtroTipoPersonal.value) params.tipo_personal_id = filtroTipoPersonal.value
+
+      const response = await personalService.getAll(params)
+      personal.value = response?.data?.data || response?.data || response || []
     } catch (error) {
       console.error('Error loading personal:', error)
     } finally {
@@ -1367,7 +1366,7 @@
       params.estado = filtroEstadoProyecto.value
     }
     if (filtroProyecto.value) {
-      params.buscar = filtroProyecto.value
+      params.search = filtroProyecto.value
     }
     return params
   }

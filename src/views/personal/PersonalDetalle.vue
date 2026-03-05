@@ -27,7 +27,7 @@
             <v-col class="pt-md-8" cols="12" md>
               <div class="d-flex flex-column flex-md-row align-md-center justify-space-between">
                 <div>
-                  <h1 class="text-h4 font-weight-bold text-grey-darken-3">
+                  <h1 class="text-h4 font-weight-bold">
                     {{ personal.nombres }} {{ personal.apellidos }}
                   </h1>
                   <div class="d-flex align-center flex-wrap ga-2 mt-2">

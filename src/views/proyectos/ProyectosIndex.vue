@@ -8,7 +8,7 @@
             <v-icon icon="mdi-briefcase-outline" size="28" />
           </v-avatar>
           <div>
-            <h1 class="text-h4 font-weight-bold text-grey-darken-3">Gestión de Proyectos</h1>
+            <h1 class="text-h4 font-weight-bold">Gestión de Proyectos</h1>
             <p class="text-body-2 text-medium-emphasis mb-0">Administra los proyectos de la empresa</p>
           </div>
         </div>
@@ -131,6 +131,19 @@
         <!-- Tipo -->
         <template #item.tipo_proyecto="{ item }">
           <span class="text-body-2">{{ item.tipo_proyecto?.nombre || '-' }}</span>
+        </template>
+
+        <!-- Turno -->
+        <template #item.turno="{ item }">
+          <v-chip
+            v-if="item.primera_configuracion?.turno"
+            color="secondary"
+            size="small"
+            variant="tonal"
+          >
+            {{ item.primera_configuracion.turno.nombre }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">-</span>
         </template>
 
         <!-- Fechas -->
@@ -317,6 +330,7 @@
     { title: 'Correlativo', key: 'correlativo', sortable: true, width: '150px' },
     { title: 'Proyecto', key: 'nombre_proyecto', sortable: true },
     { title: 'Tipo', key: 'tipo_proyecto', sortable: false },
+    { title: 'Turno', key: 'turno', sortable: false },
     { title: 'Fechas Estimadas', key: 'fechas', sortable: false },
     { title: 'Estado', key: 'estado_proyecto', sortable: true, align: 'center' },
     { title: 'Acciones', key: 'actions', sortable: false, align: 'center', width: '150px' },
