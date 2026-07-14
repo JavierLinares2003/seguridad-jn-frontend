@@ -48,7 +48,7 @@
         </v-card-subtitle>
       </v-img>
 
-      <v-tabs v-model="tab" align-tabs="start" color="primary">
+      <v-tabs v-model="tab" align-tabs="start" bg-color="white" color="primary" slider-color="primary">
         <v-tab value="general">Información General</v-tab>
         <v-tab value="ubicacion">Ubicación y Facturación</v-tab>
         <v-tab value="contactos">Contactos</v-tab>
@@ -231,9 +231,31 @@
                       <v-col cols="6">
                         <div class="text-caption text-medium-emphasis">Monto Total</div>
                         <div class="text-body-2 font-weight-bold text-success">
-                          {{ proyecto.facturacion.moneda }} {{ proyecto.facturacion.monto_proyecto_total }}
+                          {{ proyecto.facturacion.moneda }} {{ Number(proyecto.facturacion.monto_proyecto_total).toFixed(2) }}
                         </div>
                       </v-col>
+
+                      <template v-if="proyecto.facturacion.aplica_impuesto">
+                        <v-col cols="12"><v-divider /></v-col>
+                        <v-col cols="12">
+                          <v-chip color="info" label size="small">
+                            <v-icon start size="small">mdi-percent</v-icon>
+                            Aplica impuesto {{ proyecto.facturacion.porcentaje_impuesto }}%
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="6">
+                          <div class="text-caption text-medium-emphasis">Monto Impuesto</div>
+                          <div class="text-body-2 font-weight-bold text-warning">
+                            {{ proyecto.facturacion.moneda }} {{ Number(proyecto.facturacion.monto_impuesto).toFixed(2) }}
+                          </div>
+                        </v-col>
+                        <v-col cols="6">
+                          <div class="text-caption text-medium-emphasis">Total con Impuesto</div>
+                          <div class="text-body-2 font-weight-bold text-primary">
+                            {{ proyecto.facturacion.moneda }} {{ Number(proyecto.facturacion.monto_total_con_impuesto).toFixed(2) }}
+                          </div>
+                        </v-col>
+                      </template>
                     </v-row>
                   </v-card-text>
                   <v-card-text v-else class="text-medium-emphasis font-italic">
@@ -256,7 +278,7 @@
 
           <!-- TAB 5: Configuración Personal -->
           <v-window-item value="personal">
-            <ConfiguracionPersonalProyecto :proyecto-id="proyecto.id" />
+            <ConfiguracionPersonalProyecto :proyecto-id="proyecto.id" @configuracion-changed="loadData" />
           </v-window-item>
 
           <!-- TAB 6: Asignaciones de Personal -->

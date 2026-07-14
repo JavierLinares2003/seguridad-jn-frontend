@@ -62,16 +62,29 @@ api.interceptors.response.use(
       authStore.user = null
       authStore.token = null
       authStore.permissions = []
+      authStore.initialized = true // Marcar como inicializado después de limpiar
 
-      // Redirigir a login solo si no estamos ya en login
-      if (router.currentRoute.value.name !== 'login') {
-        router.push({ name: 'login' })
+      // Redirigir a login solo si no estamos ya en una ruta pública
+      const currentRoute = router.currentRoute.value.name
+      const publicRoutes = ['login', 'register']
+
+      if (!publicRoutes.includes(currentRoute)) {
+        // Evitar loops de redirección guardando un flag temporal
+        if (!sessionStorage.getItem('redirecting_to_login')) {
+          sessionStorage.setItem('redirecting_to_login', 'true')
+          router.push({ name: 'login' }).finally(() => {
+            sessionStorage.removeItem('redirecting_to_login')
+          })
+        }
       }
     }
 
     // Manejar errores de autorización
     if (status === 403) {
-      router.push({ name: 'forbidden' })
+      const currentRoute = router.currentRoute.value.name
+      if (currentRoute !== 'forbidden') {
+        router.push({ name: 'forbidden' })
+      }
     }
 
     // Normalizar el error para fácil acceso

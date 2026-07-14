@@ -337,7 +337,7 @@
   ]
 
   // Búsqueda con debounce
-  const searchQuery = ref('')
+  const searchQuery = ref(store.filters.search || '')
   let searchTimeout = null
 
   function debouncedSearch (value) {

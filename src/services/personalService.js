@@ -57,6 +57,11 @@ export const personalService = {
     return response.data
   },
 
+  async darBaja(id, { estado, motivo }) {
+    const response = await api.post(`/personal/${id}/dar-baja`, { estado, motivo })
+    return response.data
+  },
+
   /**
    * Subir foto del personal
    */
@@ -188,6 +193,13 @@ export const personalService = {
     return response.data
   },
 
+  // ==================== HISTORIAL SALARIOS ====================
+
+  async getHistorialSalarios(personalId, params = {}) {
+    const response = await api.get(`/personal/${personalId}/historial-salarios`, { params })
+    return response.data
+  },
+
   // ==================== HISTORIAL PROYECTOS ====================
 
   async getHistorialProyectos(personalId) {
@@ -197,6 +209,13 @@ export const personalService = {
 
   async downloadCV(id) {
     const response = await api.get(`/personal/${id}/cv`, {
+      responseType: 'blob',
+    })
+    return response
+  },
+
+  async downloadExpediente(id) {
+    const response = await api.get(`/personal/${id}/expediente`, {
       responseType: 'blob',
     })
     return response

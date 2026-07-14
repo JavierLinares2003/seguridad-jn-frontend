@@ -12,6 +12,7 @@
           <v-select
             v-model="localDepartamentoId"
             clearable
+            color="primary"
             density="compact"
             :error-messages="errors?.departamento_geografico_id"
             item-title="nombre"
@@ -19,6 +20,7 @@
             :items="departamentos"
             label="Departamento *"
             :loading="loadingDepartamentos"
+            rounded="lg"
             variant="outlined"
             @update:model-value="onDepartamentoChange"
           >
@@ -33,6 +35,7 @@
           <v-select
             v-model="localMunicipioId"
             clearable
+            color="primary"
             density="compact"
             :disabled="!localDepartamentoId"
             :error-messages="errors?.municipio_id"
@@ -41,6 +44,7 @@
             :items="municipios"
             label="Municipio *"
             :loading="loadingMunicipios"
+            rounded="lg"
             variant="outlined"
             @update:model-value="emitUpdate"
           >
@@ -59,11 +63,13 @@
         <v-col cols="12" :md="zonaColSize">
           <v-text-field
             v-model.number="localZona"
+            color="primary"
             density="compact"
             :error-messages="errors?.zona"
             label="Zona"
             :max="25"
             :min="1"
+            rounded="lg"
             type="number"
             variant="outlined"
             @update:model-value="emitUpdate"
@@ -79,10 +85,12 @@
           <v-textarea
             v-model="localDireccion"
             auto-grow
+            color="primary"
             density="compact"
             :error-messages="errors?.direccion"
             label="Dirección completa *"
             :placeholder="placeholderDireccion"
+            rounded="lg"
             rows="2"
             variant="outlined"
             @update:model-value="emitUpdate"

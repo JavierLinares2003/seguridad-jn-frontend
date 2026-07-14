@@ -19,12 +19,14 @@
               Información Personal
             </v-card-title>
             <v-card-text>
-              <v-row>
+              <v-row class="pt-2">
                 <v-col cols="12" md="6">
                   <v-text-field
                     v-model="nombres"
+                    color="primary"
                     :error-messages="errors.nombres"
                     label="Nombres *"
+                    rounded="lg"
                     variant="outlined"
                     @blur="validateField('nombres')"
                   />
@@ -32,8 +34,10 @@
                 <v-col cols="12" md="6">
                   <v-text-field
                     v-model="apellidos"
+                    color="primary"
                     :error-messages="errors.apellidos"
                     label="Apellidos *"
+                    rounded="lg"
                     variant="outlined"
                     @blur="validateField('apellidos')"
                   />
@@ -41,11 +45,13 @@
 
                 <v-col cols="12" md="4">
                   <v-text-field
+                    color="primary"
                     :error-messages="errors.dpi"
                     label="DPI *"
                     maxlength="15"
                     :model-value="dpiDisplay"
                     placeholder="0000-00000-0000"
+                    rounded="lg"
                     variant="outlined"
                     @blur="validateField('dpi')"
                     @update:model-value="onDpiInput"
@@ -54,16 +60,20 @@
                 <v-col cols="12" md="4">
                   <v-text-field
                     v-model="nit"
+                    color="primary"
                     :error-messages="errors.nit"
                     label="NIT"
+                    rounded="lg"
                     variant="outlined"
                   />
                 </v-col>
                 <v-col cols="12" md="4">
                   <v-text-field
                     v-model="numero_igss"
+                    color="primary"
                     :error-messages="errors.numero_igss"
                     label="Número IGSS"
+                    rounded="lg"
                     variant="outlined"
                   />
                 </v-col>
@@ -200,7 +210,7 @@
                   <v-text-field
                     v-model="email"
                     :error-messages="errors.email"
-                    label="Email *"
+                    label="Email"
                     type="email"
                     variant="outlined"
                     @blur="validateField('email')"
@@ -304,6 +314,50 @@
                     variant="outlined"
                   />
                 </v-col>
+
+                <v-col cols="12" md="4">
+                  <v-text-field
+                    v-model="fecha_inicio"
+                    :error-messages="errors.fecha_inicio"
+                    label="Fecha de Inicio *"
+                    type="date"
+                    variant="outlined"
+                    prepend-inner-icon="mdi-calendar"
+                  />
+                </v-col>
+
+                <v-col cols="12" md="4">
+                  <v-select
+                    v-model="nivel_estudio_id"
+                    clearable
+                    item-title="nombre"
+                    item-value="id"
+                    :items="nivelesEstudio"
+                    label="Nivel de Estudio"
+                    :loading="catalogosLoading"
+                    variant="outlined"
+                  />
+                </v-col>
+
+                <v-col cols="12">
+                  <div class="d-flex flex-wrap ga-4">
+                    <v-checkbox
+                      v-model="tiene_igss"
+                      hide-details
+                      label="Afiliado IGSS"
+                    />
+                    <v-checkbox
+                      v-model="tiene_prestaciones"
+                      hide-details
+                      label="Tiene Prestaciones"
+                    />
+                    <v-checkbox
+                      v-model="tiene_bono14"
+                      hide-details
+                      label="Tiene Bono 14"
+                    />
+                  </div>
+                </v-col>
               </v-row>
             </v-card-text>
           </v-card>
@@ -335,6 +389,15 @@
                       :error-messages="errors.tipo_cuenta"
                       :items="tiposCuenta"
                       label="Tipo de Cuenta *"
+                      variant="outlined"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="nombre_cuenta"
+                      :error-messages="errors.nombre_cuenta"
+                      label="Nombre de Cuenta *"
+                      placeholder="Nombre del titular de la cuenta"
                       variant="outlined"
                     />
                   </v-col>
@@ -492,6 +555,7 @@
   const departamentos = computed(() => catalogosStore.getCatalogo(CATALOGOS.DEPARTAMENTOS))
   const tiposContratacion = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_CONTRATACION))
   const tiposPago = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_PAGO))
+  const nivelesEstudio = computed(() => catalogosStore.getCatalogo(CATALOGOS.NIVELES_ESTUDIO))
 
   // Detectar si el tipo de pago seleccionado es Transferencia
   const esTipoTransferencia = computed(() => {
@@ -509,6 +573,8 @@
     { text: 'Activo', value: 'activo' },
     { text: 'Inactivo', value: 'inactivo' },
     { text: 'Suspendido', value: 'suspendido' },
+    { text: 'No Contratar', value: 'no_contratar' },
+    { text: 'Extrero', value: 'extrero' },
   ]
 
   // Foto
@@ -544,8 +610,14 @@
     tipo_contratacion_id: yup.number().required('El tipo de contratación es requerido'),
     tipo_pago_id: yup.number().required('El tipo de pago es requerido'),
     salario_base: yup.number().required('El salario base es requerido').min(0, 'El salario debe ser mayor a 0'),
+    fecha_inicio: yup.string().required('La fecha de inicio es requerida'),
+    nivel_estudio_id: yup.number().nullable(),
+    tiene_igss: yup.boolean(),
+    tiene_prestaciones: yup.boolean(),
+    tiene_bono14: yup.boolean(),
     banco: yup.string().nullable(),
     tipo_cuenta: yup.string().nullable(),
+    nombre_cuenta: yup.string().nullable(),
     numero_cuenta: yup.string().nullable(),
     confirmar_numero_cuenta: yup.string().nullable()
       .oneOf([yup.ref('numero_cuenta'), null], 'Los números de cuenta no coinciden'),
@@ -587,12 +659,18 @@
   const { value: tipo_contratacion_id } = useField('tipo_contratacion_id')
   const { value: tipo_pago_id } = useField('tipo_pago_id')
   const { value: salario_base } = useField('salario_base')
+  const { value: fecha_inicio } = useField('fecha_inicio')
   const { value: banco } = useField('banco')
   const { value: tipo_cuenta } = useField('tipo_cuenta')
+  const { value: nombre_cuenta } = useField('nombre_cuenta')
   const { value: numero_cuenta } = useField('numero_cuenta')
   const { value: confirmar_numero_cuenta } = useField('confirmar_numero_cuenta')
   const { value: estado } = useField('estado', undefined, { initialValue: 'activo' })
   const { value: observaciones } = useField('observaciones')
+  const { value: nivel_estudio_id } = useField('nivel_estudio_id')
+  const { value: tiene_igss } = useField('tiene_igss', undefined, { initialValue: false })
+  const { value: tiene_prestaciones } = useField('tiene_prestaciones', undefined, { initialValue: false })
+  const { value: tiene_bono14 } = useField('tiene_bono14', undefined, { initialValue: false })
   const { value: es_alergico } = useField('es_alergico', undefined, { initialValue: false })
   const { value: alergias } = useField('alergias')
 
@@ -679,6 +757,7 @@
           CATALOGOS.DEPARTAMENTOS,
           CATALOGOS.TIPOS_CONTRATACION,
           CATALOGOS.TIPOS_PAGO,
+          CATALOGOS.NIVELES_ESTUDIO,
         ]),
       ])
     } finally {
@@ -711,6 +790,11 @@
         tipo_cuenta: data.tipo_cuenta || '',
         numero_cuenta: data.numero_cuenta || '',
         confirmar_numero_cuenta: data.numero_cuenta || '',
+        // Nuevos campos
+        nivel_estudio_id: data.nivel_estudio?.id || data.nivel_estudio_id || null,
+        tiene_igss: !!data.tiene_igss,
+        tiene_prestaciones: !!data.tiene_prestaciones,
+        tiene_bono14: !!data.tiene_bono14,
         // Booleanos
         es_alergico: !!data.es_alergico,
         sabe_leer: data.sabe_leer !== false, // default true
@@ -739,6 +823,7 @@
       const camposBancarios = {
         banco: 'El banco es requerido',
         tipo_cuenta: 'El tipo de cuenta es requerido',
+        nombre_cuenta: 'El nombre de la cuenta es requerido',
         numero_cuenta: 'El número de cuenta es requerido',
         confirmar_numero_cuenta: 'Confirme el número de cuenta',
       }
@@ -784,6 +869,7 @@
       if (!esTipoTransferencia.value) {
         data.banco = null
         data.tipo_cuenta = null
+        data.nombre_cuenta = null
         data.numero_cuenta = null
       }
 
@@ -804,7 +890,13 @@
       setTimeout(() => {
         router.push({ name: 'personal' })
       }, 1500)
-    } catch {
+    } catch (err) {
+      const backendErrors = err.response?.data?.errors
+      if (backendErrors) {
+        Object.entries(backendErrors).forEach(([campo, mensajes]) => {
+          setFieldError(campo, mensajes[0])
+        })
+      }
       snackbar.value = {
         show: true,
         text: store.error || 'Error al guardar',

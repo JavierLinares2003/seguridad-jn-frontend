@@ -70,11 +70,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function checkAuth() {
+    // Si no hay token, marcar como inicializado y retornar false
     if (!token.value) {
       initialized.value = true
       return false
     }
 
+    // Si ya tenemos el usuario cargado, no hacer otra petición
     if (user.value) {
       initialized.value = true
       return true
@@ -100,8 +102,20 @@ export const useAuthStore = defineStore('auth', () => {
 
       initialized.value = true
       return true
-    } catch {
-      logout()
+    } catch (error_) {
+      // Si el error es 401, el interceptor ya limpió todo
+      // Solo necesitamos asegurarnos de que estamos inicializados
+      // No llamar logout() aquí porque el interceptor ya lo hizo
+      const is401 = error_.response?.status === 401
+
+      if (!is401) {
+        // Para otros errores, limpiar manualmente
+        user.value = null
+        token.value = null
+        permissions.value = []
+        localStorage.removeItem('auth_token_jn')
+      }
+
       initialized.value = true
       return false
     } finally {

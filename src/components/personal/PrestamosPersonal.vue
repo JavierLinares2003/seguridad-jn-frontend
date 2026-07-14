@@ -184,7 +184,7 @@
               />
             </v-col>
 
-            <v-col cols="12">
+            <v-col cols="12" md="6">
               <v-textarea
                 v-model="formPrestamo.observaciones"
                 counter="1000"
@@ -193,6 +193,21 @@
                 label="Observaciones"
                 prepend-inner-icon="mdi-text"
                 rows="3"
+                variant="outlined"
+              />
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-file-input
+                v-model="comprobanteFile"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx"
+                clearable
+                density="comfortable"
+                hint="Opcional · máx. 10 MB"
+                label="Comprobante"
+                persistent-hint
+                prepend-icon=""
+                prepend-inner-icon="mdi-paperclip"
                 variant="outlined"
               />
             </v-col>
@@ -298,6 +313,24 @@
             </v-chip>
           </template>
 
+          <!-- Comprobante -->
+          <template #item.comprobante="{ item }">
+            <v-tooltip v-if="item.comprobante_nombre_original" location="top" text="Ver comprobante">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  color="secondary"
+                  icon="mdi-paperclip"
+                  :loading="loadingComprobanteId === item.id"
+                  size="small"
+                  variant="tonal"
+                  @click="verComprobantePrestamo(item.id)"
+                />
+              </template>
+            </v-tooltip>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+
           <!-- Acciones -->
           <template #item.acciones="{ item }">
             <div class="d-flex ga-1">
@@ -310,6 +343,18 @@
                     size="small"
                     variant="tonal"
                     @click="verHistorialPrestamo(item)"
+                  />
+                </template>
+              </v-tooltip>
+              <v-tooltip v-if="!readonly && item.comprobante_nombre_original" location="top" text="Eliminar comprobante">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="error"
+                    icon="mdi-paperclip-off"
+                    size="small"
+                    variant="tonal"
+                    @click="eliminarComprobantePrestamo(item)"
                   />
                 </template>
               </v-tooltip>
@@ -498,6 +543,8 @@
   const prestamos = ref([])
   const prestamoActivo = computed(() => prestamos.value.find(p => p.estado_prestamo === 'activo'))
   const formRef = ref(null)
+  const comprobanteFile = ref(null)
+  const loadingComprobanteId = ref(null)
 
   // Dialogs
   const dialogAbono = ref(false)
@@ -577,6 +624,7 @@
     // { title: 'Progreso', key: 'progreso', sortable: false, width: '180px' },
     { title: 'Fecha', key: 'fecha', sortable: true },
     { title: 'Estado', key: 'estado', sortable: true },
+    { title: 'Comp.', key: 'comprobante', sortable: false, align: 'center', width: '60px' },
     { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '100px' },
   ]
 
@@ -626,6 +674,7 @@
       const data = {
         personal_id: props.personalId,
         ...formPrestamo,
+        comprobante: comprobanteFile.value || undefined,
       }
 
       await operacionesService.crearPrestamo(data)
@@ -742,8 +791,36 @@
     formPrestamo.fecha_prestamo = new Date().toISOString().split('T')[0]
     formPrestamo.fecha_primer_pago = null
     formPrestamo.observaciones = ''
+    comprobanteFile.value = null
     for (const key of Object.keys(errorsPrestamo)) errorsPrestamo[key] = []
     errorMessagePrestamo.value = null
+  }
+
+  async function verComprobantePrestamo (id) {
+    loadingComprobanteId.value = id
+    try {
+      const response = await operacionesService.getComprobantePrestamo(id)
+      const url = URL.createObjectURL(response.data)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch {
+      showSnackbar('Error al cargar el comprobante', 'error')
+    } finally {
+      loadingComprobanteId.value = null
+    }
+  }
+
+  async function eliminarComprobantePrestamo (prestamo) {
+    if (!confirm('¿Eliminar el comprobante adjunto?')) return
+    try {
+      await operacionesService.deleteComprobantePrestamo(prestamo.id)
+      prestamo.comprobante_nombre_original = null
+      prestamo.comprobante_ruta = null
+      prestamo.comprobante_tamanio_kb = null
+      showSnackbar('Comprobante eliminado', 'success')
+    } catch {
+      showSnackbar('Error al eliminar el comprobante', 'error')
+    }
   }
 
   function cerrarDialogAbono () {

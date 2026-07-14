@@ -102,6 +102,21 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     }
   }
 
+  async function asignarExtra (data) {
+    saving.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.asignarExtra(data)
+      return { data: extractData(response), response }
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al asignar extrero'
+      throw error_
+    } finally {
+      saving.value = false
+    }
+  }
+
   /**
      * Cargar lista de asignaciones
      */
@@ -737,6 +752,7 @@ export const useOperacionesStore = defineStore('operaciones', () => {
 
     // Actions - Asignaciones
     asignarPersonal,
+    asignarExtra,
     fetchAsignaciones,
     fetchAsignacion,
     updateAsignacion,

@@ -73,6 +73,21 @@
               />
             </v-col>
 
+            <v-col cols="12" md="6">
+              <v-file-input
+                v-model="comprobanteFile"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx"
+                clearable
+                density="comfortable"
+                hint="Opcional · máx. 10 MB"
+                label="Comprobante"
+                persistent-hint
+                prepend-inner-icon="mdi-paperclip"
+                prepend-icon=""
+                variant="outlined"
+              />
+            </v-col>
+
             <v-col v-if="asistenciaId" cols="12">
               <v-alert density="compact" type="info" variant="tonal">
                 <v-icon start>mdi-link-variant</v-icon>
@@ -221,6 +236,24 @@
             </v-chip>
           </template>
 
+          <!-- Comprobante -->
+          <template #item.comprobante="{ item }">
+            <v-tooltip v-if="item.comprobante_nombre_original" location="top" text="Ver comprobante">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  color="secondary"
+                  icon="mdi-paperclip"
+                  :loading="loadingComprobanteId === item.id"
+                  size="small"
+                  variant="tonal"
+                  @click="verComprobanteTransaccion(item.id)"
+                />
+              </template>
+            </v-tooltip>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+
           <!-- Acciones -->
           <template #item.acciones="{ item }">
             <div class="d-flex ga-1">
@@ -317,6 +350,41 @@
               <v-list-item-subtitle class="text-caption">Registrado por</v-list-item-subtitle>
               <v-list-item-title>{{ transaccionSeleccionada.registrado_por?.name || 'N/A' }}</v-list-item-title>
             </v-list-item>
+            <template v-if="transaccionSeleccionada.comprobante_nombre_original">
+              <v-divider />
+              <v-list-item>
+                <v-list-item-subtitle class="text-caption">Comprobante</v-list-item-subtitle>
+                <v-list-item-title class="d-flex align-center justify-space-between flex-wrap ga-2">
+                  <span class="text-body-2">
+                    <v-icon class="mr-1" color="grey" size="16">mdi-paperclip</v-icon>
+                    {{ transaccionSeleccionada.comprobante_nombre_original }}
+                    <span class="text-caption text-medium-emphasis ml-1">({{ transaccionSeleccionada.comprobante_tamanio_kb }} KB)</span>
+                  </span>
+                  <div class="d-flex ga-1">
+                    <v-btn
+                      color="info"
+                      :loading="loadingComprobanteId === transaccionSeleccionada.id"
+                      size="small"
+                      variant="tonal"
+                      @click="verComprobanteTransaccion(transaccionSeleccionada.id)"
+                    >
+                      <v-icon start>mdi-eye-outline</v-icon>
+                      Ver
+                    </v-btn>
+                    <v-btn
+                      v-if="!readonly"
+                      color="error"
+                      size="small"
+                      variant="tonal"
+                      @click="eliminarComprobanteTransaccion(transaccionSeleccionada)"
+                    >
+                      <v-icon start>mdi-delete-outline</v-icon>
+                      Eliminar
+                    </v-btn>
+                  </div>
+                </v-list-item-title>
+              </v-list-item>
+            </template>
           </v-list>
         </v-card-text>
         <v-card-actions class="pa-4">
@@ -374,6 +442,8 @@
   const formRef = ref(null)
   const dialogDetalle = ref(false)
   const transaccionSeleccionada = ref(null)
+  const comprobanteFile = ref(null)
+  const loadingComprobanteId = ref(null)
 
   // Formulario
   const form = reactive({
@@ -423,6 +493,7 @@
     { title: 'Descripción', key: 'descripcion', sortable: false },
     { title: 'Fecha', key: 'fecha', sortable: true },
     { title: 'Estado', key: 'estado', sortable: true },
+    { title: 'Comp.', key: 'comprobante', sortable: false, align: 'center', width: '60px' },
     { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '120px' },
   ]
 
@@ -474,6 +545,7 @@
         descripcion: form.descripcion,
         fecha_transaccion: form.fecha_transaccion,
         es_descuento: true, // Por defecto es descuento
+        comprobante: comprobanteFile.value || undefined,
       }
 
       await operacionesService.crearTransaccion(data)
@@ -505,8 +577,37 @@
     form.monto = null
     form.descripcion = ''
     form.fecha_transaccion = new Date().toISOString().split('T')[0]
+    comprobanteFile.value = null
     for (const key of Object.keys(errors)) errors[key] = []
     errorMessage.value = null
+  }
+
+  async function verComprobanteTransaccion (id) {
+    loadingComprobanteId.value = id
+    try {
+      const response = await operacionesService.getComprobanteTransaccion(id)
+      const url = URL.createObjectURL(response.data)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch {
+      showSnackbar('Error al cargar el comprobante', 'error')
+    } finally {
+      loadingComprobanteId.value = null
+    }
+  }
+
+  async function eliminarComprobanteTransaccion (transaccion) {
+    if (!confirm('¿Eliminar el comprobante adjunto?')) return
+    try {
+      await operacionesService.deleteComprobanteTransaccion(transaccion.id)
+      // Limpiar campos del comprobante localmente
+      transaccion.comprobante_nombre_original = null
+      transaccion.comprobante_ruta = null
+      transaccion.comprobante_tamanio_kb = null
+      showSnackbar('Comprobante eliminado', 'success')
+    } catch {
+      showSnackbar('Error al eliminar el comprobante', 'error')
+    }
   }
 
   function limpiarFiltros () {

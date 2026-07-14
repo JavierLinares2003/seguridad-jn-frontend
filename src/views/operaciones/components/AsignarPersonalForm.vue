@@ -280,7 +280,6 @@
                         <div v-if="item.disponibilidad.cumple_requisitos.detalles.puesto" class="text-medium-emphasis">
                           <div><strong>Puesto:</strong> {{ item.disponibilidad.cumple_requisitos.detalles.puesto.nombre }}</div>
                           <div><strong>Turno:</strong> {{ item.disponibilidad.cumple_requisitos.detalles.puesto.turno }}</div>
-                          <div><strong>Salario:</strong> Q{{ item.disponibilidad.cumple_requisitos.detalles.puesto.salario_base }}</div>
                         </div>
                       </div>
 

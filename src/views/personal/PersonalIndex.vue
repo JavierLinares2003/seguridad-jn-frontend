@@ -337,6 +337,8 @@
     { text: 'Activo', value: 'activo' },
     { text: 'Inactivo', value: 'inactivo' },
     { text: 'Suspendido', value: 'suspendido' },
+    { text: 'No Contratar', value: 'no_contratar' },
+    { text: 'Extrero', value: 'extrero' },
   ]
 
   // Headers de la tabla
@@ -351,7 +353,7 @@
   ]
 
   // Búsqueda con debounce
-  const searchQuery = ref('')
+  const searchQuery = ref(store.filters.buscar || '')
   let searchTimeout = null
 
   function debouncedSearch (value) {
@@ -416,6 +418,8 @@
       activo: 'success',
       inactivo: 'grey',
       suspendido: 'warning',
+      no_contratar: 'error',
+      extrero: 'purple',
     }
     return colors[estado] || 'grey'
   }
@@ -426,6 +430,8 @@
       activo: 'mdi-check-circle-outline',
       inactivo: 'mdi-close-circle-outline',
       suspendido: 'mdi-pause-circle-outline',
+      no_contratar: 'mdi-cancel',
+      extrero: 'mdi-account-arrow-right-outline',
     }
     return icons[estado] || 'mdi-help-circle-outline'
   }

@@ -17,10 +17,13 @@ declare module 'vue' {
     DocumentosPersonal: typeof import('./src/components/personal/DocumentosPersonal.vue')['default']
     DocumentosProyecto: typeof import('./src/components/proyectos/DocumentosProyecto.vue')['default']
     HelloWorld: typeof import('./src/components/HelloWorld.vue')['default']
+    PermisosPersonal: typeof import('./src/components/personal/PermisosPersonal.vue')['default']
+    PersonalSelector: typeof import('./src/components/planilla/PersonalSelector.vue')['default']
     PrestamosPersonal: typeof import('./src/components/personal/PrestamosPersonal.vue')['default']
     ReferenciasLaborales: typeof import('./src/components/personal/ReferenciasLaborales.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TransaccionesPersonal: typeof import('./src/components/personal/TransaccionesPersonal.vue')['default']
+    VacacionesPersonal: typeof import('./src/components/personal/VacacionesPersonal.vue')['default']
   }
 }

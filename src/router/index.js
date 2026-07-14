@@ -166,6 +166,12 @@ const manualRoutes = [
     component: () => import('@/views/configuracion/BitacoraIndex.vue'),
     meta: { requiresAuth: true, permissions: ['view-bitacora'] },
   },
+  {
+    path: '/configuracion/vacaciones',
+    name: 'configuracion-vacaciones',
+    component: () => import('@/views/configuracion/VacacionesConfigView.vue'),
+    meta: { requiresAuth: true, permissions: ['manage-config'] },
+  },
 ]
 
 // Combinar rutas automáticas con manuales
@@ -189,7 +195,7 @@ const router = createRouter({
 })
 
 // Navigation Guard
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
   // Verificar autenticación al iniciar la app
@@ -202,13 +208,19 @@ router.beforeEach(async (to, _from, next) => {
 
   // Ruta protegida y usuario no autenticado
   if (requiresAuth && !isAuthenticated) {
+    // Evitar loops: si ya venimos de login, no redirigir
+    if (from.name === 'login' && to.name === 'login') {
+      next()
+      return
+    }
     next({ name: 'login', query: { redirect: to.fullPath } })
     return
   }
 
   // Usuario autenticado intentando acceder a login/register
-  if (isAuthenticated && (to.name === 'login' || to.name === 'register')) {
-    next({ name: 'dashboard' })
+  // Redirigir solo si realmente está autenticado (tiene user y token)
+  if (isAuthenticated && (to.name === 'login' || to.name === 'register') && authStore.user && authStore.token) {
+    next({ name: 'inicio' })
     return
   }
 

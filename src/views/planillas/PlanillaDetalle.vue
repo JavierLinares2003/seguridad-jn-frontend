@@ -205,6 +205,9 @@
                 <div class="text-caption text-medium-emphasis">
                   DPI: {{ formatDPI(item.personal?.dpi) }}
                 </div>
+                <v-chip v-if="item.sin_actividad" class="mt-1" color="warning" size="x-small">
+                  Sin actividad
+                </v-chip>
               </div>
             </template>
 
@@ -219,16 +222,15 @@
               <span v-else class="text-medium-emphasis">-</span>
             </template>
 
-            <!-- Días trabajados -->
-            <template #item.dias_trabajados="{ item }">
-              <v-chip color="info" size="small">
-                {{ item.dias_trabajados }} días
-              </v-chip>
-            </template>
-
-            <!-- Horas -->
-            <template #item.horas_trabajadas="{ item }">
-              <span class="font-weight-medium">{{ item.horas_trabajadas }} hrs</span>
+            <!-- Días resumen -->
+            <template #item.dias_resumen="{ item }">
+              <div class="d-flex ga-1 justify-center flex-wrap">
+                <v-chip color="info" size="x-small">{{ item.dias_trabajados }}T</v-chip>
+                <v-chip color="grey" size="x-small">{{ item.dias_descanso }}D</v-chip>
+                <v-chip v-if="item.dias_ausentes > 0" color="error" size="x-small">
+                  {{ item.dias_ausentes }}A
+                </v-chip>
+              </div>
             </template>
 
             <!-- Devengado -->
@@ -252,48 +254,65 @@
                     <v-icon end size="14">mdi-chevron-down</v-icon>
                   </v-chip>
                 </template>
-                <v-card min-width="250">
+                <v-card min-width="280">
                   <v-list density="compact">
-                    <v-list-subheader>Desglose de Descuentos</v-list-subheader>
-                    <v-list-item v-if="item.descuento_multas > 0">
-                      <v-list-item-title>Multas</v-list-item-title>
+                    <!-- Salario esperado -->
+                    <v-list-item>
+                      <v-list-item-title class="text-body-2 font-weight-medium">
+                        Salario esperado
+                      </v-list-item-title>
                       <template #append>
-                        <span class="text-error">{{ formatCurrency(item.descuento_multas) }}</span>
+                        <span class="font-weight-bold">{{ formatCurrency(item.salario_esperado) }}</span>
                       </template>
                     </v-list-item>
-                    <v-list-item v-if="item.descuento_uniformes > 0">
-                      <v-list-item-title>Uniformes</v-list-item-title>
+
+                    <!-- Días no trabajados -->
+                    <v-list-item v-if="item.dias_ausentes > 0">
+                      <v-list-item-title class="text-body-2">
+                        <span class="text-error">(-)</span> Días no trabajados
+                      </v-list-item-title>
                       <template #append>
-                        <span class="text-error">{{ formatCurrency(item.descuento_uniformes) }}</span>
+                        <span class="text-error">
+                          -{{ formatCurrency(Number(item.salario_esperado) - Number(item.salario_devengado)) }}
+                        </span>
                       </template>
                     </v-list-item>
-                    <v-list-item v-if="item.descuento_anticipos > 0">
-                      <v-list-item-title>Anticipos</v-list-item-title>
+
+                    <!-- Penalidad por ausencias -->
+                    <v-list-item v-if="Number(item.descuento_ausencias) > 0">
+                      <v-list-item-title class="text-body-2">
+                        <span class="text-error">(-)</span> Penalidad ausencias
+                      </v-list-item-title>
                       <template #append>
-                        <span class="text-error">{{ formatCurrency(item.descuento_anticipos) }}</span>
+                        <span class="text-error">-{{ formatCurrency(item.descuento_ausencias) }}</span>
                       </template>
                     </v-list-item>
-                    <v-list-item v-if="item.descuento_prestamos > 0">
-                      <v-list-item-title>Préstamos</v-list-item-title>
+
+                    <!-- Otros descuentos -->
+                    <v-list-item>
+                      <v-list-item-title class="text-body-2">
+                        <span v-if="otrosDescuentos(item) > 0" class="text-error">(-)</span>
+                        Otros descuentos
+                      </v-list-item-title>
                       <template #append>
-                        <span class="text-error">{{ formatCurrency(item.descuento_prestamos) }}</span>
+                        <span :class="otrosDescuentos(item) > 0 ? 'text-error' : 'text-medium-emphasis'">
+                          {{ otrosDescuentos(item) > 0 ? '-' : '' }}{{ formatCurrency(otrosDescuentos(item)) }}
+                        </span>
                       </template>
                     </v-list-item>
-                    <v-list-item v-if="item.descuento_antecedentes > 0">
-                      <v-list-item-title>Antecedentes</v-list-item-title>
+
+                    <v-divider />
+
+                    <!-- Salario neto -->
+                    <v-list-item class="bg-primary-lighten-5">
+                      <v-list-item-title class="text-body-2 font-weight-bold text-primary">
+                        Salario neto
+                      </v-list-item-title>
                       <template #append>
-                        <span class="text-error">{{ formatCurrency(item.descuento_antecedentes) }}</span>
+                        <span class="font-weight-bold text-primary">
+                          {{ formatCurrency(item.salario_neto) }}
+                        </span>
                       </template>
-                    </v-list-item>
-                    <v-list-item v-if="item.otros_descuentos > 0">
-                      <v-list-item-title>Otros</v-list-item-title>
-                      <template #append>
-                        <span class="text-error">{{ formatCurrency(item.otros_descuentos) }}</span>
-                      </template>
-                    </v-list-item>
-                    <v-divider v-if="item.total_descuentos > 0" />
-                    <v-list-item v-if="item.total_descuentos === 0">
-                      <v-list-item-title class="text-medium-emphasis">Sin descuentos</v-list-item-title>
                     </v-list-item>
                   </v-list>
                 </v-card>
@@ -589,8 +608,7 @@
   const headers = [
     { title: 'Personal', key: 'personal', sortable: true },
     { title: 'Proyecto', key: 'proyecto', sortable: true },
-    { title: 'Días', key: 'dias_trabajados', sortable: true, align: 'center' },
-    { title: 'Horas', key: 'horas_trabajadas', sortable: true, align: 'center' },
+    { title: 'Días', key: 'dias_resumen', sortable: false, align: 'center' },
     { title: 'Devengado', key: 'salario_devengado', sortable: true, align: 'end' },
     { title: 'Descuentos', key: 'descuentos', sortable: false, align: 'center' },
     { title: 'Neto', key: 'salario_neto', sortable: true, align: 'end' },
@@ -790,6 +808,10 @@
       style: 'currency',
       currency: 'GTQ',
     }).format(value)
+  }
+
+  function otrosDescuentos (item) {
+    return Math.max(0, Number(item.total_descuentos) - Number(item.descuento_ausencias || 0))
   }
 
   function showSnackbar (text, color = 'success') {

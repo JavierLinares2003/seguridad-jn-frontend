@@ -258,6 +258,8 @@
     },
   })
 
+  const emit = defineEmits(['configuracion-changed'])
+
   const store = useProyectosStore()
   const authStore = useAuthStore()
   const loading = ref(false)
@@ -391,6 +393,7 @@
     try {
       await (editedItem.value.id ? store.updateConfiguracionPersonal(props.proyectoId, editedItem.value.id, editedItem.value) : store.createConfiguracionPersonal(props.proyectoId, editedItem.value))
       await loadItems()
+      emit('configuracion-changed')
       closeDialog()
     } catch (error) {
       console.error(error)
@@ -415,6 +418,7 @@
     try {
       await store.deleteConfiguracionPersonal(props.proyectoId, itemToDelete.value.id)
       await loadItems()
+      emit('configuracion-changed')
       closeDelete()
     } catch (error) {
       console.error(error)

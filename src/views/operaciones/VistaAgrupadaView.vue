@@ -206,8 +206,6 @@
                     <tr>
                       <th>Personal</th>
                       <th>Estado</th>
-                      <th>Entrada</th>
-                      <th>Salida</th>
                       <th>Motivo Ausencia</th>
                     </tr>
                   </thead>
@@ -226,8 +224,6 @@
                           {{ getEstadoLabel(asist.estado || asist.tipo) }}
                         </v-chip>
                       </td>
-                      <td>{{ asist.hora_entrada || '-' }}</td>
-                      <td>{{ asist.hora_salida || '-' }}</td>
                       <td>{{ asist.motivo_ausencia?.nombre || '-' }}</td>
                     </tr>
                   </tbody>
@@ -268,7 +264,7 @@
 
   const loading = ref(false)
   const consultaRealizada = ref(false)
-  const fecha = ref(new Date().toISOString().split('T')[0])
+  const fecha = ref((() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}` })())
   const agruparPor = ref('proyecto')
   const vistaData = ref(null)
 

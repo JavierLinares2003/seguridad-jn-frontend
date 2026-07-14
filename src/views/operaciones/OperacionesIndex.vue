@@ -19,7 +19,7 @@
             Personal Disponible
             <v-spacer />
             <v-chip color="white" size="small" variant="flat">
-              {{ personal.length }}
+              {{ personal.length }} de {{ personalPagination.total }}
             </v-chip>
           </v-card-title>
 
@@ -37,7 +37,7 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="6">
+              <v-col cols="6" class="d-none">
                 <v-select
                   v-model="filtroDepartamento"
                   clearable
@@ -50,7 +50,7 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="6">
+              <v-col cols="6" class="d-none">
                 <v-select
                   v-model="filtroTipoPersonal"
                   clearable
@@ -67,7 +67,7 @@
           </v-card-text>
 
           <!-- Lista de Personal -->
-          <v-card-text class="overflow-y-auto" style="max-height: 60vh;">
+          <v-card-text class="overflow-y-auto" style="max-height: 60vh;" @scroll="onPersonalScroll">
             <v-progress-linear v-if="loadingPersonal" color="primary" indeterminate />
 
             <div v-else-if="personal.length === 0" class="text-center pa-8">
@@ -103,7 +103,15 @@
                     </div>
                     <div class="text-right">
                       <v-chip
-                        v-if="persona.tipo_personal"
+                        v-if="persona.estado === 'extrero'"
+                        color="orange-darken-2"
+                        size="x-small"
+                        variant="tonal"
+                      >
+                        Extrero
+                      </v-chip>
+                      <v-chip
+                        v-else-if="persona.tipo_personal"
                         color="secondary"
                         size="x-small"
                         variant="tonal"
@@ -118,6 +126,12 @@
                   </div>
                 </v-card-text>
               </v-card>
+            </div>
+
+            <!-- Indicador de carga infinite scroll -->
+            <div v-if="loadingMorePersonal" class="text-center py-3">
+              <v-progress-circular color="primary" indeterminate size="24" />
+              <div class="text-caption text-medium-emphasis mt-1">Cargando más personal...</div>
             </div>
           </v-card-text>
         </v-card>
@@ -200,8 +214,17 @@
                           {{ proyecto.estado_proyecto }}
                         </v-chip>
                       </div>
-                      <div class="text-body-2 text-medium-emphasis mb-2">
-                        {{ proyecto.correlativo }} - {{ proyecto.empresa_cliente }}
+                      <div class="d-flex align-center flex-wrap ga-1 mb-2">
+                        <span class="text-body-2 text-medium-emphasis">{{ proyecto.correlativo }} - {{ proyecto.empresa_cliente }}</span>
+                        <v-chip
+                          v-if="proyecto.turno_nombre"
+                          color="secondary"
+                          size="x-small"
+                          variant="tonal"
+                        >
+                          <v-icon size="x-small" start>mdi-clock-outline</v-icon>
+                          {{ proyecto.turno_nombre }}
+                        </v-chip>
                       </div>
 
                       <!-- Indicador de cobertura -->
@@ -235,6 +258,7 @@
                           </v-chip>
                         </div>
                       </div>
+
                     </div>
 
                     <!-- Drop indicator -->
@@ -337,9 +361,9 @@
     <!-- Modal de Asignación -->
     <v-dialog v-model="dialogAsignar" max-width="800px" persistent scrollable>
       <v-card rounded="xl">
-        <v-card-title class="bg-primary pa-4">
-          <v-icon start>mdi-account-plus</v-icon>
-          Asignar Personal
+        <v-card-title :class="isExtraMode ? 'bg-orange-darken-2' : 'bg-primary'" class="pa-4">
+          <v-icon start>{{ isExtraMode ? 'mdi-account-star-outline' : 'mdi-account-plus' }}</v-icon>
+          {{ isExtraMode ? 'Asignar Extrero' : 'Asignar Personal' }}
           <v-spacer />
           <v-btn density="compact" icon="mdi-close" variant="text" @click="closeAsignarDialog" />
         </v-card-title>
@@ -402,10 +426,6 @@
                       <span class="text-caption text-medium-emphasis">Puesto actual:</span>
                       <span class="text-body-2 font-weight-medium">{{ selectedPersonal?.puesto || 'N/A' }}</span>
                     </div>
-                    <div class="d-flex justify-space-between">
-                      <span class="text-caption text-medium-emphasis">Salario base:</span>
-                      <span class="text-body-2 font-weight-medium">Q{{ parseFloat(selectedPersonal?.salario_base || 0).toFixed(2) }}</span>
-                    </div>
                   </div>
 
                   <v-divider class="my-3" />
@@ -432,7 +452,7 @@
             <!-- Columna Derecha: Formulario de Asignación -->
             <v-col cols="12" md="7">
               <!-- Proyecto destino -->
-              <v-alert class="mb-4" color="secondary" density="compact" variant="tonal">
+              <v-alert class="mb-3" color="secondary" density="compact" variant="tonal">
                 <div class="d-flex align-center">
                   <v-icon start>mdi-briefcase</v-icon>
                   <div>
@@ -442,19 +462,31 @@
                 </div>
               </v-alert>
 
+              <v-alert
+                v-if="isExtraMode"
+                class="mb-4"
+                color="orange-darken-2"
+                density="compact"
+                type="info"
+                variant="tonal"
+              >
+                El proyecto tiene toda su plantilla cubierta. Solo se puede asignar personal con estado <strong>extrero</strong>.
+              </v-alert>
+
               <v-form ref="formAsignar" v-model="validAsignar">
                 <v-row dense>
                   <!-- Select de Puesto -->
                   <v-col cols="12">
                     <v-select
                       v-model="asignacionData.configuracion_puesto_id"
+                      :clearable="isExtraMode"
                       density="comfortable"
                       item-title="displayName"
                       item-value="id"
                       :items="configuracionesProyecto"
-                      label="Puesto/Plaza *"
+                      :label="isExtraMode ? 'Puesto de referencia (opcional)' : 'Puesto/Plaza *'"
                       :loading="loadingConfiguraciones"
-                      :rules="[v => !!v || 'Seleccione un puesto']"
+                      :rules="isExtraMode ? [] : [v => !!v || 'Seleccione un puesto']"
                       variant="outlined"
                       @update:model-value="onPuestoSelect"
                     >
@@ -863,6 +895,14 @@
   const filtroDepartamento = ref(null)
   const filtroTipoPersonal = ref(null)
 
+  // Paginación de personal (infinite scroll)
+  const loadingMorePersonal = ref(false)
+  const personalPagination = ref({
+    currentPage: 0,
+    lastPage: 1,
+    total: 0,
+  })
+
   // Paginación de proyectos (infinite scroll)
   const loadingMoreProyectos = ref(false)
   const proyectosPagination = ref({
@@ -906,6 +946,9 @@
   const showConfirmDialog = ref(false)
   const confirmWarnings = ref([])
   const pendingPayload = ref(null)
+
+  // Extra mode flag — true when dragging extrero onto a complete project
+  const isExtraMode = ref(false)
 
   // Edit assignment state
   const dialogEditar = ref(false)
@@ -953,8 +996,10 @@
       && persona.edad <= (config.edad_maxima || 100)
 
     // Validar sexo (si el puesto lo requiere)
-    const sexoCumple = !config.sexo_id
-      || persona.sexo?.id === config.sexo_id
+    // Si el sexo requerido es "Ambos", cualquier sexo cumple el requisito
+    const sexoReq = config.sexo_id ? sexosCatalogo.value.find(s => s.id === config.sexo_id) : null
+    const esAmbos = sexoReq?.nombre?.toLowerCase().includes('ambos')
+    const sexoCumple = !config.sexo_id || esAmbos || persona.sexo?.id === config.sexo_id
 
     // Validar altura (si el puesto lo requiere)
     const alturaPersona = Number.parseFloat(persona.altura) || 0
@@ -1043,7 +1088,9 @@
     event.preventDefault()
 
     if (draggedPersonal.value) {
-      openAsignarDialog(draggedPersonal.value, proyecto)
+      const esExtra = draggedPersonal.value.estado === 'extrero'
+        && (proyecto.puestosDisponibles?.length === 0)
+      openAsignarDialog(draggedPersonal.value, proyecto, esExtra)
     }
 
     isDragging.value = false
@@ -1052,15 +1099,18 @@
   }
 
   // Dialog functions
-  async function openAsignarDialog (persona, proyecto) {
+  async function openAsignarDialog (persona, proyecto, esExtra = false) {
+    isExtraMode.value = esExtra
     selectedPersonal.value = persona
     selectedProyecto.value = proyecto
 
     // Reset form
+    const hoy = new Date()
+    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
     asignacionData.value = {
       configuracion_puesto_id: null,
       turno_id: null,
-      fecha_inicio: new Date().toISOString().split('T')[0],
+      fecha_inicio: hoyStr,
       fecha_fin: null,
       notas: '',
     }
@@ -1073,6 +1123,7 @@
   }
 
   function closeAsignarDialog () {
+    isExtraMode.value = false
     dialogAsignar.value = false
     selectedPersonal.value = null
     selectedProyecto.value = null
@@ -1132,14 +1183,16 @@
       const payload = {
         personal_id: selectedPersonal.value.id,
         proyecto_id: selectedProyecto.value.id,
-        configuracion_puesto_id: asignacionData.value.configuracion_puesto_id,
+        configuracion_puesto_id: asignacionData.value.configuracion_puesto_id || null,
         turno_id: asignacionData.value.turno_id,
         fecha_inicio: asignacionData.value.fecha_inicio,
         fecha_fin: asignacionData.value.fecha_fin || null,
         notas: asignacionData.value.notas || null,
       }
 
-      const result = await operacionesStore.asignarPersonal(payload)
+      const result = isExtraMode.value
+        ? await operacionesStore.asignarExtra(payload)
+        : await operacionesStore.asignarPersonal(payload)
       const resData = result?.response || result?.data
 
       // Backend retorna 200 con success: false cuando requiere confirmación
@@ -1153,7 +1206,7 @@
       // Recargar proyectos para mostrar la nueva asignación
       await loadProyectos()
 
-      showSnackbar('Asignación creada correctamente', 'success')
+      showSnackbar(isExtraMode.value ? 'Extrero asignado correctamente' : 'Asignación creada correctamente', 'success')
       closeAsignarDialog()
     } catch (error) {
       console.error('Error al asignar:', error)
@@ -1170,11 +1223,15 @@
     saving.value = true
     try {
       const payload = { ...pendingPayload.value, force_assignment: true }
-      await operacionesStore.asignarPersonal(payload)
+      if (isExtraMode.value) {
+        await operacionesStore.asignarExtra(payload)
+      } else {
+        await operacionesStore.asignarPersonal(payload)
+      }
 
       pendingPayload.value = null
       await loadProyectos()
-      showSnackbar('Asignación creada con advertencias', 'success')
+      showSnackbar(isExtraMode.value ? 'Extrero asignado con advertencias' : 'Asignación creada con advertencias', 'success')
       closeAsignarDialog()
     } catch (error) {
       console.error('Error al forzar asignación:', error)
@@ -1315,23 +1372,85 @@
   // Load data
   async function loadPersonal () {
     loadingPersonal.value = true
+    personal.value = []
+    personalPagination.value = { currentPage: 0, lastPage: 1, total: 0 }
+
     try {
       const params = {
-        per_page: 50,
+        page: 1,
+        per_page: 15,
         estado: 'activo',
         sort_by: 'apellidos',
         sort_order: 'asc',
+        sin_asignacion: true,
+        departamento_nombre: 'Seguridad',
       }
       if (filtroPersonal.value) params.buscar = filtroPersonal.value
       if (filtroDepartamento.value) params.departamento_id = filtroDepartamento.value
       if (filtroTipoPersonal.value) params.tipo_personal_id = filtroTipoPersonal.value
 
       const response = await personalService.getAll(params)
-      personal.value = response?.data?.data || response?.data || response || []
+
+      // Extracción de datos - API retorna { data: [...], meta: {...} }
+      personal.value = response?.data || []
+
+      // Extracción de paginación desde meta
+      personalPagination.value = {
+        currentPage: response?.meta?.current_page || 1,
+        lastPage: response?.meta?.last_page || 1,
+        total: response?.meta?.total || 0,
+      }
     } catch (error) {
       console.error('Error loading personal:', error)
     } finally {
       loadingPersonal.value = false
+    }
+  }
+
+  async function loadMorePersonal () {
+    const { currentPage, lastPage } = personalPagination.value
+    if (loadingMorePersonal.value || currentPage >= lastPage) return
+
+    loadingMorePersonal.value = true
+    try {
+      const nextPage = currentPage + 1
+      const params = {
+        page: nextPage,
+        per_page: 15,
+        estado: 'activo',
+        sort_by: 'apellidos',
+        sort_order: 'asc',
+        sin_asignacion: true,
+        departamento_nombre: 'Seguridad',
+      }
+      if (filtroPersonal.value) params.buscar = filtroPersonal.value
+      if (filtroDepartamento.value) params.departamento_id = filtroDepartamento.value
+      if (filtroTipoPersonal.value) params.tipo_personal_id = filtroTipoPersonal.value
+
+      const response = await personalService.getAll(params)
+
+      // Extracción de datos - API retorna { data: [...], meta: {...} }
+      const items = response?.data || []
+
+      // Extracción de paginación desde meta
+      personalPagination.value = {
+        currentPage: response?.meta?.current_page || nextPage,
+        lastPage: response?.meta?.last_page || lastPage,
+        total: response?.meta?.total || personalPagination.value.total,
+      }
+
+      personal.value = [...personal.value, ...items]
+    } catch (error) {
+      console.error('Error loading more personal:', error)
+    } finally {
+      loadingMorePersonal.value = false
+    }
+  }
+
+  function onPersonalScroll (event) {
+    const { scrollTop, scrollHeight, clientHeight } = event.target
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      loadMorePersonal()
     }
   }
 
@@ -1354,6 +1473,7 @@
       ...proyecto,
       nombre_proyecto: proyecto.nombre || proyecto.nombre_proyecto,
       estado_proyecto: proyecto.estado || proyecto.estado_proyecto,
+      turno_nombre: proyecto.primera_configuracion?.turno?.nombre || null,
       estadisticas: resumen ? { resumen, puestos } : null,
       puestosDisponibles: puestos.filter(p => p.faltantes > 0),
       asignaciones,

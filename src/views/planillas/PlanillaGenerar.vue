@@ -55,38 +55,14 @@
               />
             </v-col>
 
-            <!-- Proyecto (Opcional) -->
-            <v-col cols="12" md="6">
-              <v-autocomplete
-                v-model="formData.proyecto_id"
-                clearable
-                density="comfortable"
-                hint="Dejar vacío para incluir todo el personal"
-                item-title="label"
-                item-value="id"
-                :items="proyectos"
-                label="Proyecto (Opcional)"
-                persistent-hint
-                prepend-inner-icon="mdi-briefcase"
-                variant="outlined"
+            <!-- Selector de Personal con scroll infinito -->
+            <v-col cols="12">
+              <PersonalSelector
+                v-model="personalIds"
+                :periodo-fin="formData.periodo_fin"
+                :periodo-inicio="formData.periodo_inicio"
               />
             </v-col>
-
-            <!-- Tipo de Cálculo - Oculto temporalmente (siempre se envía 'caso_1') -->
-            <!--
-            <v-col cols="12" md="6">
-              <v-select
-                v-model="formData.tipo_calculo"
-                density="comfortable"
-                hint="Método de cálculo de salario"
-                :items="tiposCalculo"
-                label="Tipo de Cálculo"
-                persistent-hint
-                prepend-inner-icon="mdi-calculator-variant"
-                variant="outlined"
-              />
-            </v-col>
-            -->
 
             <!-- Observaciones -->
             <v-col cols="12">
@@ -274,11 +250,11 @@
 <script setup>
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
-  import { onMounted, reactive, ref } from 'vue'
+  import { reactive, ref } from 'vue'
   import { useRouter } from 'vue-router'
-  import proyectoService from '@/services/proyectoService'
   import { usePlanillaStore } from '@/stores/planilla'
   import { formatDPI } from '@/utils/dpiFormatter'
+  import PersonalSelector from '@/components/planilla/PersonalSelector.vue'
 
   const router = useRouter()
   const planillaStore = usePlanillaStore()
@@ -287,16 +263,16 @@
   const form = ref(null)
   const valid = ref(false)
   const loading = ref(false)
-  const proyectos = ref([])
   const planillaGenerada = ref(null)
+  const personalIds = ref([])
 
   // Formulario
   const formData = reactive({
     periodo_inicio: '',
     periodo_fin: '',
-    proyecto_id: null,
+    personal_ids: [],
     observaciones: '',
-    tipo_calculo: 'caso_1', // Siempre se envía 'caso_1' por defecto
+    tipo_calculo: 'caso_2',
   })
 
   // Tipos de cálculo - Comentado temporalmente
@@ -336,28 +312,17 @@
   }
 
   // Funciones
-  async function cargarProyectos () {
-    try {
-      const response = await proyectoService.getAll({ estado: 'activo', per_page: 100 })
-      // Response: { success, data: { current_page, data: [...], ... } } or { success, data: [...] }
-      const paginated = response?.data || response || {}
-      const items = Array.isArray(paginated) ? paginated : (paginated.data || [])
-      proyectos.value = items.map(p => ({
-        ...p,
-        label: p.nombre_proyecto || p.nombre || `Proyecto ${p.id}`,
-      }))
-    } catch (error) {
-      console.error('Error cargando proyectos:', error)
-    }
-  }
-
   async function generarPlanilla () {
     const { valid } = await form.value.validate()
     if (!valid) return
 
     loading.value = true
     try {
-      const response = await planillaStore.generarPlanilla(formData)
+      const payload = {
+        ...formData,
+        personal_ids: personalIds.value,
+      }
+      const response = await planillaStore.generarPlanilla(payload)
       planillaGenerada.value = response.data
       showSnackbar('Planilla generada exitosamente', 'success')
     } catch (error) {
@@ -370,9 +335,10 @@
   function resetForm () {
     formData.periodo_inicio = ''
     formData.periodo_fin = ''
-    formData.proyecto_id = null
+    formData.personal_ids = []
     formData.observaciones = ''
-    formData.tipo_calculo = 'caso_1'
+    formData.tipo_calculo = 'caso_2'
+    personalIds.value = []
     form.value?.reset()
   }
 
@@ -408,9 +374,6 @@
     snackbar.show = true
   }
 
-  onMounted(() => {
-    cargarProyectos()
-  })
 </script>
 
 <style scoped>

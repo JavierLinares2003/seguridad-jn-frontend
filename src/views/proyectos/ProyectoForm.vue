@@ -13,7 +13,7 @@
         <!-- Columna Principal -->
         <v-col cols="12" lg="8">
           <v-card class="mb-4" elevation="2" rounded="xl">
-            <v-tabs v-model="activeTab" color="primary">
+            <v-tabs v-model="activeTab" bg-color="white" color="primary" slider-color="primary">
               <v-tab value="general">Información General</v-tab>
               <v-tab value="ubicacion">Ubicación</v-tab>
               <v-tab value="facturacion">Facturación</v-tab>
@@ -24,11 +24,12 @@
               <v-window v-model="activeTab">
                 <!-- TAB: Información General -->
                 <v-window-item value="general">
-                  <v-row>
+                  <v-row class="pt-4">
                     <!-- Tipo de Proyecto -->
                     <v-col cols="12" md="6">
                       <v-select
                         v-model="tipo_proyecto_id"
+                        color="primary"
                         density="comfortable"
                         :error-messages="errors.tipo_proyecto_id"
                         item-title="nombre"
@@ -36,6 +37,7 @@
                         :items="tiposProyecto"
                         label="Tipo de Proyecto *"
                         :loading="catalogosLoading"
+                        rounded="lg"
                         variant="outlined"
                       />
                     </v-col>
@@ -43,12 +45,14 @@
                     <!-- Correlativo (Readonly) -->
                     <v-col cols="12" md="6">
                       <v-text-field
+                        color="primary"
                         density="comfortable"
                         hint="Generado automáticamente al guardar"
                         label="Correlativo"
                         :model-value="correlativoDisplay"
                         persistent-hint
                         readonly
+                        rounded="lg"
                         variant="outlined"
                       >
                         <template #prepend-inner>
@@ -61,9 +65,11 @@
                     <v-col cols="12">
                       <v-text-field
                         v-model="nombre_proyecto"
+                        color="primary"
                         density="comfortable"
                         :error-messages="errors.nombre_proyecto"
                         label="Nombre del Proyecto *"
+                        rounded="lg"
                         variant="outlined"
                         @blur="validateField('nombre_proyecto')"
                       />
@@ -73,10 +79,12 @@
                     <v-col cols="12">
                       <v-text-field
                         v-model="empresa_cliente"
+                        color="primary"
                         density="comfortable"
                         :error-messages="errors.empresa_cliente"
                         label="Empresa Cliente *"
                         prepend-inner-icon="mdi-domain"
+                        rounded="lg"
                         variant="outlined"
                       />
                     </v-col>
@@ -86,9 +94,11 @@
                       <v-textarea
                         v-model="descripcion"
                         auto-grow
+                        color="primary"
                         density="comfortable"
                         :error-messages="errors.descripcion"
                         label="Descripción"
+                        rounded="lg"
                         rows="3"
                         variant="outlined"
                       />
@@ -103,9 +113,11 @@
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="fecha_inicio_estimada"
+                        color="primary"
                         density="comfortable"
                         :error-messages="errors.fecha_inicio_estimada"
                         label="Fecha Estimada de Inicio"
+                        rounded="lg"
                         type="date"
                         variant="outlined"
                       />
@@ -113,9 +125,11 @@
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="fecha_fin_real"
+                        color="primary"
                         density="comfortable"
                         :error-messages="errors.fecha_fin_real"
                         label="Fecha Real de Finalización"
+                        rounded="lg"
                         type="date"
                         variant="outlined"
                       />
@@ -142,13 +156,17 @@
                 <!-- TAB: Facturación -->
                 <v-window-item value="facturacion">
                   <FacturacionProyectoForm
+                    v-model:aplica-impuesto="facturacion_aplica_impuesto"
                     v-model:dia-pago="facturacion_dia_pago"
                     v-model:direccion="facturacion_direccion"
                     v-model:forma-pago="facturacion_forma_pago"
-                    v-model:monto="facturacion_monto"
+                    :monto="store.currentItem?.facturacion?.monto_proyecto_total ?? 0"
+                    :monto-impuesto="store.currentItem?.facturacion?.monto_impuesto ?? 0"
+                    :monto-total-con-impuesto="store.currentItem?.facturacion?.monto_total_con_impuesto ?? 0"
                     v-model:nit="facturacion_nit"
                     v-model:nombre="facturacion_nombre"
                     v-model:periodicidad-id="facturacion_periodicidad_id"
+                    v-model:porcentaje-impuesto="facturacion_porcentaje_impuesto"
                     v-model:tipo-documento-id="facturacion_tipo_documento_id"
                     :errors="{
                       tipo_documento_facturacion_id: errors.facturacion_tipo_documento_id,
@@ -158,7 +176,7 @@
                       forma_pago: errors.facturacion_forma_pago,
                       periodicidad_pago_id: errors.facturacion_periodicidad_id,
                       dia_pago: errors.facturacion_dia_pago,
-                      monto_proyecto_total: errors.facturacion_monto
+                      porcentaje_impuesto: errors.facturacion_porcentaje_impuesto,
                     }"
                   />
                 </v-window-item>
@@ -179,12 +197,14 @@
             <v-card-text class="pa-5">
               <v-select
                 v-model="estado_proyecto"
+                color="primary"
                 density="comfortable"
                 hide-details="auto"
                 item-title="text"
                 item-value="value"
                 :items="estadosProyecto"
                 label="Estado del Proyecto"
+                rounded="lg"
                 variant="outlined"
               >
                 <template #selection="{ item }">
@@ -314,7 +334,12 @@
     facturacion_forma_pago: yup.string().required('Forma de pago es requerida'),
     facturacion_periodicidad_id: yup.number().required('Periodicidad es requerida'),
     facturacion_dia_pago: yup.number().nullable().min(1).max(31),
-    facturacion_monto: yup.number().nullable().min(0),
+    facturacion_aplica_impuesto: yup.boolean().nullable(),
+    facturacion_porcentaje_impuesto: yup.number().nullable().min(0).max(100)
+      .when('facturacion_aplica_impuesto', {
+        is: true,
+        then: schema => schema.required('El porcentaje de impuesto es requerido'),
+      }),
   })
 
   const { handleSubmit, errors, meta, validateField, setValues, resetForm } = useForm({
@@ -350,7 +375,8 @@
   const { value: facturacion_forma_pago } = useField('facturacion_forma_pago')
   const { value: facturacion_periodicidad_id } = useField('facturacion_periodicidad_id')
   const { value: facturacion_dia_pago } = useField('facturacion_dia_pago')
-  const { value: facturacion_monto } = useField('facturacion_monto')
+  const { value: facturacion_aplica_impuesto } = useField('facturacion_aplica_impuesto')
+  const { value: facturacion_porcentaje_impuesto } = useField('facturacion_porcentaje_impuesto')
 
   // Correlativo Display
   const correlativoDisplay = computed(() => {
@@ -411,7 +437,8 @@
         facturacion_forma_pago: facturacion.forma_pago,
         facturacion_periodicidad_id: facturacion.periodicidad_pago_id,
         facturacion_dia_pago: facturacion.dia_pago,
-        facturacion_monto: facturacion.monto_proyecto_total,
+        facturacion_aplica_impuesto: facturacion.aplica_impuesto ?? false,
+        facturacion_porcentaje_impuesto: facturacion.porcentaje_impuesto,
       }
 
       setValues(flatData)
@@ -441,7 +468,8 @@
           forma_pago: values.facturacion_forma_pago,
           periodicidad_pago_id: values.facturacion_periodicidad_id,
           dia_pago: values.facturacion_dia_pago,
-          monto_proyecto_total: values.facturacion_monto,
+          aplica_impuesto: values.facturacion_aplica_impuesto ?? false,
+          porcentaje_impuesto: values.facturacion_aplica_impuesto ? values.facturacion_porcentaje_impuesto : null,
           moneda: 'GTQ',
         },
       }
@@ -464,7 +492,8 @@
       delete payload.facturacion_forma_pago
       delete payload.facturacion_periodicidad_id
       delete payload.facturacion_dia_pago
-      delete payload.facturacion_monto
+      delete payload.facturacion_aplica_impuesto
+      delete payload.facturacion_porcentaje_impuesto
 
       await (isEditing.value ? store.update(route.params.id, payload) : store.create(payload))
 

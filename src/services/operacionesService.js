@@ -11,6 +11,11 @@ export const operacionesService = {
     return response.data
   },
 
+  async asignarExtra (data) {
+    const response = await api.post('/operaciones/asignar-extra', data)
+    return response.data
+  },
+
   /**
      * Listar asignaciones con filtros y paginación
      */
@@ -227,10 +232,19 @@ export const operacionesService = {
   /**
      * Registrar ausencia de un agente
      * @param {number} asistenciaId - ID del registro de asistencia
-     * @param {Object} data - { motivo_ausencia_id, descripcion? }
+     * @param {Object} data - { motivo_ausencia_id, tipo_inasistencia: '12_horas'|'24_horas', descripcion? }
      */
   async registrarAusencia (asistenciaId, data) {
     const response = await api.post(`/operaciones/asistencia/${asistenciaId}/ausencia`, data)
+    return response.data
+  },
+
+  /**
+     * Obtener permisos disponibles de un agente para la fecha de asistencia
+     * @param {number} asistenciaId - ID del registro de asistencia
+     */
+  async getPermisosDisponibles (asistenciaId) {
+    const response = await api.get(`/operaciones/asistencia/${asistenciaId}/permisos-disponibles`)
     return response.data
   },
 
@@ -274,9 +288,21 @@ export const operacionesService = {
   },
 
   /**
-     * Crear nuevo préstamo
+     * Crear nuevo préstamo (acepta comprobante opcional)
      */
   async crearPrestamo (data) {
+    if (data.comprobante instanceof File) {
+      const formData = new FormData()
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== null && value !== undefined) {
+          formData.append(key, value)
+        }
+      }
+      const response = await api.post('/operaciones/prestamos', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data
+    }
     const response = await api.post('/operaciones/prestamos', data)
     return response.data
   },
@@ -317,9 +343,21 @@ export const operacionesService = {
   },
 
   /**
-     * Crear nueva transacción
+     * Crear nueva transacción (acepta comprobante opcional)
      */
   async crearTransaccion (data) {
+    if (data.comprobante instanceof File) {
+      const formData = new FormData()
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== null && value !== undefined) {
+          formData.append(key, value)
+        }
+      }
+      const response = await api.post('/operaciones/transacciones', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data
+    }
     const response = await api.post('/operaciones/transacciones', data)
     return response.data
   },
@@ -345,6 +383,42 @@ export const operacionesService = {
      */
   async aplicarTransaccion (id) {
     const response = await api.post(`/operaciones/transacciones/${id}/aplicar`)
+    return response.data
+  },
+
+  /**
+     * Ver comprobante de una transacción (devuelve blob)
+     */
+  async getComprobanteTransaccion (id) {
+    const response = await api.get(`/operaciones/transacciones/${id}/comprobante`, {
+      responseType: 'blob',
+    })
+    return response
+  },
+
+  /**
+     * Eliminar comprobante de una transacción
+     */
+  async deleteComprobanteTransaccion (id) {
+    const response = await api.delete(`/operaciones/transacciones/${id}/comprobante`)
+    return response.data
+  },
+
+  /**
+     * Ver comprobante de un préstamo (devuelve blob)
+     */
+  async getComprobantePrestamo (id) {
+    const response = await api.get(`/operaciones/prestamos/${id}/comprobante`, {
+      responseType: 'blob',
+    })
+    return response
+  },
+
+  /**
+     * Eliminar comprobante de un préstamo
+     */
+  async deleteComprobantePrestamo (id) {
+    const response = await api.delete(`/operaciones/prestamos/${id}/comprobante`)
     return response.data
   },
 

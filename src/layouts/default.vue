@@ -220,6 +220,16 @@
           title="Bitacora"
           :to="{ name: 'configuracion-bitacora' }"
         />
+
+        <v-list-item
+          v-if="authStore.hasPermission('manage-config')"
+          class="mb-1"
+          color="primary"
+          prepend-icon="mdi-umbrella-beach"
+          rounded="lg"
+          title="Vacaciones"
+          :to="{ name: 'configuracion-vacaciones' }"
+        />
       </v-list>
 
       <template #append>

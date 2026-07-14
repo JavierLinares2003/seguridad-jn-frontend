@@ -78,6 +78,18 @@
                     CV
                   </v-btn>
                   <v-btn
+                    class="text-none font-weight-bold"
+                    color="info"
+                    elevation="2"
+                    :loading="downloadingExpediente"
+                    rounded="lg"
+                    variant="tonal"
+                    @click="downloadExpediente"
+                  >
+                    <v-icon start>mdi-folder-account-outline</v-icon>
+                    Expediente
+                  </v-btn>
+                  <v-btn
                     v-can="'edit-personal'"
                     class="text-none font-weight-bold"
                     color="primary"
@@ -138,6 +150,18 @@
           <v-tab class="text-none" value="prestamos">
             <v-icon size="20" start>mdi-currency-usd</v-icon>
             Préstamos
+          </v-tab>
+          <v-tab class="text-none" value="vacaciones">
+            <v-icon size="20" start>mdi-umbrella-beach</v-icon>
+            Vacaciones
+          </v-tab>
+          <v-tab class="text-none" value="permisos">
+            <v-icon size="20" start>mdi-clipboard-check-outline</v-icon>
+            Permisos
+          </v-tab>
+          <v-tab class="text-none" value="historial-salarios">
+            <v-icon size="20" start>mdi-chart-line</v-icon>
+            Historial Salarios
           </v-tab>
         </v-tabs>
 
@@ -259,6 +283,14 @@
                         <v-divider />
                         <v-list-item>
                           <template #prepend>
+                            <v-icon color="grey" icon="mdi-calendar-today" size="20" />
+                          </template>
+                          <v-list-item-subtitle class="text-caption">Fecha de Inicio</v-list-item-subtitle>
+                          <v-list-item-title>{{ formatDate(personal.fecha_inicio) }}</v-list-item-title>
+                        </v-list-item>
+                        <v-divider />
+                        <v-list-item>
+                          <template #prepend>
                             <v-icon color="grey" icon="mdi-file-sign" size="20" />
                           </template>
                           <v-list-item-subtitle class="text-caption">Tipo Contratacion</v-list-item-subtitle>
@@ -279,6 +311,52 @@
                           </template>
                           <v-list-item-subtitle class="text-caption">Salario Base</v-list-item-subtitle>
                           <v-list-item-title class="font-weight-bold text-success">Q {{ formatNumber(personal.salario_base) }}</v-list-item-title>
+                        </v-list-item>
+                        <v-divider />
+                        <v-list-item>
+                          <template #prepend>
+                            <v-icon color="grey" icon="mdi-school-outline" size="20" />
+                          </template>
+                          <v-list-item-subtitle class="text-caption">Nivel de Estudio</v-list-item-subtitle>
+                          <v-list-item-title>{{ personal.nivel_estudio?.nombre || '-' }}</v-list-item-title>
+                        </v-list-item>
+                        <v-divider />
+                        <v-list-item>
+                          <template #prepend>
+                            <v-icon color="grey" icon="mdi-shield-check-outline" size="20" />
+                          </template>
+                          <v-list-item-subtitle class="text-caption">Beneficios</v-list-item-subtitle>
+                          <v-list-item-title>
+                            <div class="d-flex flex-wrap ga-1 py-1">
+                              <v-chip
+                                :color="personal.tiene_igss ? 'success' : 'grey'"
+                                label
+                                size="small"
+                                :variant="personal.tiene_igss ? 'flat' : 'tonal'"
+                              >
+                                <v-icon size="14" start>{{ personal.tiene_igss ? 'mdi-check' : 'mdi-close' }}</v-icon>
+                                IGSS
+                              </v-chip>
+                              <v-chip
+                                :color="personal.tiene_prestaciones ? 'success' : 'grey'"
+                                label
+                                size="small"
+                                :variant="personal.tiene_prestaciones ? 'flat' : 'tonal'"
+                              >
+                                <v-icon size="14" start>{{ personal.tiene_prestaciones ? 'mdi-check' : 'mdi-close' }}</v-icon>
+                                Prestaciones
+                              </v-chip>
+                              <v-chip
+                                :color="personal.tiene_bono14 ? 'success' : 'grey'"
+                                label
+                                size="small"
+                                :variant="personal.tiene_bono14 ? 'flat' : 'tonal'"
+                              >
+                                <v-icon size="14" start>{{ personal.tiene_bono14 ? 'mdi-check' : 'mdi-close' }}</v-icon>
+                                Bono 14
+                              </v-chip>
+                            </div>
+                          </v-list-item-title>
                         </v-list-item>
                       </v-list>
                     </v-card-text>
@@ -632,6 +710,102 @@
               />
             </v-card-text>
           </v-tabs-window-item>
+
+          <!-- Tab: Vacaciones -->
+          <v-tabs-window-item value="vacaciones">
+            <v-card-text class="pa-6">
+              <VacacionesPersonal
+                :fecha-inicio="personal.fecha_inicio"
+                :personal-id="parseInt(route.params.id)"
+                :readonly="!$can('edit-personal')"
+                @error="showSnackbar($event, 'error')"
+              />
+            </v-card-text>
+          </v-tabs-window-item>
+
+          <!-- Tab: Permisos -->
+          <v-tabs-window-item value="permisos">
+            <v-card-text class="pa-6">
+              <PermisosPersonal
+                :personal-id="parseInt(route.params.id)"
+                :readonly="!$can('edit-personal')"
+                @error="showSnackbar($event, 'error')"
+              />
+            </v-card-text>
+          </v-tabs-window-item>
+
+          <!-- Tab: Historial de Salarios -->
+          <v-tabs-window-item value="historial-salarios">
+            <v-card-text class="pa-6">
+              <v-data-table
+                :headers="headersHistorialSalarios"
+                hover
+                :items="historialSalarios"
+                :loading="loadingHistorial"
+                :items-per-page="historialMeta.per_page"
+              >
+                <template #item.salario_anterior="{ item }">
+                  <span class="text-body-2">Q {{ formatNumber(item.salario_anterior) }}</span>
+                </template>
+                <template #item.salario_nuevo="{ item }">
+                  <span class="font-weight-medium text-success">Q {{ formatNumber(item.salario_nuevo) }}</span>
+                </template>
+                <template #item.diferencia="{ item }">
+                  <v-chip
+                    :color="item.diferencia >= 0 ? 'success' : 'error'"
+                    label
+                    size="small"
+                    variant="tonal"
+                  >
+                    {{ item.diferencia >= 0 ? '+' : '' }}Q {{ formatNumber(item.diferencia) }}
+                  </v-chip>
+                </template>
+                <template #item.fecha_cambio="{ item }">
+                  {{ formatDate(item.fecha_cambio) }}
+                </template>
+                <template #item.motivo="{ item }">
+                  <span class="text-body-2">{{ item.motivo || '-' }}</span>
+                </template>
+                <template #item.cambiado_por="{ item }">
+                  <span class="text-body-2">{{ item.cambiado_por?.name || '-' }}</span>
+                </template>
+                <template #no-data>
+                  <div class="text-center py-10">
+                    <v-avatar class="mb-3" color="grey-lighten-3" size="64">
+                      <v-icon color="grey-lighten-1" size="36">mdi-chart-line</v-icon>
+                    </v-avatar>
+                    <p class="text-body-1 text-medium-emphasis mb-0">No hay historial de salarios</p>
+                  </div>
+                </template>
+                <template #loading>
+                  <v-skeleton-loader type="table-row@3" />
+                </template>
+                <template #bottom>
+                  <div v-if="historialMeta.last_page > 1" class="d-flex justify-center align-center pa-4 ga-2">
+                    <v-btn
+                      :disabled="historialMeta.current_page <= 1"
+                      icon="mdi-chevron-left"
+                      rounded="lg"
+                      size="small"
+                      variant="tonal"
+                      @click="loadHistorialSalarios(historialMeta.current_page - 1)"
+                    />
+                    <span class="text-body-2 text-medium-emphasis">
+                      Página {{ historialMeta.current_page }} de {{ historialMeta.last_page }}
+                    </span>
+                    <v-btn
+                      :disabled="historialMeta.current_page >= historialMeta.last_page"
+                      icon="mdi-chevron-right"
+                      rounded="lg"
+                      size="small"
+                      variant="tonal"
+                      @click="loadHistorialSalarios(historialMeta.current_page + 1)"
+                    />
+                  </div>
+                </template>
+              </v-data-table>
+            </v-card-text>
+          </v-tabs-window-item>
         </v-tabs-window>
       </v-card>
     </template>
@@ -826,10 +1000,12 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, reactive, ref } from 'vue'
+  import { computed, onMounted, reactive, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import DocumentosPersonal from '@/components/personal/DocumentosPersonal.vue'
   import PrestamosPersonal from '@/components/personal/PrestamosPersonal.vue'
+  import VacacionesPersonal from '@/components/personal/VacacionesPersonal.vue'
+  import PermisosPersonal from '@/components/personal/PermisosPersonal.vue'
   import ReferenciasLaborales from '@/components/personal/ReferenciasLaborales.vue'
   import TransaccionesPersonal from '@/components/personal/TransaccionesPersonal.vue'
   import { CATALOGOS } from '@/services/catalogoService'
@@ -854,6 +1030,40 @@
 
   const loadingFamiliares = ref(false)
   const downloadingCV = ref(false)
+  const downloadingExpediente = ref(false)
+
+  // Historial de salarios
+  const historialSalarios = ref([])
+  const loadingHistorial = ref(false)
+  const historialMeta = ref({ current_page: 1, last_page: 1, per_page: 15, total: 0 })
+
+  const headersHistorialSalarios = [
+    { title: 'Fecha', key: 'fecha_cambio', sortable: false },
+    { title: 'Salario Anterior', key: 'salario_anterior', sortable: false },
+    { title: 'Salario Nuevo', key: 'salario_nuevo', sortable: false },
+    { title: 'Diferencia', key: 'diferencia', sortable: false, align: 'center' },
+    { title: 'Motivo', key: 'motivo', sortable: false },
+    { title: 'Cambiado por', key: 'cambiado_por', sortable: false },
+  ]
+
+  async function loadHistorialSalarios (page = 1) {
+    loadingHistorial.value = true
+    try {
+      const response = await personalService.getHistorialSalarios(route.params.id, { page })
+      historialSalarios.value = response.data
+      historialMeta.value = response.meta
+    } catch {
+      showSnackbar('Error al cargar historial de salarios', 'error')
+    } finally {
+      loadingHistorial.value = false
+    }
+  }
+
+  watch(tab, newTab => {
+    if (newTab === 'historial-salarios' && historialSalarios.value.length === 0) {
+      loadHistorialSalarios()
+    }
+  })
 
   // Dialogs
   const dialogFamiliar = ref(false)
@@ -935,12 +1145,12 @@
   }
 
   function getEstadoColor (estado) {
-    const colors = { activo: 'success', inactivo: 'grey', suspendido: 'warning' }
+    const colors = { activo: 'success', inactivo: 'grey', suspendido: 'warning', no_contratar: 'error', extrero: 'purple' }
     return colors[estado] || 'grey'
   }
 
   function getEstadoIcon (estado) {
-    const icons = { activo: 'mdi-check-circle', inactivo: 'mdi-close-circle', suspendido: 'mdi-pause-circle' }
+    const icons = { activo: 'mdi-check-circle', inactivo: 'mdi-close-circle', suspendido: 'mdi-pause-circle', no_contratar: 'mdi-cancel', extrero: 'mdi-account-arrow-right' }
     return icons[estado] || 'mdi-circle'
   }
 
@@ -1273,6 +1483,29 @@
       console.error(error)
     } finally {
       downloadingCV.value = false
+    }
+  }
+
+  async function downloadExpediente () {
+    if (!personal.value?.id) return
+
+    try {
+      downloadingExpediente.value = true
+      const response = await personalService.downloadExpediente(personal.value.id)
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `Expediente_${personal.value.nombres}_${personal.value.apellidos}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      showSnackbar('Error al descargar el expediente', 'error')
+      console.error(error)
+    } finally {
+      downloadingExpediente.value = false
     }
   }
 

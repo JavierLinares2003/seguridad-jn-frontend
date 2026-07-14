@@ -29,8 +29,7 @@
             />
           </v-col>
 
-          <!-- Buscar personal - Oculto temporalmente -->
-          <!--
+          <!-- Buscar personal -->
           <v-col cols="12" md="3">
             <v-text-field
               v-model="buscarTexto"
@@ -43,21 +42,32 @@
               @keyup.enter="cargarAsistencia"
             />
           </v-col>
-          -->
 
           <!-- Filtro por proyecto (solo en tab Proyectos) -->
-          <v-col v-if="activeTab === 'proyectos'" cols="12" md="2">
-            <v-select
+          <v-col v-if="activeTab === 'proyectos'" cols="12" md="3">
+            <v-autocomplete
               v-model="selectedProyecto"
               clearable
               density="comfortable"
               item-title="nombre_proyecto"
-              item-value="id"
-              :items="proyectosFiltro"
+              :items="proyectosAutocomplete"
               label="Filtrar proyecto"
+              :loading="loadingProyectosAutocomplete"
+              no-data-text="Sin resultados"
               prepend-inner-icon="mdi-briefcase"
+              return-object
               variant="outlined"
-            />
+              @focus="onFocusProyecto"
+              @update:search="onBuscarProyecto"
+            >
+              <template #item="{ props, item }">
+                <v-list-item v-bind="props" :subtitle="item.raw.correlativo">
+                  <template v-if="item.raw.empresa_cliente" #append>
+                    <span class="text-caption text-medium-emphasis">{{ item.raw.empresa_cliente }}</span>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
           </v-col>
 
           <!-- Filtro por departamento (solo en tab Sin Asignación) -->
@@ -96,7 +106,7 @@
               :disabled="!selectedDate"
               :loading="loading"
               variant="elevated"
-              @click="cargarAsistencia"
+              @click="() => solicitarRecarga(cargarAsistencia)"
             >
               <v-icon start>mdi-magnify</v-icon>
               Cargar
@@ -123,7 +133,7 @@
     </v-card>
 
     <!-- Tabs -->
-    <v-tabs v-model="activeTab" class="mb-4" color="primary" @update:model-value="onTabChange">
+    <v-tabs v-model="activeTab" bg-color="white" class="mb-4" color="primary" slider-color="primary" @update:model-value="onTabChange">
       <v-tab value="proyectos">
         <v-icon start>mdi-briefcase</v-icon>
         Proyectos
@@ -154,9 +164,9 @@
           <!-- Header del proyecto -->
           <v-card-title class="d-flex align-center flex-wrap pa-4">
             <v-icon class="mr-2" color="primary">mdi-briefcase</v-icon>
-            <span class="font-weight-bold">{{ grupo.proyecto?.nombre || 'Sin Proyecto' }}</span>
-            <v-chip v-if="grupo.proyecto?.codigo" class="ml-2" color="secondary" size="small" variant="tonal">
-              {{ grupo.proyecto.codigo }}
+            <span class="font-weight-bold">{{ grupo.proyecto?.nombre_proyecto || grupo.proyecto?.nombre || 'Sin Proyecto' }}</span>
+            <v-chip v-if="grupo.proyecto?.correlativo || grupo.proyecto?.codigo" class="ml-2" color="secondary" size="small" variant="tonal">
+              {{ grupo.proyecto.correlativo || grupo.proyecto.codigo }}
             </v-chip>
             <v-spacer />
             <!-- Resumen inline -->
@@ -206,6 +216,10 @@
                     <div class="text-caption text-medium-emphasis">
                       {{ formatDPI(item._personal?.dpi) }}
                     </div>
+                    <div v-if="item._personal?.telefono" class="text-caption text-medium-emphasis">
+                      <v-icon size="x-small">mdi-phone</v-icon>
+                      {{ item._personal.telefono }}
+                    </div>
                   </div>
                 </div>
               </template>
@@ -229,7 +243,6 @@
                     v-model="item.estadoLocal"
                     color="primary"
                     density="compact"
-                    mandatory
                     @update:model-value="onEstadoChange(item)"
                   >
                     <v-btn :color="item.estadoLocal === 'presente' ? 'success' : ''" size="small" value="presente">
@@ -247,6 +260,15 @@
                   </v-btn-toggle>
 
                   <v-chip
+                    v-if="item.estadoLocal === null"
+                    color="warning"
+                    size="x-small"
+                    variant="tonal"
+                  >
+                    <v-icon size="12" start>mdi-help-circle</v-icon>
+                    Sin marcar
+                  </v-chip>
+                  <v-chip
                     v-if="item.descansoAutomatico"
                     color="info"
                     size="x-small"
@@ -255,13 +277,48 @@
                     Auto
                   </v-chip>
                   <v-chip
-                    v-if="item.estadoLocal === 'ausente' && item.tipoAusenciaLocal"
-                    :color="item.tipoAusenciaLocal === 'justificada' ? 'orange' : 'error'"
+                    v-if="item.estadoLocal === 'ausente' && item.permisoIdLocal"
+                    color="success"
                     size="x-small"
                     variant="flat"
                   >
-                    {{ item.tipoAusenciaLocal === 'justificada' ? 'Just.' : 'Injust.' }}
+                    <v-icon size="12" start>mdi-shield-check</v-icon>
+                    Con permiso
                   </v-chip>
+                  <v-chip
+                    v-else-if="item.estadoLocal === 'ausente' && item.tipoInasistenciaLocal"
+                    color="deep-orange"
+                    size="x-small"
+                    variant="flat"
+                  >
+                    {{ item.tipoInasistenciaLocal === '12_horas' ? '12h — Q200' : '24h — Q400' }}
+                  </v-chip>
+                  <v-tooltip
+                    v-if="item.estadoLocal === 'presente' && item.permisoReposicionIdLocal"
+                    location="top"
+                  >
+                    <template #activator="{ props: tooltipProps }">
+                      <v-chip
+                        v-bind="tooltipProps"
+                        color="indigo"
+                        size="x-small"
+                        variant="tonal"
+                      >
+                        <v-icon size="12" start>mdi-repeat</v-icon>
+                        Repos. {{ item.horasReposicionLocal }}h
+                      </v-chip>
+                    </template>
+                    <div>
+                      <div class="font-weight-bold">Reposición de horas</div>
+                      <div>Horas: {{ item.horasReposicionLocal }}h</div>
+                      <div v-if="item.permisoReposicionLocal?.descripcion">
+                        Permiso: {{ item.permisoReposicionLocal.descripcion }}
+                      </div>
+                      <div v-if="item.permisoReposicionLocal?.saldo_pendiente !== undefined">
+                        Saldo restante: {{ item.permisoReposicionLocal.saldo_pendiente }}h
+                      </div>
+                    </div>
+                  </v-tooltip>
                   <v-chip
                     v-if="item.asistencia?.fue_reemplazado"
                     color="purple"
@@ -270,59 +327,6 @@
                   >
                     Reemplazado
                   </v-chip>
-                </div>
-              </template>
-
-              <!-- Hora Entrada -->
-              <template #item.hora_entrada="{ item }">
-                <v-text-field
-                  v-model="item.horaEntradaLocal"
-                  density="compact"
-                  :disabled="item.estadoLocal !== 'presente'"
-                  hide-details
-                  style="max-width: 120px;"
-                  type="time"
-                  variant="outlined"
-                  @update:model-value="markChanged(item)"
-                />
-              </template>
-
-              <!-- Hora Salida -->
-              <template #item.hora_salida="{ item }">
-                <v-text-field
-                  v-model="item.horaSalidaLocal"
-                  density="compact"
-                  :disabled="item.estadoLocal !== 'presente'"
-                  hide-details
-                  style="max-width: 120px;"
-                  type="time"
-                  variant="outlined"
-                  @update:model-value="markChanged(item)"
-                />
-              </template>
-
-              <!-- Tardanza -->
-              <template #item.tardanza="{ item }">
-                <div class="d-flex align-center">
-                  <v-checkbox
-                    v-model="item.llegoTardeLocal"
-                    density="compact"
-                    :disabled="item.estadoLocal !== 'presente'"
-                    hide-details
-                    @update:model-value="markChanged(item)"
-                  />
-                  <v-text-field
-                    v-if="item.llegoTardeLocal"
-                    v-model.number="item.minutosRetrasoLocal"
-                    density="compact"
-                    hide-details
-                    min="1"
-                    style="max-width: 80px;"
-                    suffix="min"
-                    type="number"
-                    variant="outlined"
-                    @update:model-value="markChanged(item)"
-                  />
                 </div>
               </template>
 
@@ -376,6 +380,22 @@
                       </template>
                       <v-list-item-title>Ver Calendario Turno</v-list-item-title>
                     </v-list-item>
+                    <v-list-item
+                      v-if="item.estadoLocal === 'presente'"
+                      @click="abrirReposicionDialog(item)"
+                    >
+                      <template #prepend>
+                        <v-icon size="20">mdi-repeat</v-icon>
+                      </template>
+                      <v-list-item-title>Registrar Reposición</v-list-item-title>
+                    </v-list-item>
+                    <v-divider />
+                    <v-list-item @click="abrirBajaDialog(item)">
+                      <template #prepend>
+                        <v-icon size="20" color="error">mdi-account-off</v-icon>
+                      </template>
+                      <v-list-item-title class="text-error">Dar de Baja</v-list-item-title>
+                    </v-list-item>
                   </v-list>
                 </v-menu>
               </template>
@@ -386,7 +406,7 @@
         <!-- Paginacion -->
         <div v-if="paginationData" class="d-flex justify-center align-center pa-4">
           <v-pagination
-            v-model="currentPage"
+            :model-value="currentPage"
             :length="paginationData.lastPage"
             :total-visible="7"
             @update:model-value="onPageChange"
@@ -464,6 +484,10 @@
                     <div class="text-caption text-medium-emphasis">
                       {{ formatDPI(item._personal?.dpi) }}
                     </div>
+                    <div v-if="item._personal?.telefono" class="text-caption text-medium-emphasis">
+                      <v-icon size="x-small">mdi-phone</v-icon>
+                      {{ item._personal.telefono }}
+                    </div>
                   </div>
                 </div>
               </template>
@@ -475,7 +499,6 @@
                     v-model="item.estadoLocal"
                     color="primary"
                     density="compact"
-                    mandatory
                     @update:model-value="onEstadoChange(item)"
                   >
                     <v-btn :color="item.estadoLocal === 'presente' ? 'success' : ''" size="small" value="presente">
@@ -493,66 +516,57 @@
                   </v-btn-toggle>
 
                   <v-chip
-                    v-if="item.estadoLocal === 'ausente' && item.tipoAusenciaLocal"
+                    v-if="item.estadoLocal === null"
+                    color="warning"
+                    size="x-small"
+                    variant="tonal"
+                  >
+                    <v-icon size="12" start>mdi-help-circle</v-icon>
+                    Sin marcar
+                  </v-chip>
+                  <v-chip
+                    v-if="item.estadoLocal === 'ausente' && item.permisoIdLocal"
+                    color="success"
+                    size="x-small"
+                    variant="flat"
+                  >
+                    <v-icon size="12" start>mdi-shield-check</v-icon>
+                    Con permiso
+                  </v-chip>
+                  <v-chip
+                    v-else-if="item.estadoLocal === 'ausente' && item.tipoAusenciaLocal"
                     :color="item.tipoAusenciaLocal === 'justificada' ? 'orange' : 'error'"
                     size="x-small"
                     variant="flat"
                   >
                     {{ item.tipoAusenciaLocal === 'justificada' ? 'Just.' : 'Injust.' }}
                   </v-chip>
-                </div>
-              </template>
-
-              <!-- Hora Entrada -->
-              <template #item.hora_entrada="{ item }">
-                <v-text-field
-                  v-model="item.horaEntradaLocal"
-                  density="compact"
-                  :disabled="item.estadoLocal !== 'presente'"
-                  hide-details
-                  style="max-width: 120px;"
-                  type="time"
-                  variant="outlined"
-                  @update:model-value="markChanged(item)"
-                />
-              </template>
-
-              <!-- Hora Salida -->
-              <template #item.hora_salida="{ item }">
-                <v-text-field
-                  v-model="item.horaSalidaLocal"
-                  density="compact"
-                  :disabled="item.estadoLocal !== 'presente'"
-                  hide-details
-                  style="max-width: 120px;"
-                  type="time"
-                  variant="outlined"
-                  @update:model-value="markChanged(item)"
-                />
-              </template>
-
-              <!-- Tardanza -->
-              <template #item.tardanza="{ item }">
-                <div class="d-flex align-center">
-                  <v-checkbox
-                    v-model="item.llegoTardeLocal"
-                    density="compact"
-                    :disabled="item.estadoLocal !== 'presente'"
-                    hide-details
-                    @update:model-value="markChanged(item)"
-                  />
-                  <v-text-field
-                    v-if="item.llegoTardeLocal"
-                    v-model.number="item.minutosRetrasoLocal"
-                    density="compact"
-                    hide-details
-                    min="1"
-                    style="max-width: 80px;"
-                    suffix="min"
-                    type="number"
-                    variant="outlined"
-                    @update:model-value="markChanged(item)"
-                  />
+                  <v-tooltip
+                    v-if="item.estadoLocal === 'presente' && item.permisoReposicionIdLocal"
+                    location="top"
+                  >
+                    <template #activator="{ props: tooltipProps }">
+                      <v-chip
+                        v-bind="tooltipProps"
+                        color="indigo"
+                        size="x-small"
+                        variant="tonal"
+                      >
+                        <v-icon size="12" start>mdi-repeat</v-icon>
+                        Repos. {{ item.horasReposicionLocal }}h
+                      </v-chip>
+                    </template>
+                    <div>
+                      <div class="font-weight-bold">Reposición de horas</div>
+                      <div>Horas: {{ item.horasReposicionLocal }}h</div>
+                      <div v-if="item.permisoReposicionLocal?.descripcion">
+                        Permiso: {{ item.permisoReposicionLocal.descripcion }}
+                      </div>
+                      <div v-if="item.permisoReposicionLocal?.saldo_pendiente !== undefined">
+                        Saldo restante: {{ item.permisoReposicionLocal.saldo_pendiente }}h
+                      </div>
+                    </div>
+                  </v-tooltip>
                 </div>
               </template>
 
@@ -593,6 +607,22 @@
                       </template>
                       <v-list-item-title>Registrar Transaccion</v-list-item-title>
                     </v-list-item>
+                    <v-list-item
+                      v-if="item.estadoLocal === 'presente'"
+                      @click="abrirReposicionDialog(item)"
+                    >
+                      <template #prepend>
+                        <v-icon size="20">mdi-repeat</v-icon>
+                      </template>
+                      <v-list-item-title>Registrar Reposición</v-list-item-title>
+                    </v-list-item>
+                    <v-divider />
+                    <v-list-item @click="abrirBajaDialog(item)">
+                      <template #prepend>
+                        <v-icon size="20" color="error">mdi-account-off</v-icon>
+                      </template>
+                      <v-list-item-title class="text-error">Dar de Baja</v-list-item-title>
+                    </v-list-item>
                   </v-list>
                 </v-menu>
               </template>
@@ -601,7 +631,7 @@
               <template v-if="paginationData" #bottom>
                 <div class="d-flex justify-center align-center pa-4">
                   <v-pagination
-                    v-model="currentPage"
+                    :model-value="currentPage"
                     :length="paginationData.lastPage"
                     :total-visible="7"
                     @update:model-value="onPageChange"
@@ -629,7 +659,7 @@
     </template>
 
     <!-- Boton Guardar Cambios -->
-    <div v-if="hasChanges" class="d-flex justify-center py-6">
+    <div class="d-flex justify-center py-6">
       <v-btn
         color="success"
         :loading="saving"
@@ -639,6 +669,16 @@
       >
         <v-icon start>mdi-content-save</v-icon>
         Guardar Cambios
+        <v-chip
+          v-if="hasChanges"
+          class="ml-2"
+          color="white"
+          size="x-small"
+          text-color="success"
+          variant="flat"
+        >
+          {{ cantidadCambios }}
+        </v-chip>
       </v-btn>
     </div>
 
@@ -659,6 +699,8 @@
             </div>
           </div>
 
+          <!-- Motivo de ausencia — oculto temporalmente (viene del backend /motivos-ausencia) -->
+          <!--
           <v-select
             v-model="ausenciaForm.motivo_ausencia_id"
             class="mb-3"
@@ -712,6 +754,80 @@
               Requiere documento de soporte
             </div>
           </v-alert>
+          -->
+
+          <!-- Permisos disponibles -->
+          <div class="mb-4">
+            <div class="text-body-2 mb-2 font-weight-medium">
+              <v-icon class="mr-1" size="18">mdi-clipboard-check-outline</v-icon>
+              ¿Tiene permiso aprobado?
+            </div>
+
+            <div v-if="loadingPermisos" class="d-flex align-center ga-2 mb-2">
+              <v-progress-circular indeterminate size="16" width="2" />
+              <span class="text-caption text-medium-emphasis">Buscando permisos...</span>
+            </div>
+
+            <template v-else-if="permisosDisponibles.length > 0">
+              <v-radio-group
+                v-model="ausenciaForm.permiso_id"
+                density="compact"
+                hide-details
+              >
+                <v-radio :value="null" label="Sin permiso (aplica descuento)" />
+                <v-radio
+                  v-for="p in permisosDisponibles"
+                  :key="p.id"
+                  :value="p.id"
+                >
+                  <template #label>
+                    <div class="d-flex align-center ga-2">
+                      <span>{{ p.descripcion }}</span>
+                      <v-chip color="success" size="x-small" variant="tonal">
+                        Saldo: {{ p.saldo_pendiente }}{{ p.tipo === 'dias' ? 'd' : 'h' }}
+                      </v-chip>
+                    </div>
+                  </template>
+                </v-radio>
+              </v-radio-group>
+
+              <v-alert
+                v-if="ausenciaForm.permiso_id"
+                class="mt-2"
+                density="compact"
+                type="success"
+                variant="tonal"
+              >
+                Ausencia justificada — sin descuento en planilla
+              </v-alert>
+            </template>
+
+            <div v-else class="text-caption text-medium-emphasis">
+              No hay permisos vigentes con saldo disponible
+            </div>
+          </div>
+
+          <!-- Tipo de inasistencia (solo sin permiso) -->
+          <div v-if="!ausenciaForm.permiso_id" class="mb-3">
+            <div class="text-body-2 mb-2 font-weight-medium">Tipo de inasistencia *</div>
+            <v-btn-toggle
+              v-model="ausenciaForm.tipo_inasistencia"
+              color="error"
+              density="comfortable"
+              mandatory
+              rounded="lg"
+              variant="outlined"
+            >
+              <v-btn value="12_horas">
+                <v-icon size="small" start>mdi-clock-outline</v-icon>
+                12 horas — Q200
+              </v-btn>
+              <v-btn value="24_horas">
+                <v-icon size="small" start>mdi-clock-alert-outline</v-icon>
+                24 horas — Q400
+              </v-btn>
+            </v-btn-toggle>
+          </div>
 
           <v-textarea
             v-model="ausenciaForm.descripcion"
@@ -726,12 +842,12 @@
           <v-spacer />
           <v-btn variant="text" @click="cancelarAusencia">Cancelar</v-btn>
           <v-btn
-            color="error"
-            :disabled="!ausenciaForm.motivo_ausencia_id"
+            :color="ausenciaForm.permiso_id ? 'success' : 'error'"
+            :disabled="!ausenciaForm.permiso_id && !ausenciaForm.tipo_inasistencia"
             variant="elevated"
             @click="confirmarAusenciaPaso1"
           >
-            Continuar
+            {{ ausenciaForm.permiso_id ? 'Confirmar' : 'Continuar' }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -879,6 +995,46 @@
       </v-card>
     </v-dialog>
 
+    <!-- ==================== DIALOG DAR DE BAJA ==================== -->
+    <v-dialog v-model="dialogBaja" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="pa-4">
+          <v-icon color="error" start>mdi-account-off</v-icon>
+          Dar de Baja
+        </v-card-title>
+        <v-card-text class="pa-4">
+          <p class="mb-4 text-body-2">
+            <strong>{{ selectedBajaItem?._personal?.nombre_completo }}</strong>
+          </p>
+          <v-radio-group v-model="bajaEstado" label="Tipo de baja" class="mb-2">
+            <v-radio label="Suspendido (temporal)" value="suspendido" />
+            <v-radio label="No contratar (definitivo)" value="no_contratar" color="error" />
+          </v-radio-group>
+          <v-textarea
+            v-model="bajaMotivo"
+            label="Motivo *"
+            :counter="500"
+            :maxlength="500"
+            rows="3"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" :disabled="loadingBaja" @click="cerrarBajaDialog">Cancelar</v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            :loading="loadingBaja"
+            :disabled="!bajaEstado || !bajaMotivo?.trim()"
+            @click="confirmarBaja"
+          >
+            Confirmar Baja
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- ==================== DIALOG CALENDARIO TURNO ==================== -->
     <v-dialog v-model="dialogCalendarioTurno" max-width="700px">
       <v-card rounded="xl">
@@ -946,6 +1102,121 @@
       </v-card>
     </v-dialog>
 
+    <!-- ==================== DIALOG REPOSICIÓN ==================== -->
+    <v-dialog v-model="dialogReposicion" max-width="480px" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-indigo pa-4">
+          <v-icon color="white" start>mdi-repeat</v-icon>
+          <span class="text-white">Registrar Reposición de Horas</span>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <div v-if="selectedReposicionItem" class="mb-4">
+            <div class="text-subtitle-2 mb-1">Agente:</div>
+            <div class="font-weight-medium">
+              {{ selectedReposicionItem._personal?.nombres }}
+              {{ selectedReposicionItem._personal?.apellidos }}
+            </div>
+          </div>
+
+          <div v-if="loadingPermisosReposicion" class="d-flex justify-center py-4">
+            <v-progress-circular color="indigo" indeterminate />
+          </div>
+
+          <template v-else>
+            <v-select
+              v-model="reposicionForm.permiso_id"
+              clearable
+              density="comfortable"
+              item-title="descripcion"
+              item-value="id"
+              :items="permisosConSaldo"
+              label="Permiso a reponer"
+              no-data-text="No hay permisos con saldo pendiente"
+              prepend-inner-icon="mdi-clipboard-check-outline"
+              variant="outlined"
+            >
+              <template #item="{ props: itemProps, item }">
+                <v-list-item v-bind="itemProps">
+                  <template #append>
+                    <v-chip color="warning" size="x-small" variant="tonal">
+                      Saldo: {{ item.raw.saldo_pendiente }}h
+                    </v-chip>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-select>
+
+            <v-text-field
+              v-model.number="reposicionForm.horas_reposicion"
+              class="mt-3"
+              density="comfortable"
+              :disabled="!reposicionForm.permiso_id"
+              label="Horas a reponer hoy"
+              min="0.5"
+              prepend-inner-icon="mdi-clock-plus-outline"
+              step="0.5"
+              type="number"
+              variant="outlined"
+            />
+
+            <v-alert
+              v-if="reposicionForm.permiso_id && reposicionForm.horas_reposicion"
+              class="mt-2"
+              density="compact"
+              type="info"
+              variant="tonal"
+            >
+              Se registrarán {{ reposicionForm.horas_reposicion }}h de reposición para este día.
+            </v-alert>
+          </template>
+        </v-card-text>
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="cancelarReposicion">Cancelar</v-btn>
+          <v-btn
+            color="indigo"
+            :disabled="!reposicionForm.permiso_id || !reposicionForm.horas_reposicion"
+            variant="elevated"
+            @click="confirmarReposicion"
+          >
+            Guardar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- ==================== DIALOG CAMBIOS PENDIENTES ==================== -->
+    <v-dialog v-model="dialogConfirmRecarga" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-warning pa-4 d-flex align-center">
+          <v-icon color="white" start>mdi-alert-outline</v-icon>
+          <span class="text-white font-weight-bold">Cambios pendientes</span>
+        </v-card-title>
+        <v-card-text class="pa-5">
+          <p class="text-body-1 mb-1">
+            Tienes <strong>{{ cantidadCambios }}</strong> cambio(s) pendientes sin guardar.
+          </p>
+          <p class="text-body-2 text-medium-emphasis">
+            ¿Qué deseas hacer antes de continuar?
+          </p>
+        </v-card-text>
+        <v-card-actions class="pa-4 ga-2 flex-wrap">
+          <v-btn variant="text" @click="cancelarRecarga">Cancelar</v-btn>
+          <v-spacer />
+          <v-btn color="error" variant="tonal" @click="confirmarDescartarYRecargar">
+            <v-icon start>mdi-delete-outline</v-icon>
+            Descartar cambios
+          </v-btn>
+          <v-btn color="success" :loading="saving" variant="elevated" @click="confirmarGuardarYRecargar">
+            <v-icon start>mdi-content-save</v-icon>
+            Guardar y continuar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="snackbarColor === 'error' ? 8000 : 3000">
       <div style="white-space: pre-line;">{{ snackbarText }}</div>
@@ -961,17 +1232,17 @@
   import { es } from 'date-fns/locale'
   import { computed, onMounted, ref } from 'vue'
   import TransaccionesPersonal from '@/components/personal/TransaccionesPersonal.vue'
+  import operacionesService from '@/services/operacionesService'
+  import permisosService from '@/services/permisosService'
+  import personalService from '@/services/personalService'
+  import proyectoService from '@/services/proyectoService'
   import { useOperacionesStore } from '@/stores/operaciones'
-  import { useProyectosStore } from '@/stores/proyectos'
-  import { formatDPI } from '@/utils/dpiFormatter'
 
   const operacionesStore = useOperacionesStore()
-  const proyectosStore = useProyectosStore()
 
   // Estado general
   const loading = ref(false)
   const saving = ref(false)
-  const loadingProyectos = ref(false)
   const generandoDescansos = ref(false)
   const loadingMotivos = ref(false)
   const loadingCalendario = ref(false)
@@ -980,11 +1251,20 @@
   // Tabs
   const activeTab = ref('proyectos')
 
+  function localDateStr (date = new Date()) {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
   // Datos
-  const selectedDate = ref(new Date().toISOString().split('T')[0])
+  const selectedDate = ref(localDateStr())
   const buscarTexto = ref('')
-  const selectedProyecto = ref(null)
-  const proyectosFiltro = ref([])
+  const selectedProyecto = ref(null)   // objeto completo del proyecto seleccionado
+  const proyectosAutocomplete = ref([])
+  const loadingProyectosAutocomplete = ref(false)
+  let buscarProyectoTimer = null
   const selectedDepartamento = ref(null)
   const departamentosDisponibles = ref([])
   const paginationData = ref(null)
@@ -1000,8 +1280,19 @@
   const selectedAusenteItem = ref(null)
   const ausenciaForm = ref({
     motivo_ausencia_id: null,
+    tipo_inasistencia: null,
     descripcion: '',
+    permiso_id: null,
   })
+  const permisosDisponibles = ref([])
+  const loadingPermisos = ref(false)
+
+  // Dialog Reposición
+  const dialogReposicion = ref(false)
+  const selectedReposicionItem = ref(null)
+  const reposicionForm = ref({ permiso_id: null, horas_reposicion: null })
+  const permisosConSaldo = ref([])
+  const loadingPermisosReposicion = ref(false)
 
   // Dialog Reemplazo (Paso 2)
   const dialogReemplazo = ref(false)
@@ -1020,6 +1311,13 @@
   const calendarioFechaFin = ref(null)
   const calendarioAsignacionId = ref(null)
 
+  // Dar de baja
+  const dialogBaja = ref(false)
+  const selectedBajaItem = ref(null)
+  const bajaEstado = ref('')
+  const bajaMotivo = ref('')
+  const loadingBaja = ref(false)
+
   // Descansos
   const descansoFechaInicio = ref(null)
   const descansoFechaFin = ref(null)
@@ -1035,9 +1333,6 @@
     { title: 'Puesto', key: 'puesto', sortable: true },
     { title: 'Turno', key: 'turno', sortable: true },
     { title: 'Estado', key: 'estado', sortable: false, width: '220px' },
-    { title: 'Entrada', key: 'hora_entrada', sortable: false, width: '130px' },
-    { title: 'Salida', key: 'hora_salida', sortable: false, width: '130px' },
-    { title: 'Tardanza', key: 'tardanza', sortable: false, width: '140px' },
     { title: 'Ausencia / Reemplazo', key: 'ausencia_info', sortable: false, width: '180px' },
     { title: 'Observaciones', key: 'observaciones', sortable: false },
     { title: '', key: 'acciones', sortable: false, width: '60px' },
@@ -1046,9 +1341,6 @@
   const headersSinAsignar = [
     { title: 'Personal', key: 'personal', sortable: true, width: '200px' },
     { title: 'Estado', key: 'estado', sortable: false, width: '220px' },
-    { title: 'Entrada', key: 'hora_entrada', sortable: false, width: '130px' },
-    { title: 'Salida', key: 'hora_salida', sortable: false, width: '130px' },
-    { title: 'Tardanza', key: 'tardanza', sortable: false, width: '140px' },
     { title: 'Ausencia / Reemplazo', key: 'ausencia_info', sortable: false, width: '180px' },
     { title: 'Observaciones', key: 'observaciones', sortable: false },
     { title: '', key: 'acciones', sortable: false, width: '60px' },
@@ -1060,11 +1352,11 @@
   const minDate = computed(() => {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
-    return yesterday.toISOString().split('T')[0]
+    return localDateStr(yesterday)
   })
 
   const maxDate = computed(() => {
-    return new Date().toISOString().split('T')[0]
+    return localDateStr()
   })
 
   const hasChanges = computed(() => {
@@ -1075,6 +1367,17 @@
       g.personalMapped?.some(p => p.changed),
     )
     return proyectosChanged || sinAsignarChanged
+  })
+
+  const cantidadCambios = computed(() => {
+    let total = 0
+    for (const g of gruposProyectos.value) {
+      total += (g.personalMapped || []).filter(p => p.changed).length
+    }
+    for (const g of gruposDepartamentos.value) {
+      total += (g.personalMapped || []).filter(p => p.changed).length
+    }
+    return total
   })
 
   const motivoSeleccionado = computed(() => {
@@ -1100,18 +1403,44 @@
 
   // ==================== FUNCIONES ====================
 
-  async function loadProyectos () {
-    loadingProyectos.value = true
+  async function cargarProyectosIniciales () {
+    loadingProyectosAutocomplete.value = true
     try {
-      await proyectosStore.fetchAll(true)
-      proyectosFiltro.value = proyectosStore.items.filter(p =>
-        ['activo', 'planificacion'].includes(p.estado_proyecto),
-      )
-    } catch (error) {
-      console.error('Error loading proyectos:', error)
+      const response = await proyectoService.getAll({ per_page: 20, estado: 'activo' })
+      proyectosAutocomplete.value = response?.data?.data || response?.data || []
+    } catch {
+      // ignorar
     } finally {
-      loadingProyectos.value = false
+      loadingProyectosAutocomplete.value = false
     }
+  }
+
+  function onFocusProyecto () {
+    if (!proyectosAutocomplete.value.length) cargarProyectosIniciales()
+  }
+
+  function onBuscarProyecto (text) {
+    // Evitar re-buscar cuando el texto viene de una selección ya realizada
+    if (selectedProyecto.value && text === selectedProyecto.value.nombre_proyecto) return
+
+    clearTimeout(buscarProyectoTimer)
+
+    if (!text || text.trim().length === 0) {
+      cargarProyectosIniciales()
+      return
+    }
+
+    buscarProyectoTimer = setTimeout(async () => {
+      loadingProyectosAutocomplete.value = true
+      try {
+        const response = await proyectoService.getAll({ search: text.trim(), per_page: 20 })
+        proyectosAutocomplete.value = response?.data?.data || response?.data || []
+      } catch {
+        // ignorar
+      } finally {
+        loadingProyectosAutocomplete.value = false
+      }
+    }, 400)
   }
 
   async function loadMotivosAusencia () {
@@ -1136,38 +1465,36 @@
   }
 
   function onDateChange () {
-    gruposProyectos.value = []
-    gruposDepartamentos.value = []
-    paginationData.value = null
-    currentPage.value = 1
-    dataLoaded.value = false
-    selectedDepartamento.value = null
-
-    // Recargar departamentos disponibles si estamos en tab "sin_asignar"
-    if (activeTab.value === 'sin_asignar') {
-      loadDepartamentosDisponibles()
-    }
+    solicitarRecarga(() => {
+      gruposProyectos.value = []
+      gruposDepartamentos.value = []
+      paginationData.value = null
+      currentPage.value = 1
+      dataLoaded.value = false
+      selectedDepartamento.value = null
+      if (activeTab.value === 'sin_asignar') loadDepartamentosDisponibles()
+      cargarAsistencia()
+    })
   }
 
   function onTabChange () {
-    gruposProyectos.value = []
-    gruposDepartamentos.value = []
-    paginationData.value = null
-    currentPage.value = 1
-    dataLoaded.value = false
-    selectedDepartamento.value = null
-
-    // Cargar departamentos disponibles si estamos en tab "sin_asignar"
-    if (activeTab.value === 'sin_asignar') {
-      loadDepartamentosDisponibles()
-    }
-
-    cargarAsistencia()
+    solicitarRecarga(() => {
+      gruposProyectos.value = []
+      gruposDepartamentos.value = []
+      paginationData.value = null
+      currentPage.value = 1
+      dataLoaded.value = false
+      selectedDepartamento.value = null
+      if (activeTab.value === 'sin_asignar') loadDepartamentosDisponibles()
+      cargarAsistencia()
+    })
   }
 
   function onPageChange (page) {
-    currentPage.value = page
-    cargarAsistencia()
+    solicitarRecarga(() => {
+      currentPage.value = page
+      cargarAsistencia()
+    })
   }
 
   function onDepartamentoChange () {
@@ -1186,8 +1513,11 @@
       _turno: item.turno,
       _puesto: item.puesto,
       _asignacionId: item.asignacion_id,
+      _personalId: item.personal?.id || null,
       // Estado editable
+      asistenciaId: asistencia?.id || null,
       estadoLocal: determinarEstado(asistencia),
+      estadoOriginal: determinarEstado(asistencia),
       horaEntradaLocal: asistencia?.hora_entrada || '',
       horaSalidaLocal: asistencia?.hora_salida || '',
       llegoTardeLocal: asistencia?.llego_tarde || false,
@@ -1196,9 +1526,48 @@
       reemplazoLocal: asistencia?.reemplazo || asistencia?.personal_reemplazo || null,
       motivoAusenciaLocal: asistencia?.motivo_ausencia || null,
       tipoAusenciaLocal: asistencia?.tipo_ausencia || null,
+      tipoInasistenciaLocal: asistencia?.tipo_inasistencia || null,
       descripcionAusenciaLocal: asistencia?.descripcion_ausencia || '',
+      permisoIdLocal: asistencia?.permiso_ausencia_id || null,
       sinReemplazo: asistencia?.es_ausente && !asistencia?.fue_reemplazado,
       descansoAutomatico: asistencia?.descanso_automatico || false,
+      permisoReposicionIdLocal: asistencia?.permiso_reposicion?.id || asistencia?.permiso_reposicion_id || null,
+      permisoReposicionLocal: asistencia?.permiso_reposicion || null,
+      horasReposicionLocal: asistencia?.horas_reposicion || null,
+      changed: false,
+    }
+  }
+
+  // Mapea un item del CASO 2 (proyecto_id específico): { asignacion: {...}, asistencia: {...} }
+  function mapPersonalItemCaso2 (item) {
+    const asignacion = item.asignacion || {}
+    const asistencia = item.asistencia || null
+    return {
+      ...item,
+      _personal: asignacion.personal,
+      _turno: asignacion.turno,
+      _puesto: asignacion.puesto,
+      _asignacionId: asignacion.id,
+      _personalId: asignacion.personal?.id || null,
+      asistenciaId: asistencia?.id || null,
+      estadoLocal: determinarEstado(asistencia),
+      estadoOriginal: determinarEstado(asistencia),
+      horaEntradaLocal: asistencia?.hora_entrada || '',
+      horaSalidaLocal: asistencia?.hora_salida || '',
+      llegoTardeLocal: asistencia?.llego_tarde || false,
+      minutosRetrasoLocal: asistencia?.minutos_retraso || 0,
+      observacionesLocal: asistencia?.observaciones || '',
+      reemplazoLocal: asistencia?.reemplazo || asistencia?.personal_reemplazo || null,
+      motivoAusenciaLocal: asistencia?.motivo_ausencia || null,
+      tipoAusenciaLocal: asistencia?.tipo_ausencia || null,
+      tipoInasistenciaLocal: asistencia?.tipo_inasistencia || null,
+      descripcionAusenciaLocal: asistencia?.descripcion_ausencia || '',
+      permisoIdLocal: asistencia?.permiso_ausencia_id || null,
+      sinReemplazo: asistencia?.es_ausente && !asistencia?.fue_reemplazado,
+      descansoAutomatico: asistencia?.descanso_automatico || false,
+      permisoReposicionIdLocal: asistencia?.permiso_reposicion?.id || asistencia?.permiso_reposicion_id || null,
+      permisoReposicionLocal: asistencia?.permiso_reposicion || null,
+      horasReposicionLocal: asistencia?.horas_reposicion || null,
       changed: false,
     }
   }
@@ -1213,7 +1582,9 @@
       _puesto: null,
       _asignacionId: null,
       _personalId: persona.id,
+      asistenciaId: asistencia?.id || null,
       estadoLocal: determinarEstado(asistencia),
+      estadoOriginal: determinarEstado(asistencia),
       horaEntradaLocal: asistencia?.hora_entrada || '',
       horaSalidaLocal: asistencia?.hora_salida || '',
       llegoTardeLocal: asistencia?.llego_tarde || false,
@@ -1222,9 +1593,14 @@
       reemplazoLocal: asistencia?.reemplazo || asistencia?.personal_reemplazo || null,
       motivoAusenciaLocal: asistencia?.motivo_ausencia || null,
       tipoAusenciaLocal: asistencia?.tipo_ausencia || null,
+      tipoInasistenciaLocal: asistencia?.tipo_inasistencia || null,
       descripcionAusenciaLocal: asistencia?.descripcion_ausencia || '',
+      permisoIdLocal: asistencia?.permiso_ausencia_id || null,
       sinReemplazo: asistencia?.es_ausente && !asistencia?.fue_reemplazado,
       descansoAutomatico: asistencia?.descanso_automatico || false,
+      permisoReposicionIdLocal: asistencia?.permiso_reposicion?.id || asistencia?.permiso_reposicion_id || null,
+      permisoReposicionLocal: asistencia?.permiso_reposicion || null,
+      horasReposicionLocal: asistencia?.horas_reposicion || null,
       changed: false,
     }
   }
@@ -1272,24 +1648,40 @@
         metaSinAsignar.value = response.meta || {}
       } else {
         // Tab proyectos
+        const proyectoId = selectedProyecto.value?.id || null
         const params = {
-          page: currentPage.value,
-          per_page: 10,
           ...(buscarTexto.value ? { buscar: buscarTexto.value } : {}),
-          ...(selectedProyecto.value ? { proyecto_id: selectedProyecto.value } : {}),
+          ...(proyectoId ? { proyecto_id: proyectoId } : {}),
+        }
+
+        if (!proyectoId) {
+          params.page = currentPage.value
+          params.per_page = 10
         }
 
         const response = await operacionesStore.fetchAsistenciaPorFecha(selectedDate.value, params)
 
-        paginationData.value = response.pagination || null
-
-        // Mapear cada grupo de proyecto con su personal editable
-        gruposProyectos.value = (response.items || []).map(grupo => ({
-          ...grupo,
-          personalMapped: (grupo.personal || []).map(mapPersonalItem),
-        }))
+        if (proyectoId) {
+          // CASO 2: respuesta plana [ { asignacion, asistencia } ] — envolver en un único grupo
+          gruposProyectos.value = [{
+            proyecto: selectedProyecto.value
+              ? { id: selectedProyecto.value.id, nombre: selectedProyecto.value.nombre_proyecto, correlativo: selectedProyecto.value.correlativo }
+              : { id: response.meta?.proyecto_id, nombre: 'Proyecto' },
+            resumen: null,
+            personalMapped: (response.items || []).map(mapPersonalItemCaso2),
+          }]
+          paginationData.value = null
+        } else {
+          // CASO 1: respuesta agrupada por proyecto con paginación
+          paginationData.value = response.pagination || null
+          gruposProyectos.value = (response.items || []).map(grupo => ({
+            ...grupo,
+            personalMapped: (grupo.personal || []).map(mapPersonalItem),
+          }))
+        }
       }
 
+      aplicarPendientes()
       dataLoaded.value = true
     } catch (error) {
       console.error('Error cargando asistencia:', error)
@@ -1299,8 +1691,122 @@
     }
   }
 
+  // ==================== PERSISTENCIA DE CAMBIOS PENDIENTES ====================
+
+  function itemKey (item) {
+    return item._asignacionId ? `a_${item._asignacionId}` : `p_${item._personalId || item.id}`
+  }
+
+  function storageKey (fecha) {
+    return `asistencia_pending_${fecha}`
+  }
+
+  function extractarEstado (item) {
+    return {
+      estadoLocal: item.estadoLocal,
+      horaEntradaLocal: item.horaEntradaLocal,
+      horaSalidaLocal: item.horaSalidaLocal,
+      llegoTardeLocal: item.llegoTardeLocal,
+      minutosRetrasoLocal: item.minutosRetrasoLocal,
+      observacionesLocal: item.observacionesLocal,
+      reemplazoLocal: item.reemplazoLocal,
+      motivoAusenciaLocal: item.motivoAusenciaLocal,
+      tipoAusenciaLocal: item.tipoAusenciaLocal,
+      tipoInasistenciaLocal: item.tipoInasistenciaLocal,
+      descripcionAusenciaLocal: item.descripcionAusenciaLocal,
+      permisoIdLocal: item.permisoIdLocal,
+      sinReemplazo: item.sinReemplazo,
+      permisoReposicionIdLocal: item.permisoReposicionIdLocal,
+      permisoReposicionLocal: item.permisoReposicionLocal,
+      horasReposicionLocal: item.horasReposicionLocal,
+    }
+  }
+
+  function persistirPendientes () {
+    if (!selectedDate.value) return
+    const pendientes = {}
+    for (const g of gruposProyectos.value) {
+      for (const item of (g.personalMapped || [])) {
+        if (item.changed) pendientes[itemKey(item)] = extractarEstado(item)
+      }
+    }
+    for (const g of gruposDepartamentos.value) {
+      for (const item of (g.personalMapped || [])) {
+        if (item.changed) pendientes[itemKey(item)] = extractarEstado(item)
+      }
+    }
+    if (Object.keys(pendientes).length > 0) {
+      sessionStorage.setItem(storageKey(selectedDate.value), JSON.stringify(pendientes))
+    } else {
+      sessionStorage.removeItem(storageKey(selectedDate.value))
+    }
+  }
+
+  function aplicarPendientes () {
+    if (!selectedDate.value) return
+    const raw = sessionStorage.getItem(storageKey(selectedDate.value))
+    if (!raw) return
+    try {
+      const pendientes = JSON.parse(raw)
+      for (const g of gruposProyectos.value) {
+        for (const item of (g.personalMapped || [])) {
+          const estado = pendientes[itemKey(item)]
+          if (estado) Object.assign(item, estado, { changed: true })
+        }
+      }
+      for (const g of gruposDepartamentos.value) {
+        for (const item of (g.personalMapped || [])) {
+          const estado = pendientes[itemKey(item)]
+          if (estado) Object.assign(item, estado, { changed: true })
+        }
+      }
+    } catch { /* ignorar errores de parseo */ }
+  }
+
+  function limpiarPendientes () {
+    if (!selectedDate.value) return
+    sessionStorage.removeItem(storageKey(selectedDate.value))
+  }
+
+  // ==================== FIN PERSISTENCIA ====================
+
+  // ==================== CONFIRMACIÓN DE RECARGA ====================
+
+  const dialogConfirmRecarga = ref(false)
+  const pendingReloadAction = ref(null)
+
+  function solicitarRecarga (action) {
+    if (!hasChanges.value) {
+      action()
+      return
+    }
+    pendingReloadAction.value = action
+    dialogConfirmRecarga.value = true
+  }
+
+  async function confirmarGuardarYRecargar () {
+    dialogConfirmRecarga.value = false
+    const action = pendingReloadAction.value
+    pendingReloadAction.value = null
+    const saved = await guardarAsistencia({ skipReload: true })
+    if (saved && action) action()
+  }
+
+  function confirmarDescartarYRecargar () {
+    dialogConfirmRecarga.value = false
+    limpiarPendientes()
+    const action = pendingReloadAction.value
+    pendingReloadAction.value = null
+    if (action) action()
+  }
+
+  function cancelarRecarga () {
+    dialogConfirmRecarga.value = false
+    pendingReloadAction.value = null
+  }
+
   function determinarEstado (asistencia) {
-    if (!asistencia || asistencia.estado === 'sin_registro') return 'presente'
+    if (!asistencia || asistencia.estado === 'sin_registro') return null
     if (asistencia.es_descanso || asistencia.estado === 'descanso') return 'descanso'
     if (asistencia.es_ausente || asistencia.estado === 'ausente_justificado' || asistencia.estado === 'ausente_injustificado') return 'ausente'
     if (asistencia.fue_reemplazado || asistencia.estado === 'reemplazado') return 'ausente'
@@ -1318,8 +1824,10 @@
       item.reemplazoLocal = null
       item.motivoAusenciaLocal = null
       item.tipoAusenciaLocal = null
+      item.tipoInasistenciaLocal = null
       item.descripcionAusenciaLocal = ''
       item.sinReemplazo = false
+      persistirPendientes()
     } else if (item.estadoLocal === 'ausente') {
       item.horaEntradaLocal = ''
       item.horaSalidaLocal = ''
@@ -1330,46 +1838,78 @@
       item.reemplazoLocal = null
       item.motivoAusenciaLocal = null
       item.tipoAusenciaLocal = null
+      item.tipoInasistenciaLocal = null
       item.descripcionAusenciaLocal = ''
+      item.permisoIdLocal = null
       item.sinReemplazo = false
+      persistirPendientes()
     }
   }
 
   function markChanged (item) {
     item.changed = true
+    persistirPendientes()
   }
 
   // ==================== FLUJO AUSENCIA ====================
 
-  function abrirAusenciaDialog (item) {
+  async function abrirAusenciaDialog (item) {
     selectedAusenteItem.value = item
     ausenciaForm.value = {
       motivo_ausencia_id: item.motivoAusenciaLocal?.id || null,
+      tipo_inasistencia: item.tipoInasistenciaLocal || null,
       descripcion: item.descripcionAusenciaLocal || '',
+      permiso_id: item.permisoIdLocal || null,
     }
-    dialogAusencia.value = true
+    permisosDisponibles.value = []
+    dialogAusencia.value = true  // abrir primero para mostrar el spinner dentro
+
+    loadingPermisos.value = true
+    try {
+      if (item.asistenciaId) {
+        // Asistencia ya existe: usar endpoint específico (filtra por fecha)
+        const response = await operacionesService.getPermisosDisponibles(item.asistenciaId)
+        permisosDisponibles.value = response.data || []
+      } else {
+        // Registro nuevo: consultar permisos con saldo del personal
+        const personalId = item._personal?.id || item._personalId
+        if (personalId) {
+          const response = await permisosService.getPermisos(personalId, { con_saldo: 1 })
+          permisosDisponibles.value = response.data || []
+        }
+      }
+    } catch {
+      // Sin permisos disponibles, continuar normal
+    } finally {
+      loadingPermisos.value = false
+    }
   }
 
   function cancelarAusencia () {
     if (selectedAusenteItem.value && !selectedAusenteItem.value.motivoAusenciaLocal) {
-      selectedAusenteItem.value.estadoLocal = 'presente'
+      selectedAusenteItem.value.estadoLocal = selectedAusenteItem.value.estadoOriginal ?? null
       selectedAusenteItem.value.changed = false
     }
     dialogAusencia.value = false
     selectedAusenteItem.value = null
-    ausenciaForm.value = { motivo_ausencia_id: null, descripcion: '' }
+    permisosDisponibles.value = []
+    ausenciaForm.value = { motivo_ausencia_id: null, tipo_inasistencia: null, descripcion: '', permiso_id: null }
   }
 
   async function confirmarAusenciaPaso1 () {
-    if (!ausenciaForm.value.motivo_ausencia_id || !selectedAusenteItem.value) return
+    if (!selectedAusenteItem.value) return
 
-    const motivo = motivoSeleccionado.value
-    selectedAusenteItem.value.motivoAusenciaLocal = motivo
-    selectedAusenteItem.value.tipoAusenciaLocal = motivo.es_justificada ? 'justificada' : 'injustificada'
+    const conPermiso = !!ausenciaForm.value.permiso_id
+    selectedAusenteItem.value.motivoAusenciaLocal = null
+    selectedAusenteItem.value.tipoAusenciaLocal = conPermiso ? 'justificada' : 'injustificada'
+    selectedAusenteItem.value.tipoInasistenciaLocal = ausenciaForm.value.tipo_inasistencia
     selectedAusenteItem.value.descripcionAusenciaLocal = ausenciaForm.value.descripcion
+    selectedAusenteItem.value.permisoIdLocal = ausenciaForm.value.permiso_id || null
     selectedAusenteItem.value.changed = true
+    persistirPendientes()
 
     dialogAusencia.value = false
+    permisosDisponibles.value = []
 
     filtroReemplazo.value = ''
     selectedReemplazoPersona.value = selectedAusenteItem.value.reemplazoLocal || null
@@ -1399,6 +1939,7 @@
       selectedAusenteItem.value.changed = true
     }
     cerrarFlujoAusencia()
+    persistirPendientes()
   }
 
   function confirmarConReemplazo () {
@@ -1408,41 +1949,88 @@
       selectedAusenteItem.value.changed = true
     }
     cerrarFlujoAusencia()
+    persistirPendientes()
   }
 
   function cerrarFlujoAusencia () {
     dialogReemplazo.value = false
     selectedAusenteItem.value = null
     selectedReemplazoPersona.value = null
-    ausenciaForm.value = { motivo_ausencia_id: null, descripcion: '' }
+    permisosDisponibles.value = []
+    ausenciaForm.value = { motivo_ausencia_id: null, tipo_inasistencia: null, descripcion: '', permiso_id: null }
+  }
+
+  // ==================== FLUJO REPOSICIÓN ====================
+
+  async function abrirReposicionDialog (item) {
+    selectedReposicionItem.value = item
+    reposicionForm.value = {
+      permiso_id: item.permisoReposicionIdLocal || null,
+      horas_reposicion: item.horasReposicionLocal || null,
+    }
+    permisosConSaldo.value = []
+    loadingPermisosReposicion.value = true
+    dialogReposicion.value = true
+    try {
+      const personalId = item._personal?.id || item._personalId
+      if (personalId) {
+        const response = await permisosService.getPermisos(personalId, { con_saldo: 1, tipo: 'horas' })
+        permisosConSaldo.value = response.data || []
+      }
+    } catch {
+      // Sin permisos, se muestra lista vacía
+    } finally {
+      loadingPermisosReposicion.value = false
+    }
+  }
+
+  function confirmarReposicion () {
+    if (!selectedReposicionItem.value) return
+    selectedReposicionItem.value.permisoReposicionIdLocal = reposicionForm.value.permiso_id || null
+    selectedReposicionItem.value.horasReposicionLocal = reposicionForm.value.horas_reposicion || null
+    selectedReposicionItem.value.changed = true
+    persistirPendientes()
+    dialogReposicion.value = false
+    selectedReposicionItem.value = null
+    reposicionForm.value = { permiso_id: null, horas_reposicion: null }
+  }
+
+  function cancelarReposicion () {
+    dialogReposicion.value = false
+    selectedReposicionItem.value = null
+    reposicionForm.value = { permiso_id: null, horas_reposicion: null }
   }
 
   // ==================== GUARDAR ====================
 
-  async function guardarAsistencia () {
-    // Recoger todos los items con cambios de ambos tabs
-    const itemsToSave = []
+  async function guardarAsistencia ({ skipReload = false } = {}) {
+    // Recolectar items con cambios del view actual
+    const changedItems = []
+    const allItems = []
     for (const grupo of gruposProyectos.value) {
       for (const item of (grupo.personalMapped || [])) {
-        if (item.changed) {
-          itemsToSave.push(item)
-        }
+        allItems.push(item)
+        if (item.changed) changedItems.push(item)
       }
     }
     for (const grupo of gruposDepartamentos.value) {
       for (const item of (grupo.personalMapped || [])) {
-        if (item.changed) {
-          itemsToSave.push(item)
-        }
+        allItems.push(item)
+        if (item.changed) changedItems.push(item)
       }
     }
 
+    const itemsToSave = changedItems.length > 0
+      ? changedItems.filter(i => i.estadoLocal !== null)
+      : allItems.filter(i => i.estadoLocal !== null)
+
     if (itemsToSave.length === 0) {
-      showSnackbar('No hay cambios para guardar', 'info')
+      showSnackbar('No hay personal cargado para guardar', 'info')
       return
     }
 
     saving.value = true
+    let saved = false
     try {
       const asistencias = itemsToSave.map(item => {
         const registro = {
@@ -1463,6 +2051,8 @@
           registro.motivo_ausencia_id = item.motivoAusenciaLocal?.id || null
           registro.descripcion_ausencia = item.descripcionAusenciaLocal || null
           registro.tipo_ausencia = item.tipoAusenciaLocal
+          registro.tipo_inasistencia = item.tipoInasistenciaLocal
+          if (item.permisoIdLocal) registro.permiso_id = item.permisoIdLocal
 
           if (item.reemplazoLocal) {
             registro.fue_reemplazado = true
@@ -1473,6 +2063,10 @@
           registro.hora_salida = item.horaSalidaLocal || null
           registro.llego_tarde = item.llegoTardeLocal
           registro.minutos_retraso = item.llegoTardeLocal ? item.minutosRetrasoLocal : 0
+          if (item.permisoReposicionIdLocal) {
+            registro.permiso_reposicion_id = item.permisoReposicionIdLocal
+            registro.horas_reposicion = item.horasReposicionLocal || 0
+          }
         }
 
         registro.observaciones = item.observacionesLocal || null
@@ -1482,12 +2076,14 @@
 
       await operacionesStore.registrarAsistencia(asistencias)
 
+      limpiarPendientes()
       for (const item of itemsToSave) {
         item.changed = false
       }
 
       showSnackbar('Asistencia guardada correctamente', 'success')
-      await cargarAsistencia()
+      saved = true
+      if (!skipReload) await cargarAsistencia()
     } catch (error) {
       console.error('Error guardando asistencia:', error)
       const mensajes = formatValidationErrors(error.apiErrors, itemsToSave)
@@ -1499,6 +2095,7 @@
     } finally {
       saving.value = false
     }
+    return saved
   }
 
   function formatValidationErrors (errors, items) {
@@ -1589,6 +2186,13 @@
     return `${personal.nombres?.charAt(0) || ''}${personal.apellidos?.charAt(0) || ''}`
   }
 
+  function formatDPI (dpi) {
+    if (!dpi) return ''
+    const str = String(dpi).replace(/\D/g, '')
+    if (str.length === 13) return `${str.slice(0, 4)} ${str.slice(4, 9)} ${str.slice(9)}`
+    return str
+  }
+
   function formatDateDisplay (date) {
     if (!date) return ''
     return format(new Date(date + 'T12:00:00'), 'EEEE d \'de\' MMMM, yyyy', { locale: es })
@@ -1611,11 +2215,50 @@
     showSnackbar('Transaccion registrada exitosamente', 'success')
   }
 
+  function abrirBajaDialog (item) {
+    selectedBajaItem.value = item
+    bajaEstado.value = ''
+    bajaMotivo.value = ''
+    dialogBaja.value = true
+  }
+
+  function cerrarBajaDialog () {
+    dialogBaja.value = false
+    selectedBajaItem.value = null
+  }
+
+  async function confirmarBaja () {
+    if (!bajaEstado.value || !bajaMotivo.value?.trim()) return
+    loadingBaja.value = true
+    try {
+      await personalService.darBaja(selectedBajaItem.value._personalId, {
+        estado: bajaEstado.value,
+        motivo: bajaMotivo.value.trim(),
+      })
+      const personalId = selectedBajaItem.value._personalId
+      for (const grupo of gruposProyectos.value) {
+        grupo.personalMapped = grupo.personalMapped.filter(p => p._personalId !== personalId)
+      }
+      for (const grupo of gruposDepartamentos.value) {
+        grupo.personalMapped = grupo.personalMapped.filter(p => p._personalId !== personalId)
+      }
+      cerrarBajaDialog()
+      showSnackbar('Personal dado de baja correctamente.', 'success')
+    } catch (error) {
+      const backendErrors = error.response?.data?.errors
+      const msg = backendErrors
+        ? Object.values(backendErrors).flat()[0]
+        : error.response?.data?.message || 'Error al dar de baja'
+      showSnackbar(msg, 'error')
+    } finally {
+      loadingBaja.value = false
+    }
+  }
+
   onMounted(async () => {
-    await Promise.all([
-      loadProyectos(),
-      loadMotivosAusencia(),
-    ])
+    // cargarProyectosIniciales corre en background (no bloquea la carga de asistencia)
+    cargarProyectosIniciales()
+    await loadMotivosAusencia()
 
     const today = new Date()
     descansoFechaInicio.value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
