@@ -95,6 +95,16 @@ export const userService = {
     const response = await api.get(`/roles/${id}`)
     return response.data
   },
+
+  async getMenuPermissions () {
+    const response = await api.get('/roles/permissions/menu')
+    return response.data
+  },
+
+  async syncRolePermissions (roleId, vistas) {
+    const response = await api.put(`/roles/${roleId}/permissions`, { vistas })
+    return response.data
+  },
 }
 
 export default userService

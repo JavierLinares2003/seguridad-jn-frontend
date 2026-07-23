@@ -76,7 +76,7 @@
                     </v-col>
 
                     <!-- Empresa Cliente -->
-                    <v-col cols="12">
+                    <v-col cols="12" md="8">
                       <v-text-field
                         v-model="empresa_cliente"
                         color="primary"
@@ -86,6 +86,30 @@
                         prepend-inner-icon="mdi-domain"
                         rounded="lg"
                         variant="outlined"
+                      />
+                    </v-col>
+
+                    <!-- Teléfono del proyecto -->
+                    <v-col cols="12" md="4">
+                      <v-text-field
+                        v-model="telefono"
+                        color="primary"
+                        density="comfortable"
+                        :error-messages="errors.telefono"
+                        label="Teléfono"
+                        prepend-inner-icon="mdi-phone"
+                        rounded="lg"
+                        variant="outlined"
+                      />
+                    </v-col>
+
+                    <v-col cols="12">
+                      <v-checkbox
+                        v-model="telefono_validado"
+                        color="primary"
+                        density="comfortable"
+                        hide-details
+                        label="Teléfono validado"
                       />
                     </v-col>
 
@@ -314,6 +338,8 @@
     tipo_proyecto_id: yup.number().required('El tipo de proyecto es requerido'),
     nombre_proyecto: yup.string().required('El nombre del proyecto es requerido').max(255),
     empresa_cliente: yup.string().required('La empresa cliente es requerida').max(200),
+    telefono: yup.string().nullable().max(50),
+    telefono_validado: yup.boolean().nullable(),
     fecha_inicio_estimada: yup.date().nullable(),
     fecha_fin_estimada: yup.date().nullable(),
     fecha_inicio_real: yup.date().nullable(),
@@ -346,6 +372,7 @@
     validationSchema,
     initialValues: {
       estado_proyecto: 'planificacion',
+      telefono_validado: false,
     },
   })
 
@@ -353,6 +380,8 @@
   const { value: tipo_proyecto_id } = useField('tipo_proyecto_id')
   const { value: nombre_proyecto } = useField('nombre_proyecto')
   const { value: empresa_cliente } = useField('empresa_cliente')
+  const { value: telefono } = useField('telefono')
+  const { value: telefono_validado } = useField('telefono_validado')
   const { value: descripcion } = useField('descripcion')
   const { value: fecha_inicio_estimada } = useField('fecha_inicio_estimada')
   const { value: fecha_fin_estimada } = useField('fecha_fin_estimada')

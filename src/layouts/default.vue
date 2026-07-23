@@ -202,7 +202,7 @@
         />
 
         <v-list-item
-          v-if="authStore.hasPermission('view-roles')"
+          v-if="authStore.hasPermission('manage-roles')"
           class="mb-1"
           color="primary"
           prepend-icon="mdi-shield-lock-outline"
@@ -222,7 +222,7 @@
         />
 
         <v-list-item
-          v-if="authStore.hasPermission('manage-config')"
+          v-if="authStore.hasPermission('manage-vacaciones')"
           class="mb-1"
           color="primary"
           prepend-icon="mdi-umbrella-beach"

@@ -120,7 +120,13 @@
         <!-- Nombre -->
         <template #item.nombre_proyecto="{ item }">
           <div class="py-2">
-            <p class="text-body-1 font-weight-medium mb-0">{{ item.nombre_proyecto }}</p>
+            <p class="text-body-1 font-weight-medium mb-0">
+              {{ item.nombre_proyecto }}
+              <span v-if="item.telefono" class="text-caption text-medium-emphasis ml-2">
+                <v-icon class="mr-1" icon="mdi-phone" size="12" />
+                {{ item.telefono }}
+              </span>
+            </p>
             <p class="text-caption text-medium-emphasis mb-0">
               <v-icon class="mr-1" icon="mdi-domain" size="12" />
               {{ item.empresa_cliente }}

@@ -42,6 +42,10 @@
       >
         <v-card-title class="text-white text-h4 font-weight-bold ml-4 mb-2">
           {{ proyecto.nombre_proyecto }}
+          <span v-if="proyecto.telefono" class="text-h6 font-weight-regular ml-2">
+            <v-icon color="white" size="20">mdi-phone</v-icon>
+            {{ proyecto.telefono }}
+          </span>
         </v-card-title>
         <v-card-subtitle class="text-white ml-4 mb-4 text-h6">
           {{ proyecto.correlativo }} - {{ proyecto.empresa_cliente }}

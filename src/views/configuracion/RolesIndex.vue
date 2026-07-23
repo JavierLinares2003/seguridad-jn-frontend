@@ -9,7 +9,9 @@
           </v-avatar>
           <div>
             <h1 class="text-h4 font-weight-bold">Roles y Permisos</h1>
-            <p class="text-body-2 text-medium-emphasis mb-0">Visualiza los roles del sistema y sus permisos</p>
+            <p class="text-body-2 text-medium-emphasis mb-0">
+              Visualiza los roles del sistema y administra pantallas/vistas por rol
+            </p>
           </div>
         </div>
       </v-col>
@@ -59,13 +61,32 @@
                   </p>
                 </div>
               </div>
-              <v-btn
-                color="primary"
-                icon="mdi-eye-outline"
-                size="small"
-                variant="tonal"
-                @click="openRoleDetail(role)"
-              />
+              <div class="d-flex ga-1">
+                <v-tooltip location="top" text="Ver detalle">
+                  <template #activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      color="primary"
+                      icon="mdi-eye-outline"
+                      size="small"
+                      variant="tonal"
+                      @click="openRoleDetail(role)"
+                    />
+                  </template>
+                </v-tooltip>
+                <v-tooltip v-if="role.name !== 'admin'" location="top" text="Editar vistas">
+                  <template #activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      color="secondary"
+                      icon="mdi-view-dashboard-edit"
+                      size="small"
+                      variant="tonal"
+                      @click="openEditVistas(role)"
+                    />
+                  </template>
+                </v-tooltip>
+              </div>
             </div>
           </v-card-title>
 
@@ -89,6 +110,20 @@
             <p class="text-caption text-medium-emphasis mt-2 mb-0">
               {{ getPermissionPercentage(role.permissions_count) }}% del total de permisos
             </p>
+
+            <v-btn
+              v-if="role.name !== 'admin'"
+              class="mt-4 text-none"
+              block
+              color="secondary"
+              rounded="lg"
+              size="small"
+              variant="tonal"
+              @click="openEditVistas(role)"
+            >
+              <v-icon start>mdi-view-dashboard-edit</v-icon>
+              Editar vistas
+            </v-btn>
           </v-card-text>
         </v-card>
       </v-col>
@@ -192,6 +227,86 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog Editar Vistas -->
+    <v-dialog v-model="vistasDialog" max-width="560" persistent scrollable>
+      <v-card rounded="xl">
+        <v-card-title class="pa-5 pb-2">
+          <div class="d-flex align-center">
+            <v-avatar class="mr-3" color="secondary" size="42">
+              <v-icon icon="mdi-view-dashboard-edit" size="24" />
+            </v-avatar>
+            <div>
+              <h3 class="text-h6 font-weight-bold">Editar vistas</h3>
+              <p class="text-caption text-medium-emphasis mb-0 text-capitalize">
+                {{ editingVistasRole?.name }}
+              </p>
+            </div>
+          </div>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-5" style="max-height: 420px;">
+          <v-alert
+            class="mb-4"
+            density="compact"
+            rounded="lg"
+            type="info"
+            variant="tonal"
+          >
+            Selecciona las pantallas/vistas del menú que este rol puede ver
+          </v-alert>
+
+          <div v-if="loadingMenuPermissions" class="text-center py-6">
+            <v-progress-circular color="primary" indeterminate />
+          </div>
+
+          <template v-else>
+            <v-checkbox
+              v-for="vista in menuPermissions"
+              :key="vista.key || vista.name || vista"
+              v-model="selectedVistas"
+              color="secondary"
+              density="comfortable"
+              hide-details
+              :label="vistaLabel(vista)"
+              :value="vistaValue(vista)"
+            />
+
+            <div v-if="menuPermissions.length === 0" class="text-center py-6">
+              <p class="text-body-2 text-medium-emphasis mb-0">No hay vistas disponibles</p>
+            </div>
+          </template>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            class="text-none"
+            color="grey-darken-1"
+            rounded="lg"
+            variant="tonal"
+            @click="vistasDialog = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            class="text-none font-weight-bold"
+            color="secondary"
+            :loading="savingVistas"
+            rounded="lg"
+            variant="flat"
+            @click="saveVistas"
+          >
+            <v-icon start>mdi-content-save-outline</v-icon>
+            Guardar vistas
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -213,6 +328,7 @@
 
 <script setup>
   import { computed, onMounted, reactive, ref } from 'vue'
+  import userService from '@/services/userService'
   import { useUsersStore } from '@/stores/users'
 
   const store = useUsersStore()
@@ -224,6 +340,14 @@
   const roleDetailDialog = ref(false)
   const selectedRole = ref(null)
   const rolePermissions = ref([])
+
+  // Dialog editar vistas
+  const vistasDialog = ref(false)
+  const editingVistasRole = ref(null)
+  const menuPermissions = ref([])
+  const selectedVistas = ref([])
+  const loadingMenuPermissions = ref(false)
+  const savingVistas = ref(false)
 
   // Snackbar
   const snackbar = reactive({
@@ -291,17 +415,86 @@
       .join(' ')
   }
 
+  function vistaValue(vista) {
+    if (typeof vista === 'string') return vista
+    return vista.permission || vista.key || vista.name || vista.vista || vista.id
+  }
+
+  function vistaLabel(vista) {
+    if (typeof vista === 'string') return formatPermission(vista)
+    return vista.label || vista.title || vista.name || formatPermission(vistaValue(vista))
+  }
+
+  function normalizeVistasList(raw) {
+    if (!raw) return []
+    if (!Array.isArray(raw)) return []
+    return raw.map(item => {
+      if (typeof item === 'string') return item
+      return item.permission || item.key || item.name || item.vista || item.id
+    }).filter(Boolean)
+  }
+
   // Abrir detalle de rol
   async function openRoleDetail(role) {
     selectedRole.value = role
     roleDetailDialog.value = true
 
     try {
-      const roleData = await store.fetchRoleById(role.id)
+      const response = await userService.getRoleById(role.id)
+      const roleData = response?.data ?? response
       rolePermissions.value = roleData?.permissions || []
     } catch {
       showSnackbar('Error al cargar permisos del rol', 'error')
       rolePermissions.value = []
+    }
+  }
+
+  async function openEditVistas(role) {
+    if (role.name === 'admin') return
+
+    editingVistasRole.value = role
+    selectedVistas.value = []
+    vistasDialog.value = true
+    loadingMenuPermissions.value = true
+
+    try {
+      const [menuResponse, roleResponse] = await Promise.all([
+        userService.getMenuPermissions(),
+        userService.getRoleById(role.id),
+      ])
+
+      const menuData = menuResponse?.data ?? menuResponse
+      menuPermissions.value = Array.isArray(menuData)
+        ? menuData
+        : (menuData?.data || [])
+
+      const roleData = roleResponse?.data ?? roleResponse
+      const current = roleData?.permissions
+        || role.permissions
+        || []
+      const menuKeys = menuPermissions.value.map(vistaValue)
+      selectedVistas.value = normalizeVistasList(current).filter(p => menuKeys.includes(p))
+    } catch {
+      showSnackbar('Error al cargar vistas del rol', 'error')
+      menuPermissions.value = []
+    } finally {
+      loadingMenuPermissions.value = false
+    }
+  }
+
+  async function saveVistas() {
+    if (!editingVistasRole.value) return
+
+    savingVistas.value = true
+    try {
+      await userService.syncRolePermissions(editingVistasRole.value.id, selectedVistas.value)
+      showSnackbar('Vistas actualizadas correctamente')
+      vistasDialog.value = false
+      await store.fetchRoles()
+    } catch (err) {
+      showSnackbar(err.apiMessage || 'Error al guardar vistas', 'error')
+    } finally {
+      savingVistas.value = false
     }
   }
 

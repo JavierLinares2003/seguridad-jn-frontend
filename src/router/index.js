@@ -158,7 +158,7 @@ const manualRoutes = [
     path: '/configuracion/roles',
     name: 'configuracion-roles',
     component: () => import('@/views/configuracion/RolesIndex.vue'),
-    meta: { requiresAuth: true, permissions: ['view-roles'] },
+    meta: { requiresAuth: true, permissions: ['manage-roles'] },
   },
   {
     path: '/configuracion/bitacora',
@@ -170,7 +170,7 @@ const manualRoutes = [
     path: '/configuracion/vacaciones',
     name: 'configuracion-vacaciones',
     component: () => import('@/views/configuracion/VacacionesConfigView.vue'),
-    meta: { requiresAuth: true, permissions: ['manage-config'] },
+    meta: { requiresAuth: true, permissions: ['manage-vacaciones'] },
   },
 ]
 
