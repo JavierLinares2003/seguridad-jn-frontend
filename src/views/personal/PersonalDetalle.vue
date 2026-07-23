@@ -11,99 +11,97 @@
     />
 
     <!-- Header Card -->
-    <v-card v-if="personal" class="mb-6" elevation="2" rounded="xl">
-      <v-card-text class="pa-0">
-        <!-- Banner superior -->
-        <v-sheet class="rounded-t-xl" color="primary" height="100" />
+    <v-card v-if="personal" class="mb-6 personal-header-card" elevation="2" rounded="xl">
+      <div class="personal-header-accent" />
+      <v-card-text class="pa-5 pa-md-6">
+        <div class="d-flex flex-column flex-md-row align-md-center justify-space-between ga-4">
+          <div class="d-flex align-center ga-4 min-w-0">
+            <v-avatar
+              class="personal-header-avatar flex-shrink-0"
+              color="primary"
+              size="88"
+              variant="tonal"
+            >
+              <v-img v-if="personal.foto_url" cover :src="personal.foto_url" />
+              <v-icon v-else color="primary" size="48">mdi-account</v-icon>
+            </v-avatar>
 
-        <div class="px-6 pb-6" style="margin-top: -50px;">
-          <v-row align="end">
-            <v-col cols="12" md="auto">
-              <v-avatar class="elevation-6 border-white" size="100" style="border: 4px solid white;">
-                <v-img v-if="personal.foto_url" cover :src="personal.foto_url" />
-                <v-icon v-else color="grey-lighten-1" size="56">mdi-account</v-icon>
-              </v-avatar>
-            </v-col>
-            <v-col class="pt-md-8" cols="12" md>
-              <div class="d-flex flex-column flex-md-row align-md-center justify-space-between">
-                <div>
-                  <h1 class="text-h4 font-weight-bold">
-                    {{ personal.nombres }} {{ personal.apellidos }}
-                  </h1>
-                  <div class="d-flex align-center flex-wrap ga-2 mt-2">
-                    <v-chip
-                      v-if="personal.departamento?.nombre"
-                      color="primary"
-                      label
-                      size="small"
-                      variant="tonal"
-                    >
-                      <v-icon size="14" start>mdi-domain</v-icon>
-                      {{ personal.departamento.nombre }}
-                    </v-chip>
-                    <v-chip
-                      class="font-weight-medium"
-                      :color="getEstadoColor(personal.estado)"
-                      label
-                      size="small"
-                      variant="flat"
-                    >
-                      <v-icon size="14" start>{{ getEstadoIcon(personal.estado) }}</v-icon>
-                      {{ personal.estado }}
-                    </v-chip>
-                  </div>
-                </div>
-                <div class="mt-4 mt-md-0 d-flex ga-2">
-
-                  <v-btn
-                    class="text-none"
-                    color="grey-darken-1"
-                    rounded="lg"
-                    variant="tonal"
-                    @click="goBack"
-                  >
-                    <v-icon start>mdi-arrow-left</v-icon>
-                    Volver
-                  </v-btn>
-                  <v-btn
-                    class="text-none font-weight-bold"
-                    color="secondary"
-                    elevation="2"
-                    :loading="downloadingCV"
-                    rounded="lg"
-                    variant="tonal"
-                    @click="downloadCV"
-                  >
-                    <v-icon start>mdi-file-document-outline</v-icon>
-                    CV
-                  </v-btn>
-                  <v-btn
-                    class="text-none font-weight-bold"
-                    color="info"
-                    elevation="2"
-                    :loading="downloadingExpediente"
-                    rounded="lg"
-                    variant="tonal"
-                    @click="downloadExpediente"
-                  >
-                    <v-icon start>mdi-folder-account-outline</v-icon>
-                    Expediente
-                  </v-btn>
-                  <v-btn
-                    v-can="'edit-personal'"
-                    class="text-none font-weight-bold"
-                    color="primary"
-                    elevation="2"
-                    rounded="lg"
-                    :to="{ name: 'personal-edit', params: { id: personal.id } }"
-                  >
-                    <v-icon start>mdi-pencil-outline</v-icon>
-                    Editar
-                  </v-btn>
-                </div>
+            <div class="min-w-0">
+              <h1 class="text-h5 text-md-h4 font-weight-bold text-truncate">
+                {{ personal.nombres }} {{ personal.apellidos }}
+              </h1>
+              <p v-if="personal.puesto" class="text-body-2 text-medium-emphasis mb-2 mt-1">
+                {{ personal.puesto }}
+              </p>
+              <div class="d-flex align-center flex-wrap ga-2" :class="{ 'mt-2': !personal.puesto }">
+                <v-chip
+                  v-if="personal.departamento?.nombre"
+                  color="primary"
+                  label
+                  size="small"
+                  variant="tonal"
+                >
+                  <v-icon size="14" start>mdi-domain</v-icon>
+                  {{ personal.departamento.nombre }}
+                </v-chip>
+                <v-chip
+                  class="font-weight-medium"
+                  :color="getEstadoColor(personal.estado)"
+                  label
+                  size="small"
+                  variant="flat"
+                >
+                  <v-icon size="14" start>{{ getEstadoIcon(personal.estado) }}</v-icon>
+                  {{ personal.estado }}
+                </v-chip>
               </div>
-            </v-col>
-          </v-row>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap ga-2 flex-shrink-0">
+            <v-btn
+              class="text-none"
+              color="grey-darken-1"
+              rounded="lg"
+              variant="tonal"
+              @click="goBack"
+            >
+              <v-icon start>mdi-arrow-left</v-icon>
+              Volver
+            </v-btn>
+            <v-btn
+              class="text-none font-weight-bold"
+              color="secondary"
+              :loading="downloadingCV"
+              rounded="lg"
+              variant="tonal"
+              @click="downloadCV"
+            >
+              <v-icon start>mdi-file-document-outline</v-icon>
+              CV
+            </v-btn>
+            <v-btn
+              class="text-none font-weight-bold"
+              color="info"
+              :loading="downloadingExpediente"
+              rounded="lg"
+              variant="tonal"
+              @click="downloadExpediente"
+            >
+              <v-icon start>mdi-folder-account-outline</v-icon>
+              Expediente
+            </v-btn>
+            <v-btn
+              v-can="'edit-personal'"
+              class="text-none font-weight-bold"
+              color="primary"
+              rounded="lg"
+              :to="{ name: 'personal-edit', params: { id: personal.id } }"
+            >
+              <v-icon start>mdi-pencil-outline</v-icon>
+              Editar
+            </v-btn>
+          </div>
         </div>
       </v-card-text>
     </v-card>
@@ -1522,3 +1520,22 @@
     ])
   })
 </script>
+
+<style scoped>
+.personal-header-card {
+  overflow: hidden;
+}
+
+.personal-header-accent {
+  height: 4px;
+  background: rgb(var(--v-theme-primary));
+}
+
+.personal-header-avatar {
+  border: 2px solid rgba(var(--v-theme-primary), 0.18);
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+</style>

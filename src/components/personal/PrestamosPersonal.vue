@@ -34,6 +34,11 @@
                 <v-list-item-subtitle class="text-caption">Fecha del Préstamo</v-list-item-subtitle>
                 <v-list-item-title>{{ formatDate(prestamoActivo.fecha_prestamo) }}</v-list-item-title>
               </v-list-item>
+              <v-divider class="my-2" />
+              <v-list-item>
+                <v-list-item-subtitle class="text-caption">Fecha Primer Pago</v-list-item-subtitle>
+                <v-list-item-title>{{ formatDate(prestamoActivo.fecha_primer_pago) }}</v-list-item-title>
+              </v-list-item>
             </v-list>
           </v-col>
           <v-col cols="12" md="6">
@@ -76,11 +81,19 @@
               </v-btn>
               <v-btn
                 v-if="!readonly"
-                color="error"
+                color="warning"
                 variant="tonal"
                 @click="cancelarPrestamo(prestamoActivo)"
               >
                 <v-icon>mdi-close-circle</v-icon>
+              </v-btn>
+              <v-btn
+                v-if="isAdmin && !readonly"
+                color="error"
+                variant="tonal"
+                @click="abrirEliminarPrestamo(prestamoActivo)"
+              >
+                <v-icon>mdi-delete</v-icon>
               </v-btn>
             </div>
           </v-col>
@@ -177,7 +190,7 @@
                 v-model="formPrestamo.fecha_primer_pago"
                 density="comfortable"
                 :error-messages="errorsPrestamo.fecha_primer_pago"
-                label="Fecha Primer Pago"
+                label="Fecha Primer Pago *"
                 prepend-inner-icon="mdi-calendar-check"
                 type="date"
                 variant="outlined"
@@ -302,6 +315,11 @@
             {{ formatDate(item.fecha_prestamo) }}
           </template>
 
+          <!-- Primer pago -->
+          <template #item.fecha_primer_pago="{ item }">
+            {{ formatDate(item.fecha_primer_pago) }}
+          </template>
+
           <!-- Estado -->
           <template #item.estado="{ item }">
             <v-chip
@@ -350,11 +368,23 @@
                 <template #activator="{ props }">
                   <v-btn
                     v-bind="props"
-                    color="error"
+                    color="warning"
                     icon="mdi-paperclip-off"
                     size="small"
                     variant="tonal"
                     @click="eliminarComprobantePrestamo(item)"
+                  />
+                </template>
+              </v-tooltip>
+              <v-tooltip v-if="isAdmin && !readonly" location="top" text="Eliminar (admin)">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="error"
+                    icon="mdi-delete"
+                    size="small"
+                    variant="tonal"
+                    @click="abrirEliminarPrestamo(item)"
                   />
                 </template>
               </v-tooltip>
@@ -498,6 +528,41 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog Eliminar préstamo (admin) -->
+    <v-dialog v-model="dialogEliminar" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-error pa-4">
+          <v-icon color="white" start>mdi-delete-alert</v-icon>
+          <span class="text-white">Eliminar préstamo</span>
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert class="mb-4" density="compact" type="warning" variant="tonal">
+            Esta acción elimina el préstamo y sus cuotas/abonos de forma permanente. Confirme para continuar.
+          </v-alert>
+          <v-text-field
+            v-model="confirmacionEliminar"
+            density="comfortable"
+            label="Confirmación"
+            placeholder="Confirmación"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="cerrarEliminarPrestamo">Cancelar</v-btn>
+          <v-btn
+            color="error"
+            :disabled="confirmacionEliminar.toUpperCase() !== 'ELIMINAR'"
+            :loading="savingEliminar"
+            variant="elevated"
+            @click="confirmarEliminarPrestamo"
+          >
+            Eliminar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -519,8 +584,9 @@
 <script setup>
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
-  import { computed, onMounted, reactive, ref } from 'vue'
+  import { computed, onMounted, reactive, ref, watch } from 'vue'
   import operacionesService from '@/services/operacionesService'
+  import { useAuthStore } from '@/stores/auth'
 
   const props = defineProps({
     personalId: {
@@ -534,6 +600,8 @@
   })
 
   const emit = defineEmits(['saved', 'error'])
+  const authStore = useAuthStore()
+  const isAdmin = computed(() => authStore.userRole?.includes('admin') || authStore.hasPermission?.('manage-roles'))
 
   // Estado
   const loading = ref(false)
@@ -549,7 +617,11 @@
   // Dialogs
   const dialogAbono = ref(false)
   const dialogHistorial = ref(false)
+  const dialogEliminar = ref(false)
   const prestamoSeleccionado = ref(null)
+  const prestamoAEliminar = ref(null)
+  const confirmacionEliminar = ref('')
+  const savingEliminar = ref(false)
   const historialPagos = ref([])
 
   // Formulario Préstamo
@@ -559,7 +631,7 @@
     tasa_interes: 0,
     monto_cuota: null,
     fecha_prestamo: new Date().toISOString().split('T')[0],
-    fecha_primer_pago: null,
+    fecha_primer_pago: new Date().toISOString().split('T')[0],
     observaciones: '',
   })
 
@@ -621,11 +693,11 @@
   const headersPrestamos = [
     { title: 'Monto Total', key: 'monto_total', sortable: true },
     { title: 'Saldo Pendiente', key: 'saldo_pendiente', sortable: true },
-    // { title: 'Progreso', key: 'progreso', sortable: false, width: '180px' },
     { title: 'Fecha', key: 'fecha', sortable: true },
+    { title: 'Primer pago', key: 'fecha_primer_pago', sortable: true },
     { title: 'Estado', key: 'estado', sortable: true },
     { title: 'Comp.', key: 'comprobante', sortable: false, align: 'center', width: '60px' },
-    { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '100px' },
+    { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '140px' },
   ]
 
   const headersHistorial = [
@@ -666,6 +738,10 @@
     }
     if (!formPrestamo.cuotas_totales || formPrestamo.cuotas_totales < 1) {
       errorsPrestamo.cuotas_totales = ['Debe tener al menos 1 cuota']
+      return
+    }
+    if (!formPrestamo.fecha_primer_pago) {
+      errorsPrestamo.fecha_primer_pago = ['La fecha del primer pago es obligatoria']
       return
     }
 
@@ -783,13 +859,41 @@
     }
   }
 
+  function abrirEliminarPrestamo (prestamo) {
+    prestamoAEliminar.value = prestamo
+    confirmacionEliminar.value = ''
+    dialogEliminar.value = true
+  }
+
+  function cerrarEliminarPrestamo () {
+    dialogEliminar.value = false
+    prestamoAEliminar.value = null
+    confirmacionEliminar.value = ''
+  }
+
+  async function confirmarEliminarPrestamo () {
+    if (!prestamoAEliminar.value) return
+    savingEliminar.value = true
+    try {
+      await operacionesService.eliminarPrestamo(prestamoAEliminar.value.id, confirmacionEliminar.value)
+      showSnackbar('Préstamo eliminado permanentemente', 'success')
+      cerrarEliminarPrestamo()
+      await cargarPrestamos()
+      emit('saved')
+    } catch (error) {
+      showSnackbar(error.apiMessage || 'Error al eliminar el préstamo', 'error')
+    } finally {
+      savingEliminar.value = false
+    }
+  }
+
   function resetFormPrestamo () {
     formPrestamo.monto_total = null
     formPrestamo.cuotas_totales = null
     formPrestamo.tasa_interes = 0
     formPrestamo.monto_cuota = null
     formPrestamo.fecha_prestamo = new Date().toISOString().split('T')[0]
-    formPrestamo.fecha_primer_pago = null
+    formPrestamo.fecha_primer_pago = new Date().toISOString().split('T')[0]
     formPrestamo.observaciones = ''
     comprobanteFile.value = null
     for (const key of Object.keys(errorsPrestamo)) errorsPrestamo[key] = []

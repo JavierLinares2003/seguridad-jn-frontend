@@ -324,6 +324,16 @@ export const operacionesService = {
   },
 
   /**
+   * Eliminar préstamo (admin, confirmación fuerte)
+   * @param {number|string} id
+   * @param {string} confirmacion - debe ser "ELIMINAR"
+   */
+  async eliminarPrestamo (id, confirmacion = 'ELIMINAR') {
+    const response = await api.post(`/operaciones/prestamos/${id}/eliminar`, { confirmacion })
+    return response.data
+  },
+
+  /**
      * Obtener historial de pagos de un préstamo
      */
   async getHistorialPrestamo (id) {
@@ -375,6 +385,16 @@ export const operacionesService = {
      */
   async cancelarTransaccion (id) {
     const response = await api.post(`/operaciones/transacciones/${id}/cancelar`)
+    return response.data
+  },
+
+  /**
+   * Eliminar transacción (admin, confirmación fuerte)
+   * @param {number|string} id
+   * @param {string} confirmacion - debe ser "ELIMINAR"
+   */
+  async eliminarTransaccion (id, confirmacion = 'ELIMINAR') {
+    const response = await api.post(`/operaciones/transacciones/${id}/eliminar`, { confirmacion })
     return response.data
   },
 

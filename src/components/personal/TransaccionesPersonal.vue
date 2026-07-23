@@ -273,11 +273,23 @@
                 <template #activator="{ props }">
                   <v-btn
                     v-bind="props"
-                    color="error"
+                    color="warning"
                     icon="mdi-close-circle"
                     size="small"
                     variant="tonal"
                     @click="cancelarTransaccion(item)"
+                  />
+                </template>
+              </v-tooltip>
+              <v-tooltip v-if="isAdmin && !readonly" location="top" text="Eliminar (admin)">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="error"
+                    icon="mdi-delete"
+                    size="small"
+                    variant="tonal"
+                    @click="abrirEliminarTransaccion(item)"
                   />
                 </template>
               </v-tooltip>
@@ -394,6 +406,41 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog Eliminar transacción (admin) -->
+    <v-dialog v-model="dialogEliminar" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-error pa-4">
+          <v-icon color="white" start>mdi-delete-alert</v-icon>
+          <span class="text-white">Eliminar transacción</span>
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert class="mb-4" density="compact" type="warning" variant="tonal">
+            Esta acción elimina la transacción de forma permanente y no volverá a aparecer. Confirme para continuar.
+          </v-alert>
+          <v-text-field
+            v-model="confirmacionEliminar"
+            density="comfortable"
+            label="Confirmación"
+            placeholder="Confirmación"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="cerrarEliminarTransaccion">Cancelar</v-btn>
+          <v-btn
+            color="error"
+            :disabled="confirmacionEliminar.toUpperCase() !== 'ELIMINAR'"
+            :loading="savingEliminar"
+            variant="elevated"
+            @click="confirmarEliminarTransaccion"
+          >
+            Eliminar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -415,8 +462,9 @@
 <script setup>
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
-  import { onMounted, reactive, ref } from 'vue'
+  import { computed, onMounted, reactive, ref } from 'vue'
   import operacionesService from '@/services/operacionesService'
+  import { useAuthStore } from '@/stores/auth'
 
   const props = defineProps({
     personalId: {
@@ -434,6 +482,8 @@
   })
 
   const emit = defineEmits(['saved', 'error'])
+  const authStore = useAuthStore()
+  const isAdmin = computed(() => authStore.userRole?.includes('admin') || authStore.hasPermission?.('manage-roles'))
 
   // Estado
   const loading = ref(false)
@@ -444,6 +494,10 @@
   const transaccionSeleccionada = ref(null)
   const comprobanteFile = ref(null)
   const loadingComprobanteId = ref(null)
+  const dialogEliminar = ref(false)
+  const transaccionAEliminar = ref(null)
+  const confirmacionEliminar = ref('')
+  const savingEliminar = ref(false)
 
   // Formulario
   const form = reactive({
@@ -494,7 +548,7 @@
     { title: 'Fecha', key: 'fecha', sortable: true },
     { title: 'Estado', key: 'estado', sortable: true },
     { title: 'Comp.', key: 'comprobante', sortable: false, align: 'center', width: '60px' },
-    { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '120px' },
+    { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '140px' },
   ]
 
   // Funciones
@@ -503,8 +557,10 @@
     try {
       const params = {
         personal_id: props.personalId,
-        ...filtros,
       }
+      if (filtros.tipo) params.tipo = filtros.tipo
+      if (filtros.fecha_desde) params.fecha_desde = filtros.fecha_desde
+      if (filtros.fecha_hasta) params.fecha_hasta = filtros.fecha_hasta
 
       const response = await operacionesService.getTransacciones(params)
       transacciones.value = response.data || []
@@ -632,6 +688,34 @@
     } catch (error) {
       console.error('Error cancelando transacción:', error)
       showSnackbar(error.apiMessage || 'Error al cancelar la transacción', 'error')
+    }
+  }
+
+  function abrirEliminarTransaccion (transaccion) {
+    transaccionAEliminar.value = transaccion
+    confirmacionEliminar.value = ''
+    dialogEliminar.value = true
+  }
+
+  function cerrarEliminarTransaccion () {
+    dialogEliminar.value = false
+    transaccionAEliminar.value = null
+    confirmacionEliminar.value = ''
+  }
+
+  async function confirmarEliminarTransaccion () {
+    if (!transaccionAEliminar.value) return
+    savingEliminar.value = true
+    try {
+      await operacionesService.eliminarTransaccion(transaccionAEliminar.value.id, confirmacionEliminar.value)
+      showSnackbar('Transacción eliminada permanentemente', 'success')
+      cerrarEliminarTransaccion()
+      await cargarTransacciones()
+      emit('saved')
+    } catch (error) {
+      showSnackbar(error.apiMessage || 'Error al eliminar la transacción', 'error')
+    } finally {
+      savingEliminar.value = false
     }
   }
 
