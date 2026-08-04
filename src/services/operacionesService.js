@@ -353,15 +353,21 @@ export const operacionesService = {
   },
 
   /**
-     * Crear nueva transacción (acepta comprobante opcional)
+     * Crear nueva transacción (acepta comprobante opcional y cuotas de uniforme)
      */
   async crearTransaccion (data) {
     if (data.comprobante instanceof File) {
       const formData = new FormData()
       for (const [key, value] of Object.entries(data)) {
-        if (value !== null && value !== undefined) {
-          formData.append(key, value)
+        if (value === null || value === undefined) continue
+        if (key === 'cuotas' && Array.isArray(value)) {
+          value.forEach((cuota, i) => {
+            formData.append(`cuotas[${i}][fecha_transaccion]`, cuota.fecha_transaccion)
+            formData.append(`cuotas[${i}][monto]`, cuota.monto)
+          })
+          continue
         }
+        formData.append(key, value)
       }
       const response = await api.post('/operaciones/transacciones', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -377,6 +383,58 @@ export const operacionesService = {
      */
   async getTransaccion (id) {
     const response = await api.get(`/operaciones/transacciones/${id}`)
+    return response.data
+  },
+
+  /**
+   * Desglose de cuotas de un grupo de uniforme
+   */
+  async getDesgloseGrupoUniforme (grupo) {
+    const response = await api.get(`/operaciones/transacciones/grupo-uniforme/${grupo}`)
+    return response.data
+  },
+
+  /**
+   * Listar planes de uniforme de un personal
+   */
+  async getPlanesUniforme (personalId) {
+    const response = await api.get('/operaciones/transacciones/uniformes', {
+      params: { personal_id: personalId },
+    })
+    return response.data
+  },
+
+  /**
+   * Actualizar fecha de una cuota pendiente de uniforme
+   */
+  async actualizarFechaTransaccion (id, fecha_transaccion) {
+    const response = await api.put(`/operaciones/transacciones/${id}/fecha`, { fecha_transaccion })
+    return response.data
+  },
+
+  /**
+   * Actualizar fechas pendientes de un grupo (lote)
+   */
+  async actualizarFechasGrupoUniforme (grupo, cuotas) {
+    const response = await api.put(`/operaciones/transacciones/grupo-uniforme/${grupo}/fechas`, { cuotas })
+    return response.data
+  },
+
+  /**
+   * Reprogramar cuotas pendientes desde una fecha (quincenal)
+   */
+  async reprogramarGrupoUniforme (grupo, fecha_inicio) {
+    const response = await api.put(`/operaciones/transacciones/grupo-uniforme/${grupo}/reprogramar`, {
+      fecha_inicio,
+    })
+    return response.data
+  },
+
+  /**
+   * Cambiar número total de cuotas del plan de uniforme
+   */
+  async cambiarCuotasGrupoUniforme (grupo, data) {
+    const response = await api.put(`/operaciones/transacciones/grupo-uniforme/${grupo}/cuotas`, data)
     return response.data
   },
 

@@ -21,6 +21,7 @@
                 label="Tipo de Transacción *"
                 prepend-inner-icon="mdi-tag"
                 variant="outlined"
+                @update:model-value="onTipoTransaccionChange"
               >
                 <template #item="{ props, item }">
                   <v-list-item v-bind="props">
@@ -37,13 +38,29 @@
                 v-model.number="form.monto"
                 density="comfortable"
                 :error-messages="errors.monto"
-                label="Monto *"
+                :label="esUniforme ? 'Precio total *' : 'Monto *'"
                 min="0.01"
                 prefix="Q"
                 prepend-inner-icon="mdi-currency-usd"
                 step="0.01"
                 type="number"
                 variant="outlined"
+                @update:model-value="regenerarDesgloseUniforme"
+              />
+            </v-col>
+
+            <v-col v-if="esUniforme" cols="12" md="6">
+              <v-text-field
+                v-model.number="form.cuotas_totales"
+                density="comfortable"
+                :error-messages="errors.cuotas_totales"
+                label="Número de cuotas *"
+                min="1"
+                max="60"
+                prepend-inner-icon="mdi-numeric"
+                type="number"
+                variant="outlined"
+                @update:model-value="regenerarDesgloseUniforme"
               />
             </v-col>
 
@@ -53,8 +70,8 @@
                 counter="1000"
                 density="comfortable"
                 :error-messages="errors.descripcion"
-                label="Descripción *"
-                placeholder="Describa el motivo de la transacción..."
+                :label="esUniforme ? 'Descripción / concepto *' : 'Descripción *'"
+                :placeholder="esUniforme ? 'Ej. Uniforme completo agente...' : 'Describa el motivo de la transacción...'"
                 prepend-inner-icon="mdi-text"
                 rows="3"
                 variant="outlined"
@@ -66,10 +83,11 @@
                 v-model="form.fecha_transaccion"
                 density="comfortable"
                 :error-messages="errors.fecha_transaccion"
-                label="Fecha de Transacción"
+                :label="esUniforme ? 'Fecha inicio (1ª cuota)' : 'Fecha de Transacción'"
                 prepend-inner-icon="mdi-calendar"
                 type="date"
                 variant="outlined"
+                @update:model-value="regenerarDesgloseUniforme"
               />
             </v-col>
 
@@ -86,6 +104,58 @@
                 prepend-icon=""
                 variant="outlined"
               />
+            </v-col>
+
+            <!-- Desglose cuotas uniforme -->
+            <v-col v-if="esUniforme && desgloseUniforme.length" cols="12">
+              <v-card border rounded="lg" variant="outlined">
+                <v-card-title class="d-flex align-center flex-wrap ga-2 py-3 px-4 bg-info-lighten-5">
+                  <v-icon color="info" start>mdi-tshirt-crew</v-icon>
+                  <span class="text-subtitle-2 font-weight-bold">Descuento Uniforme Quincenal</span>
+                  <v-spacer />
+                  <v-chip color="info" size="small" variant="flat">
+                    Q{{ formatNumber(form.monto || 0) }} · {{ desgloseUniforme.length }} cuotas
+                  </v-chip>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pa-0">
+                  <v-table density="comfortable">
+                    <thead>
+                      <tr>
+                        <th class="text-left">#</th>
+                        <th class="text-left">Fecha descuento</th>
+                        <th class="text-right">Cuota</th>
+                        <th class="text-right">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="cuota in desgloseUniforme" :key="cuota.numero">
+                        <td class="font-weight-medium">{{ cuota.numero }}</td>
+                        <td style="min-width: 180px;">
+                          <v-text-field
+                            v-model="cuota.fecha_transaccion"
+                            density="compact"
+                            hide-details
+                            type="date"
+                            variant="outlined"
+                          />
+                        </td>
+                        <td class="text-right font-weight-bold text-error">
+                          Q{{ formatNumber(cuota.monto) }}
+                        </td>
+                        <td class="text-right" :class="cuota.saldo_despues === 0 ? 'text-success font-weight-bold' : ''">
+                          Q{{ formatNumber(cuota.saldo_despues) }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </v-card-text>
+                <v-card-text class="pt-0 pb-3 px-4">
+                  <v-alert density="compact" type="info" variant="tonal">
+                    Puedes editar las fechas de cada cuota. Se descontará en la planilla del período correspondiente.
+                  </v-alert>
+                </v-card-text>
+              </v-card>
             </v-col>
 
             <v-col v-if="asistenciaId" cols="12">
@@ -126,6 +196,63 @@
             </v-btn>
           </div>
         </v-form>
+      </v-card-text>
+    </v-card>
+
+    <!-- Planes de uniforme activos -->
+    <v-card
+      v-for="plan in planesUniformeActivos"
+      :key="plan.grupo_uniforme"
+      class="mb-4"
+      elevation="2"
+      rounded="xl"
+    >
+      <v-card-title class="d-flex align-center flex-wrap ga-2 bg-info-lighten-5 py-4 px-6">
+        <v-icon color="info" start>mdi-tshirt-crew</v-icon>
+        <span class="text-subtitle-1 font-weight-bold">Plan de uniforme</span>
+        <span v-if="plan.descripcion" class="text-body-2 text-medium-emphasis">· {{ plan.descripcion }}</span>
+        <v-chip color="info" size="small" variant="flat">
+          {{ plan.cuotas_aplicadas }}/{{ plan.cuotas_totales }} aplicadas
+        </v-chip>
+        <v-spacer />
+        <v-btn
+          v-if="!readonly"
+          color="info"
+          size="small"
+          variant="elevated"
+          @click="abrirGestionUniforme(plan.grupo_uniforme)"
+        >
+          <v-icon start>mdi-calendar-edit</v-icon>
+          Editar fechas restantes
+        </v-btn>
+      </v-card-title>
+      <v-divider />
+      <v-card-text class="pa-4">
+        <v-row dense>
+          <v-col cols="6" sm="3">
+            <div class="text-caption text-medium-emphasis">Total</div>
+            <div class="text-body-1 font-weight-bold">Q{{ formatNumber(plan.monto_total) }}</div>
+          </v-col>
+          <v-col cols="6" sm="3">
+            <div class="text-caption text-medium-emphasis">Saldo pendiente</div>
+            <div class="text-body-1 font-weight-bold text-error">Q{{ formatNumber(plan.saldo_pendiente) }}</div>
+          </v-col>
+          <v-col cols="6" sm="3">
+            <div class="text-caption text-medium-emphasis">Cuotas pendientes</div>
+            <div class="text-body-1 font-weight-bold">{{ plan.cuotas_pendientes }}</div>
+          </v-col>
+          <v-col cols="6" sm="3">
+            <div class="text-caption text-medium-emphasis">Próximo descuento</div>
+            <div class="text-body-1 font-weight-bold">{{ formatDate(plan.proxima_fecha) }}</div>
+          </v-col>
+        </v-row>
+        <v-progress-linear
+          class="mt-3"
+          color="info"
+          height="10"
+          :model-value="plan.cuotas_totales ? (plan.cuotas_aplicadas / plan.cuotas_totales) * 100 : 0"
+          rounded
+        />
       </v-card-text>
     </v-card>
 
@@ -210,6 +337,7 @@
             >
               <v-icon size="14" start>{{ getTipoIcon(item.tipo_transaccion) }}</v-icon>
               {{ getTipoLabel(item.tipo_transaccion) }}
+              <span v-if="item.numero_cuota" class="ml-1">{{ item.numero_cuota }}/{{ item.cuotas_totales }}</span>
             </v-chip>
           </template>
 
@@ -257,6 +385,22 @@
           <!-- Acciones -->
           <template #item.acciones="{ item }">
             <div class="d-flex ga-1">
+              <v-tooltip
+                v-if="item.grupo_uniforme && item.tipo_transaccion === 'uniforme'"
+                location="top"
+                text="Gestionar fechas del plan"
+              >
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="info"
+                    icon="mdi-calendar-edit"
+                    size="small"
+                    variant="tonal"
+                    @click="abrirGestionUniforme(item.grupo_uniforme)"
+                  />
+                </template>
+              </v-tooltip>
               <v-tooltip location="top" text="Ver detalles">
                 <template #activator="{ props }">
                   <v-btn
@@ -315,7 +459,7 @@
     </v-card>
 
     <!-- Dialog Detalle -->
-    <v-dialog v-model="dialogDetalle" max-width="600">
+    <v-dialog v-model="dialogDetalle" :max-width="desgloseGrupoDetalle.length ? 720 : 600">
       <v-card v-if="transaccionSeleccionada" rounded="xl">
         <v-card-title class="bg-primary pa-4">
           <v-icon color="white" start>mdi-information</v-icon>
@@ -328,6 +472,9 @@
               <v-list-item-title>
                 <v-chip :color="getTipoColor(transaccionSeleccionada.tipo_transaccion)" size="small" variant="tonal">
                   {{ getTipoLabel(transaccionSeleccionada.tipo_transaccion) }}
+                  <template v-if="transaccionSeleccionada.numero_cuota">
+                    · Cuota {{ transaccionSeleccionada.numero_cuota }}/{{ transaccionSeleccionada.cuotas_totales }}
+                  </template>
                 </v-chip>
               </v-list-item-title>
             </v-list-item>
@@ -398,10 +545,273 @@
               </v-list-item>
             </template>
           </v-list>
+
+          <!-- Desglose del grupo uniforme -->
+          <div v-if="desgloseGrupoDetalle.length" class="mt-6">
+            <div class="d-flex align-center mb-3 ga-2 flex-wrap">
+              <v-icon color="info">mdi-calendar-month</v-icon>
+              <span class="text-subtitle-2 font-weight-bold">Desglose de cuotas</span>
+              <v-spacer />
+              <v-chip
+                v-if="infoGrupoDetalle"
+                color="error"
+                size="small"
+                variant="tonal"
+              >
+                Saldo: Q{{ formatNumber(infoGrupoDetalle.saldo_pendiente) }}
+              </v-chip>
+              <v-btn
+                v-if="!readonly && infoGrupoDetalle?.cuotas_pendientes > 0"
+                color="info"
+                size="small"
+                variant="tonal"
+                @click="abrirGestionUniforme(transaccionSeleccionada.grupo_uniforme)"
+              >
+                <v-icon start>mdi-calendar-edit</v-icon>
+                Editar fechas restantes
+              </v-btn>
+            </div>
+            <v-table density="compact">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Fecha</th>
+                  <th class="text-right">Cuota</th>
+                  <th class="text-right">Saldo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="cuota in desgloseGrupoDetalle" :key="cuota.id">
+                  <td>{{ cuota.numero_cuota }}</td>
+                  <td>{{ formatDate(cuota.fecha_transaccion) }}</td>
+                  <td class="text-right font-weight-medium">Q{{ formatNumber(cuota.monto) }}</td>
+                  <td class="text-right">Q{{ formatNumber(cuota.saldo_despues) }}</td>
+                  <td>
+                    <v-chip :color="getEstadoColor(cuota.estado_transaccion)" size="x-small" variant="flat">
+                      {{ getEstadoLabel(cuota.estado_transaccion) }}
+                    </v-chip>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </div>
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn variant="text" @click="dialogDetalle = false">Cerrar</v-btn>
+          <v-btn variant="text" @click="cerrarDetalle">Cerrar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog Gestionar fechas de uniforme -->
+    <v-dialog v-model="dialogGestionUniforme" max-width="820" persistent>
+      <v-card v-if="planGestion" rounded="xl">
+        <v-card-title class="bg-info pa-4 d-flex align-center flex-wrap ga-2">
+          <v-icon color="white" start>mdi-calendar-edit</v-icon>
+          <span class="text-white">Gestionar fechas del uniforme</span>
+          <v-spacer />
+          <v-chip color="white" size="small" variant="flat">
+            {{ planGestion.cuotas_aplicadas || 0 }}/{{ planGestion.cuotas_totales }} aplicadas
+          </v-chip>
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-row class="mb-4" dense>
+            <v-col cols="6" sm="3">
+              <div class="text-caption text-medium-emphasis">Total</div>
+              <div class="font-weight-bold">Q{{ formatNumber(planGestion.monto_total) }}</div>
+            </v-col>
+            <v-col cols="6" sm="3">
+              <div class="text-caption text-medium-emphasis">Saldo pendiente</div>
+              <div class="font-weight-bold text-error">Q{{ formatNumber(planGestion.saldo_pendiente) }}</div>
+            </v-col>
+            <v-col cols="6" sm="3">
+              <div class="text-caption text-medium-emphasis">Pendientes</div>
+              <div class="font-weight-bold">{{ planGestion.cuotas_pendientes }}</div>
+            </v-col>
+            <v-col cols="6" sm="3">
+              <div class="text-caption text-medium-emphasis">Ya descontadas</div>
+              <div class="font-weight-bold text-success">Q{{ formatNumber(planGestion.monto_aplicado) }}</div>
+            </v-col>
+          </v-row>
+
+          <v-alert
+            v-if="!readonly && planGestion.cuotas_pendientes > 0"
+            class="mb-4"
+            density="compact"
+            type="info"
+            variant="tonal"
+          >
+            Las cuotas ya aplicadas no se modifican. Solo editas las fechas restantes (pendientes).
+          </v-alert>
+
+          <!-- Cambiar número de cuotas -->
+          <v-card
+            v-if="!readonly"
+            border
+            class="mb-4"
+            rounded="lg"
+            variant="outlined"
+          >
+            <v-card-text class="pa-4">
+              <div class="text-subtitle-2 font-weight-bold mb-2">
+                Cambiar número de cuotas
+              </div>
+              <p class="text-caption text-medium-emphasis mb-3">
+                Ejemplo: de 6 a 3. Las ya aplicadas se conservan y el saldo pendiente se reparte en las cuotas nuevas.
+                Mínimo permitido: {{ planGestion.cuotas_aplicadas || 0 }} (las ya aplicadas).
+              </p>
+              <v-row align="center" dense>
+                <v-col cols="12" md="4">
+                  <v-text-field
+                    v-model.number="nuevoCuotasTotales"
+                    density="comfortable"
+                    hide-details
+                    :min="Math.max(1, planGestion.cuotas_aplicadas || 0)"
+                    max="60"
+                    label="Cuotas totales"
+                    prepend-inner-icon="mdi-numeric"
+                    type="number"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="12" md="4">
+                  <v-text-field
+                    v-model="fechaReprogramar"
+                    density="comfortable"
+                    hide-details
+                    label="Fecha próxima cuota"
+                    prepend-inner-icon="mdi-calendar-start"
+                    type="date"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="12" md="4">
+                  <v-btn
+                    block
+                    color="primary"
+                    :disabled="!puedeCambiarCuotas"
+                    :loading="savingCambiarCuotas"
+                    variant="elevated"
+                    @click="cambiarNumeroCuotas"
+                  >
+                    <v-icon start>mdi-playlist-edit</v-icon>
+                    Aplicar cambio
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-alert
+                v-if="previewMontoCuota != null"
+                class="mt-3"
+                density="compact"
+                type="warning"
+                variant="tonal"
+              >
+                Quedarían {{ previewPendientes }} cuota(s) pendiente(s) de
+                ~Q{{ formatNumber(previewMontoCuota) }} c/u (saldo Q{{ formatNumber(planGestion.saldo_pendiente) }}).
+              </v-alert>
+            </v-card-text>
+          </v-card>
+
+          <!-- Reprogramar restantes de un jalón -->
+          <v-card
+            v-if="!readonly && planGestion.cuotas_pendientes > 0"
+            border
+            class="mb-4"
+            rounded="lg"
+            variant="outlined"
+          >
+            <v-card-text class="pa-4">
+              <div class="text-subtitle-2 font-weight-bold mb-2">
+                Reprogramar todas las restantes
+              </div>
+              <p class="text-caption text-medium-emphasis mb-3">
+                Ideal si ya van por la cuota {{ (planGestion.cuotas_aplicadas || 0) + 1 }} y quieren
+                mover el resto a nuevas fechas quincenales desde una fecha nueva.
+              </p>
+              <v-row align="center" dense>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="fechaReprogramar"
+                    density="comfortable"
+                    label="Nueva fecha de la próxima cuota"
+                    prepend-inner-icon="mdi-calendar-start"
+                    type="date"
+                    variant="outlined"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-btn
+                    block
+                    color="info"
+                    :disabled="!fechaReprogramar"
+                    :loading="savingReprogramar"
+                    variant="elevated"
+                    @click="reprogramarFechasRestantes"
+                  >
+                    <v-icon start>mdi-calendar-sync</v-icon>
+                    Generar fechas quincenales
+                  </v-btn>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
+          <v-table density="comfortable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Fecha descuento</th>
+                <th class="text-right">Cuota</th>
+                <th class="text-right">Saldo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="cuota in cuotasGestion"
+                :key="cuota.id"
+                :class="cuota.estado_transaccion === 'pendiente' ? '' : 'bg-grey-lighten-4'"
+              >
+                <td class="font-weight-medium">{{ cuota.numero_cuota }}</td>
+                <td style="min-width: 180px;">
+                  <v-text-field
+                    v-if="cuota.estado_transaccion === 'pendiente' && !readonly"
+                    v-model="cuota._fechaEdit"
+                    density="compact"
+                    hide-details
+                    type="date"
+                    variant="outlined"
+                  />
+                  <span v-else>{{ formatDate(cuota.fecha_transaccion) }}</span>
+                </td>
+                <td class="text-right font-weight-bold text-error">
+                  Q{{ formatNumber(cuota.monto) }}
+                </td>
+                <td class="text-right">Q{{ formatNumber(cuota.saldo_despues) }}</td>
+                <td>
+                  <v-chip :color="getEstadoColor(cuota.estado_transaccion)" size="small" variant="flat">
+                    {{ getEstadoLabel(cuota.estado_transaccion) }}
+                  </v-chip>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="cerrarGestionUniforme">Cerrar</v-btn>
+          <v-btn
+            v-if="!readonly && hayCambiosFechasGestion"
+            color="primary"
+            :loading="savingFechasGestion"
+            variant="elevated"
+            @click="guardarFechasGestion"
+          >
+            <v-icon start>mdi-content-save</v-icon>
+            Guardar fechas
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -492,12 +902,58 @@
   const formRef = ref(null)
   const dialogDetalle = ref(false)
   const transaccionSeleccionada = ref(null)
+  const desgloseGrupoDetalle = ref([])
+  const infoGrupoDetalle = ref(null)
   const comprobanteFile = ref(null)
   const loadingComprobanteId = ref(null)
   const dialogEliminar = ref(false)
   const transaccionAEliminar = ref(null)
   const confirmacionEliminar = ref('')
   const savingEliminar = ref(false)
+  const desgloseUniforme = ref([])
+  const planesUniforme = ref([])
+  const dialogGestionUniforme = ref(false)
+  const planGestion = ref(null)
+  const cuotasGestion = ref([])
+  const fechaReprogramar = ref(null)
+  const savingReprogramar = ref(false)
+  const savingFechasGestion = ref(false)
+  const nuevoCuotasTotales = ref(1)
+  const savingCambiarCuotas = ref(false)
+
+  const planesUniformeActivos = computed(() =>
+    (planesUniforme.value || []).filter(p => p.activo && p.cuotas_pendientes > 0),
+  )
+
+  const hayCambiosFechasGestion = computed(() =>
+    cuotasGestion.value.some(c =>
+      c.estado_transaccion === 'pendiente'
+      && c._fechaEdit
+      && c._fechaEdit !== (c.fecha_transaccion || '').toString().slice(0, 10),
+    ),
+  )
+
+  const puedeCambiarCuotas = computed(() => {
+    if (!planGestion.value) return false
+    const aplicado = planGestion.value.cuotas_aplicadas || 0
+    const nuevo = Number(nuevoCuotasTotales.value)
+    if (!nuevo || nuevo < Math.max(1, aplicado) || nuevo > 60) return false
+    if (nuevo === planGestion.value.cuotas_totales) return false
+    // Si hay saldo y se pone solo aplicadas, no alcanza
+    if (nuevo === aplicado && (planGestion.value.saldo_pendiente || 0) > 0.009) return false
+    return true
+  })
+
+  const previewPendientes = computed(() => {
+    if (!planGestion.value) return 0
+    return Math.max(0, Number(nuevoCuotasTotales.value || 0) - (planGestion.value.cuotas_aplicadas || 0))
+  })
+
+  const previewMontoCuota = computed(() => {
+    if (!planGestion.value || previewPendientes.value <= 0) return null
+    if (nuevoCuotasTotales.value === planGestion.value.cuotas_totales) return null
+    return Math.round((planGestion.value.saldo_pendiente / previewPendientes.value) * 100) / 100
+  })
 
   // Formulario
   const form = reactive({
@@ -505,6 +961,7 @@
     monto: null,
     descripcion: '',
     fecha_transaccion: new Date().toISOString().split('T')[0],
+    cuotas_totales: 1,
   })
 
   const errors = reactive({
@@ -512,9 +969,11 @@
     monto: [],
     descripcion: [],
     fecha_transaccion: [],
+    cuotas_totales: [],
   })
 
   const errorMessage = ref(null)
+  const esUniforme = computed(() => form.tipo_transaccion === 'uniforme')
 
   // Filtros
   const filtros = reactive({
@@ -548,8 +1007,96 @@
     { title: 'Fecha', key: 'fecha', sortable: true },
     { title: 'Estado', key: 'estado', sortable: true },
     { title: 'Comp.', key: 'comprobante', sortable: false, align: 'center', width: '60px' },
-    { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '140px' },
+    { title: 'Acciones', key: 'acciones', sortable: false, align: 'center', width: '180px' },
   ]
+
+  function toDateOnly (value) {
+    const d = value instanceof Date ? value : new Date(value)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  function parseLocalDate (ymd) {
+    const [y, m, d] = ymd.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+
+  /** Siguiente fecha quincenal: <15 → 15 del mes; =15 → fin de mes; >15 → 15 del siguiente */
+  function siguienteFechaQuincenal (fecha) {
+    const d = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate())
+    if (d.getDate() < 15) {
+      return new Date(d.getFullYear(), d.getMonth(), 15)
+    }
+    if (d.getDate() === 15) {
+      return new Date(d.getFullYear(), d.getMonth() + 1, 0)
+    }
+    return new Date(d.getFullYear(), d.getMonth() + 1, 15)
+  }
+
+  function generarFechasQuincenales (fechaInicioYmd, cuotas) {
+    const fechas = []
+    let fecha = parseLocalDate(fechaInicioYmd)
+    for (let i = 0; i < cuotas; i++) {
+      fechas.push(toDateOnly(fecha))
+      fecha = siguienteFechaQuincenal(fecha)
+    }
+    return fechas
+  }
+
+  function distribuirMontos (montoTotal, cuotas) {
+    const montoCuota = Math.round((montoTotal / cuotas) * 100) / 100
+    const montos = []
+    for (let i = 0; i < cuotas; i++) {
+      if (i === cuotas - 1) {
+        montos.push(Math.round((montoTotal - montoCuota * (cuotas - 1)) * 100) / 100)
+      } else {
+        montos.push(montoCuota)
+      }
+    }
+    return montos
+  }
+
+  function regenerarDesgloseUniforme () {
+    if (!esUniforme.value) {
+      desgloseUniforme.value = []
+      return
+    }
+
+    const monto = Number(form.monto)
+    const cuotas = Number(form.cuotas_totales)
+    const fechaInicio = form.fecha_transaccion
+
+    if (!monto || monto <= 0 || !cuotas || cuotas < 1 || !fechaInicio) {
+      desgloseUniforme.value = []
+      return
+    }
+
+    const fechas = generarFechasQuincenales(fechaInicio, cuotas)
+    const montos = distribuirMontos(monto, cuotas)
+    let acumulado = 0
+
+    desgloseUniforme.value = fechas.map((fecha, i) => {
+      acumulado += montos[i]
+      return {
+        numero: i + 1,
+        fecha_transaccion: fecha,
+        monto: montos[i],
+        saldo_despues: Math.round((monto - acumulado) * 100) / 100,
+      }
+    })
+  }
+
+  function onTipoTransaccionChange () {
+    if (esUniforme.value) {
+      if (!form.cuotas_totales || form.cuotas_totales < 1) form.cuotas_totales = 1
+      if (!form.descripcion) form.descripcion = 'Descuento uniforme quincenal'
+      regenerarDesgloseUniforme()
+    } else {
+      desgloseUniforme.value = []
+    }
+  }
 
   // Funciones
   async function cargarTransacciones () {
@@ -564,11 +1111,145 @@
 
       const response = await operacionesService.getTransacciones(params)
       transacciones.value = response.data || []
+      await cargarPlanesUniforme()
     } catch (error) {
       console.error('Error cargando transacciones:', error)
       showSnackbar('Error al cargar las transacciones', 'error')
     } finally {
       loading.value = false
+    }
+  }
+
+  async function cargarPlanesUniforme () {
+    try {
+      const response = await operacionesService.getPlanesUniforme(props.personalId)
+      planesUniforme.value = response.data || []
+    } catch (error) {
+      console.error('Error cargando planes de uniforme:', error)
+      planesUniforme.value = []
+    }
+  }
+
+  function mapCuotasGestion (cuotas) {
+    return (cuotas || []).map(c => ({
+      ...c,
+      _fechaEdit: (c.fecha_transaccion || '').toString().slice(0, 10),
+    }))
+  }
+
+  async function abrirGestionUniforme (grupo) {
+    if (!grupo) return
+    try {
+      const response = await operacionesService.getDesgloseGrupoUniforme(grupo)
+      const data = response.data
+      planGestion.value = {
+        grupo_uniforme: data.grupo_uniforme,
+        monto_total: data.monto_total,
+        saldo_pendiente: data.saldo_pendiente,
+        monto_aplicado: data.monto_aplicado,
+        cuotas_totales: data.cuotas_totales,
+        cuotas_aplicadas: data.cuotas_aplicadas ?? (data.cuotas || []).filter(c => c.estado_transaccion === 'aplicado').length,
+        cuotas_pendientes: data.cuotas_pendientes ?? (data.cuotas || []).filter(c => c.estado_transaccion === 'pendiente').length,
+      }
+      cuotasGestion.value = mapCuotasGestion(data.cuotas)
+      nuevoCuotasTotales.value = planGestion.value.cuotas_totales
+      const proxima = cuotasGestion.value.find(c => c.estado_transaccion === 'pendiente')
+      fechaReprogramar.value = proxima?._fechaEdit || new Date().toISOString().split('T')[0]
+      dialogDetalle.value = false
+      dialogGestionUniforme.value = true
+    } catch (error) {
+      showSnackbar(error.apiMessage || 'Error al cargar el plan de uniforme', 'error')
+    }
+  }
+
+  function cerrarGestionUniforme () {
+    dialogGestionUniforme.value = false
+    planGestion.value = null
+    cuotasGestion.value = []
+    fechaReprogramar.value = null
+    nuevoCuotasTotales.value = 1
+  }
+
+  async function guardarFechasGestion () {
+    if (!planGestion.value || !hayCambiosFechasGestion.value) return
+
+    const cambios = cuotasGestion.value
+      .filter(c =>
+        c.estado_transaccion === 'pendiente'
+        && c._fechaEdit
+        && c._fechaEdit !== (c.fecha_transaccion || '').toString().slice(0, 10),
+      )
+      .map(c => ({
+        id: c.id,
+        fecha_transaccion: c._fechaEdit,
+      }))
+
+    if (!cambios.length) return
+
+    savingFechasGestion.value = true
+    try {
+      const response = await operacionesService.actualizarFechasGrupoUniforme(
+        planGestion.value.grupo_uniforme,
+        cambios,
+      )
+      showSnackbar(response.message || 'Fechas actualizadas', 'success')
+      cuotasGestion.value = mapCuotasGestion(response.data?.cuotas || [])
+      await cargarTransacciones()
+      // refrescar resumen del diálogo
+      await abrirGestionUniforme(planGestion.value.grupo_uniforme)
+    } catch (error) {
+      showSnackbar(error.apiMessage || 'Error al guardar las fechas', 'error')
+    } finally {
+      savingFechasGestion.value = false
+    }
+  }
+
+  async function reprogramarFechasRestantes () {
+    if (!planGestion.value || !fechaReprogramar.value) return
+
+    savingReprogramar.value = true
+    try {
+      const response = await operacionesService.reprogramarGrupoUniforme(
+        planGestion.value.grupo_uniforme,
+        fechaReprogramar.value,
+      )
+      showSnackbar(response.message || 'Fechas reprogramadas', 'success')
+      cuotasGestion.value = mapCuotasGestion(response.data?.cuotas || [])
+      await cargarTransacciones()
+      await abrirGestionUniforme(planGestion.value.grupo_uniforme)
+    } catch (error) {
+      showSnackbar(error.apiMessage || 'Error al reprogramar las fechas', 'error')
+    } finally {
+      savingReprogramar.value = false
+    }
+  }
+
+  async function cambiarNumeroCuotas () {
+    if (!planGestion.value || !puedeCambiarCuotas.value) return
+
+    const aplicado = planGestion.value.cuotas_aplicadas || 0
+    const nuevo = Number(nuevoCuotasTotales.value)
+    const msg = `¿Cambiar el plan a ${nuevo} cuota(s)?\n`
+      + `Se conservan ${aplicado} aplicada(s) y el saldo pendiente se redistribuye.`
+
+    if (!confirm(msg)) return
+
+    savingCambiarCuotas.value = true
+    try {
+      const response = await operacionesService.cambiarCuotasGrupoUniforme(
+        planGestion.value.grupo_uniforme,
+        {
+          cuotas_totales: nuevo,
+          fecha_inicio: fechaReprogramar.value || undefined,
+        },
+      )
+      showSnackbar(response.message || 'Número de cuotas actualizado', 'success')
+      await cargarTransacciones()
+      await abrirGestionUniforme(planGestion.value.grupo_uniforme)
+    } catch (error) {
+      showSnackbar(error.apiMessage || 'Error al cambiar el número de cuotas', 'error')
+    } finally {
+      savingCambiarCuotas.value = false
     }
   }
 
@@ -590,6 +1271,19 @@
       errors.descripcion = ['La descripción debe tener al menos 10 caracteres']
       return
     }
+    if (esUniforme.value) {
+      if (!form.cuotas_totales || form.cuotas_totales < 1) {
+        errors.cuotas_totales = ['Indique el número de cuotas']
+        return
+      }
+      if (!desgloseUniforme.value.length) {
+        regenerarDesgloseUniforme()
+      }
+      if (!desgloseUniforme.value.length) {
+        errors.fecha_transaccion = ['Indique la fecha de inicio']
+        return
+      }
+    }
 
     saving.value = true
     try {
@@ -600,13 +1294,22 @@
         monto: form.monto,
         descripcion: form.descripcion,
         fecha_transaccion: form.fecha_transaccion,
-        es_descuento: true, // Por defecto es descuento
+        es_descuento: true,
         comprobante: comprobanteFile.value || undefined,
       }
 
-      await operacionesService.crearTransaccion(data)
+      if (esUniforme.value) {
+        data.cuotas_totales = form.cuotas_totales
+        data.fecha_inicio = form.fecha_transaccion
+        data.cuotas = desgloseUniforme.value.map(c => ({
+          fecha_transaccion: c.fecha_transaccion,
+          monto: c.monto,
+        }))
+      }
 
-      showSnackbar('Transacción registrada exitosamente', 'success')
+      const response = await operacionesService.crearTransaccion(data)
+
+      showSnackbar(response.message || 'Transacción registrada exitosamente', 'success')
       resetForm()
       await cargarTransacciones()
       emit('saved')
@@ -633,6 +1336,8 @@
     form.monto = null
     form.descripcion = ''
     form.fecha_transaccion = new Date().toISOString().split('T')[0]
+    form.cuotas_totales = 1
+    desgloseUniforme.value = []
     comprobanteFile.value = null
     for (const key of Object.keys(errors)) errors[key] = []
     errorMessage.value = null
@@ -673,9 +1378,28 @@
     cargarTransacciones()
   }
 
-  function verDetalle (transaccion) {
+  async function verDetalle (transaccion) {
     transaccionSeleccionada.value = transaccion
+    desgloseGrupoDetalle.value = []
+    infoGrupoDetalle.value = null
     dialogDetalle.value = true
+
+    if (transaccion.grupo_uniforme) {
+      try {
+        const response = await operacionesService.getDesgloseGrupoUniforme(transaccion.grupo_uniforme)
+        infoGrupoDetalle.value = response.data
+        desgloseGrupoDetalle.value = response.data?.cuotas || []
+      } catch (error) {
+        console.error('Error cargando desglose uniforme:', error)
+      }
+    }
+  }
+
+  function cerrarDetalle () {
+    dialogDetalle.value = false
+    transaccionSeleccionada.value = null
+    desgloseGrupoDetalle.value = []
+    infoGrupoDetalle.value = null
   }
 
   async function cancelarTransaccion (transaccion) {
