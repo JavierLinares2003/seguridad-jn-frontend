@@ -1108,7 +1108,8 @@
               <v-chip color="info" size="x-small" variant="tonal">descanso</v-chip>
               <v-chip color="error" size="x-small" variant="tonal">falta</v-chip>
               <v-chip color="warning" size="x-small" variant="tonal">reemplazado</v-chip>
-              <v-chip color="grey" size="x-small" variant="tonal">sin asignación</v-chip>
+              <v-chip color="grey" size="x-small" variant="tonal">sin marcar</v-chip>
+              <v-chip color="blue-grey" size="x-small" variant="tonal">sin asignación</v-chip>
             </div>
           </template>
           <v-alert v-else density="compact" type="info" variant="tonal">
@@ -2201,6 +2202,7 @@
       descanso: 'descanso',
       falta: 'falta',
       reemplazado: 'reemplazo',
+      sin_marcar: 'sin marcar',
       sin_asignacion: 'sin asignar',
     }
     return map[dia?.tipo] || dia?.tipo || '—'
@@ -2212,7 +2214,8 @@
       descanso: 'info',
       falta: 'error',
       reemplazado: 'warning',
-      sin_asignacion: 'grey',
+      sin_marcar: 'grey',
+      sin_asignacion: 'blue-grey',
     }
     return map[dia?.tipo] || 'grey'
   }
@@ -2223,7 +2226,8 @@
       descanso: 'bg-info',
       falta: 'bg-error',
       reemplazado: 'bg-warning',
-      sin_asignacion: 'bg-grey-lighten-2',
+      sin_marcar: 'bg-grey-lighten-2',
+      sin_asignacion: 'bg-blue-grey-lighten-4',
     }
     return map[dia?.tipo] || 'bg-grey-lighten-3'
   }
