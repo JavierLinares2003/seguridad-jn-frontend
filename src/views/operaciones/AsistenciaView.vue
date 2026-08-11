@@ -1050,20 +1050,29 @@
           </div>
           <template v-else-if="calendarioData">
             <v-row class="mb-4">
-              <v-col cols="12" sm="4">
+              <v-col cols="12" sm="3">
                 <div class="text-caption text-medium-emphasis">Agente</div>
                 <div class="font-weight-medium">{{ calendarioData.personal?.nombre }}</div>
               </v-col>
-              <v-col cols="12" sm="4">
+              <v-col cols="12" sm="3">
                 <div class="text-caption text-medium-emphasis">Proyecto</div>
                 <div class="font-weight-medium">{{ calendarioData.proyecto?.nombre }}</div>
               </v-col>
-              <v-col cols="12" sm="4">
+              <v-col cols="12" sm="3">
                 <div class="text-caption text-medium-emphasis">Turno</div>
                 <v-chip color="secondary" size="small" variant="tonal">
                   {{ calendarioData.turno?.nombre }}
                   ({{ calendarioData.turno?.dias_trabajo }}T / {{ calendarioData.turno?.dias_descanso }}D)
                 </v-chip>
+              </v-col>
+              <v-col cols="12" sm="3">
+                <div class="text-caption text-medium-emphasis">Inicio en puesto</div>
+                <div class="font-weight-medium">
+                  {{ calendarioData.fecha_inicio_asignacion ? String(calendarioData.fecha_inicio_asignacion).substring(0, 10) : '—' }}
+                </div>
+                <div class="text-caption text-medium-emphasis">
+                  (el rango Desde/Hasta solo filtra la vista del mes)
+                </div>
               </v-col>
             </v-row>
             <v-row class="mb-3">
@@ -1084,15 +1093,22 @@
                 v-for="dia in calendarioData.calendario"
                 :key="dia.fecha"
                 class="calendario-dia pa-2 rounded text-center"
-                :class="{ 'bg-success': dia.es_trabajo, 'bg-info': !dia.es_trabajo }"
-                style="opacity: 0.85;"
+                :class="calendarioDiaClass(dia)"
+                style="opacity: 0.9;"
               >
                 <div class="text-caption font-weight-bold">{{ dia.dia_semana?.substring(0, 3) }}</div>
                 <div class="text-body-2">{{ dia.fecha?.substring(8) }}</div>
-                <v-chip :color="dia.es_trabajo ? 'success' : 'info'" size="x-small" variant="flat">
-                  {{ dia.tipo }}
+                <v-chip :color="calendarioChipColor(dia)" size="x-small" variant="flat">
+                  {{ calendarioEtiqueta(dia) }}
                 </v-chip>
               </div>
+            </div>
+            <div class="d-flex flex-wrap ga-2 mt-3 text-caption">
+              <v-chip color="success" size="x-small" variant="tonal">trabajo</v-chip>
+              <v-chip color="info" size="x-small" variant="tonal">descanso</v-chip>
+              <v-chip color="error" size="x-small" variant="tonal">falta</v-chip>
+              <v-chip color="warning" size="x-small" variant="tonal">reemplazado</v-chip>
+              <v-chip color="grey" size="x-small" variant="tonal">sin asignación</v-chip>
             </div>
           </template>
           <v-alert v-else density="compact" type="info" variant="tonal">
@@ -2177,6 +2193,39 @@
     } finally {
       loadingCalendario.value = false
     }
+  }
+
+  function calendarioEtiqueta (dia) {
+    const map = {
+      trabajo: 'trabajo',
+      descanso: 'descanso',
+      falta: 'falta',
+      reemplazado: 'reemplazo',
+      sin_asignacion: 'sin asignar',
+    }
+    return map[dia?.tipo] || dia?.tipo || '—'
+  }
+
+  function calendarioChipColor (dia) {
+    const map = {
+      trabajo: 'success',
+      descanso: 'info',
+      falta: 'error',
+      reemplazado: 'warning',
+      sin_asignacion: 'grey',
+    }
+    return map[dia?.tipo] || 'grey'
+  }
+
+  function calendarioDiaClass (dia) {
+    const map = {
+      trabajo: 'bg-success',
+      descanso: 'bg-info',
+      falta: 'bg-error',
+      reemplazado: 'bg-warning',
+      sin_asignacion: 'bg-grey-lighten-2',
+    }
+    return map[dia?.tipo] || 'bg-grey-lighten-3'
   }
 
   // ==================== UTILIDADES ====================
