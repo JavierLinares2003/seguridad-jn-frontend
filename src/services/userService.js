@@ -101,6 +101,16 @@ export const userService = {
     return response.data
   },
 
+  async createRole (payload) {
+    const response = await api.post('/roles', payload)
+    return response.data
+  },
+
+  async deleteRole (roleId) {
+    const response = await api.delete(`/roles/${roleId}`)
+    return response.data
+  },
+
   async syncRolePermissions (roleId, vistas) {
     const response = await api.put(`/roles/${roleId}/permissions`, { vistas })
     return response.data

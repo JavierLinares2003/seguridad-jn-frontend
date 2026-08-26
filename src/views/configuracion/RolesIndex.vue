@@ -8,14 +8,14 @@
             <v-icon icon="mdi-shield-lock" size="28" />
           </v-avatar>
           <div>
-            <h1 class="text-h4 font-weight-bold">Roles y Permisos</h1>
+            <h1 class="text-h4 font-weight-bold">Roles y vistas</h1>
             <p class="text-body-2 text-medium-emphasis mb-0">
-              Visualiza los roles del sistema y administra pantallas/vistas por rol
+              Define qué pantallas puede ver cada rol en el menú
             </p>
           </div>
         </div>
       </v-col>
-      <v-col cols="auto">
+      <v-col cols="auto" class="d-flex ga-2">
         <v-btn
           class="text-none"
           color="grey-darken-1"
@@ -26,6 +26,17 @@
         >
           <v-icon start>mdi-arrow-left</v-icon>
           Volver a Usuarios
+        </v-btn>
+        <v-btn
+          class="text-none font-weight-bold"
+          color="secondary"
+          rounded="lg"
+          size="large"
+          variant="flat"
+          @click="openCreateRole"
+        >
+          <v-icon start>mdi-plus</v-icon>
+          Nuevo rol
         </v-btn>
       </v-col>
     </v-row>
@@ -86,6 +97,18 @@
                     />
                   </template>
                 </v-tooltip>
+                <v-tooltip v-if="role.name !== 'admin'" location="top" text="Eliminar rol">
+                  <template #activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      color="error"
+                      icon="mdi-delete-outline"
+                      size="small"
+                      variant="tonal"
+                      @click="confirmDeleteRole(role)"
+                    />
+                  </template>
+                </v-tooltip>
               </div>
             </div>
           </v-card-title>
@@ -93,22 +116,29 @@
           <v-divider />
 
           <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between mb-3">
-              <span class="text-body-2 font-weight-medium">Permisos</span>
-              <v-chip color="primary" size="small" variant="tonal">
-                {{ role.permissions_count || 0 }}
+            <p class="text-caption text-medium-emphasis mb-2">
+              Vistas que puede ver
+            </p>
+            <div class="d-flex flex-wrap ga-2 mb-3">
+              <v-chip
+                v-for="vista in roleVistas(role)"
+                :key="vista"
+                color="secondary"
+                size="small"
+                variant="tonal"
+              >
+                {{ vista }}
               </v-chip>
+              <span
+                v-if="roleVistas(role).length === 0"
+                class="text-caption text-medium-emphasis"
+              >
+                Ninguna vista asignada
+              </span>
             </div>
 
-            <v-progress-linear
-              class="rounded-pill"
-              color="primary"
-              height="8"
-              :model-value="getPermissionPercentage(role.permissions_count)"
-            />
-
-            <p class="text-caption text-medium-emphasis mt-2 mb-0">
-              {{ getPermissionPercentage(role.permissions_count) }}% del total de permisos
+            <p class="text-caption text-medium-emphasis mb-0">
+              {{ role.permissions_count || 0 }} permisos en total
             </p>
 
             <v-btn
@@ -124,6 +154,9 @@
               <v-icon start>mdi-view-dashboard-edit</v-icon>
               Editar vistas
             </v-btn>
+            <p v-else class="text-caption text-medium-emphasis mt-4 mb-0">
+              El rol admin ve todas las pantallas y no se puede restringir.
+            </p>
           </v-card-text>
         </v-card>
       </v-col>
@@ -307,6 +340,151 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog Nuevo Rol -->
+    <v-dialog v-model="createRoleDialog" max-width="560" persistent scrollable>
+      <v-card rounded="xl">
+        <v-card-title class="pa-5 pb-2">
+          <div class="d-flex align-center">
+            <v-avatar class="mr-3" color="secondary" size="42">
+              <v-icon icon="mdi-shield-plus" size="24" />
+            </v-avatar>
+            <div>
+              <h3 class="text-h6 font-weight-bold">Nuevo rol</h3>
+              <p class="text-caption text-medium-emphasis mb-0">
+                Nombre y pantallas que podrá ver
+              </p>
+            </div>
+          </div>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-5" style="max-height: 480px;">
+          <v-text-field
+            v-model="newRoleName"
+            class="mb-2"
+            color="secondary"
+            density="comfortable"
+            hint="Ejemplo: bodega, jefe de turno"
+            label="Nombre del rol"
+            persistent-hint
+            prepend-inner-icon="mdi-shield-account-outline"
+            rounded="lg"
+            :rules="roleNameRules"
+            variant="outlined"
+          />
+
+          <v-alert
+            class="mb-4 mt-4"
+            density="compact"
+            rounded="lg"
+            type="info"
+            variant="tonal"
+          >
+            Marca las pantallas del menú que este rol podrá ver
+          </v-alert>
+
+          <div v-if="loadingMenuPermissions" class="text-center py-6">
+            <v-progress-circular color="primary" indeterminate />
+          </div>
+
+          <template v-else>
+            <v-checkbox
+              v-for="vista in menuPermissions"
+              :key="vista.key || vista.name || vista"
+              v-model="selectedVistas"
+              color="secondary"
+              density="comfortable"
+              hide-details
+              :label="vistaLabel(vista)"
+              :value="vistaValue(vista)"
+            />
+
+            <div v-if="menuPermissions.length === 0" class="text-center py-6">
+              <p class="text-body-2 text-medium-emphasis mb-0">No hay vistas disponibles</p>
+            </div>
+          </template>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            class="text-none"
+            color="grey-darken-1"
+            rounded="lg"
+            variant="tonal"
+            @click="createRoleDialog = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            class="text-none font-weight-bold"
+            color="secondary"
+            :disabled="!newRoleName.trim()"
+            :loading="savingRole"
+            rounded="lg"
+            variant="flat"
+            @click="saveNewRole"
+          >
+            <v-icon start>mdi-content-save-outline</v-icon>
+            Crear rol
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog Eliminar Rol -->
+    <v-dialog v-model="deleteRoleDialog" max-width="420" persistent>
+      <v-card rounded="xl">
+        <v-card-text class="text-center pa-6">
+          <v-avatar class="mb-4" color="error" size="72" variant="tonal">
+            <v-icon color="error" icon="mdi-alert-circle-outline" size="40" />
+          </v-avatar>
+          <h3 class="text-h6 font-weight-bold mb-2">Eliminar rol</h3>
+          <p class="text-body-1 text-medium-emphasis mb-0">
+            ¿Eliminar el rol
+            <strong class="text-grey-darken-3 text-capitalize">{{ roleToDelete?.name }}</strong>?
+          </p>
+          <v-alert
+            v-if="roleToDelete?.users_count"
+            class="mt-4 text-left"
+            density="compact"
+            rounded="lg"
+            type="warning"
+            variant="tonal"
+          >
+            Hay {{ roleToDelete.users_count }} usuario(s) con este rol. Cámbiales el rol antes de eliminarlo.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn
+            class="text-none"
+            color="grey-darken-1"
+            rounded="lg"
+            variant="tonal"
+            @click="deleteRoleDialog = false"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            class="text-none font-weight-bold"
+            color="error"
+            :disabled="!!roleToDelete?.users_count"
+            :loading="store.saving"
+            rounded="lg"
+            variant="flat"
+            @click="deleteRole"
+          >
+            <v-icon start>mdi-delete-outline</v-icon>
+            Eliminar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -333,9 +511,6 @@
 
   const store = useUsersStore()
 
-  // Maximo de permisos (para calcular porcentaje)
-  const MAX_PERMISSIONS = 50
-
   // Dialog detalle rol
   const roleDetailDialog = ref(false)
   const selectedRole = ref(null)
@@ -348,6 +523,18 @@
   const selectedVistas = ref([])
   const loadingMenuPermissions = ref(false)
   const savingVistas = ref(false)
+
+  const createRoleDialog = ref(false)
+  const newRoleName = ref('')
+  const savingRole = ref(false)
+  const deleteRoleDialog = ref(false)
+  const roleToDelete = ref(null)
+
+  const roleNameRules = [
+    v => !!String(v || '').trim() || 'El nombre es obligatorio',
+    v => String(v || '').trim().length >= 3 || 'Mínimo 3 caracteres',
+    v => String(v || '').trim().toLowerCase() !== 'admin' || 'Ese nombre está reservado',
+  ]
 
   // Snackbar
   const snackbar = reactive({
@@ -386,9 +573,12 @@
     return icons[roleName] || 'mdi-shield'
   }
 
-  // Calcular porcentaje de permisos
-  function getPermissionPercentage(count) {
-    return Math.min(Math.round((count || 0) / MAX_PERMISSIONS * 100), 100)
+  function roleVistas(role) {
+    const raw = role?.vistas
+    if (Array.isArray(raw) && raw.length) {
+      return raw.map(item => (typeof item === 'string' ? item : item.label || item.name)).filter(Boolean)
+    }
+    return []
   }
 
   // Agrupar permisos por categoria
@@ -449,6 +639,74 @@
     }
   }
 
+  async function loadMenuPermissions() {
+    const menuResponse = await userService.getMenuPermissions()
+    const menuData = menuResponse?.data ?? menuResponse
+    const menuList = Array.isArray(menuData)
+      ? menuData
+      : (Array.isArray(menuData?.data) ? menuData.data : [])
+    menuPermissions.value = menuList
+    return menuList
+  }
+
+  async function openCreateRole() {
+    newRoleName.value = ''
+    selectedVistas.value = []
+    createRoleDialog.value = true
+    loadingMenuPermissions.value = true
+    try {
+      await loadMenuPermissions()
+    } catch {
+      showSnackbar('Error al cargar vistas disponibles', 'error')
+      menuPermissions.value = []
+    } finally {
+      loadingMenuPermissions.value = false
+    }
+  }
+
+  async function saveNewRole() {
+    const name = newRoleName.value.trim()
+    if (!name || name.toLowerCase() === 'admin') {
+      showSnackbar('Ingresa un nombre válido para el rol', 'error')
+      return
+    }
+
+    savingRole.value = true
+    try {
+      await store.createRole({
+        name,
+        vistas: selectedVistas.value,
+      })
+      showSnackbar('Rol creado correctamente')
+      createRoleDialog.value = false
+      await store.fetchRoles()
+    } catch (err) {
+      showSnackbar(err.apiMessage || 'Error al crear el rol', 'error')
+    } finally {
+      savingRole.value = false
+    }
+  }
+
+  function confirmDeleteRole(role) {
+    if (role.name === 'admin') return
+    roleToDelete.value = role
+    deleteRoleDialog.value = true
+  }
+
+  async function deleteRole() {
+    if (!roleToDelete.value) return
+
+    try {
+      await store.deleteRole(roleToDelete.value.id)
+      showSnackbar('Rol eliminado correctamente')
+      deleteRoleDialog.value = false
+      roleToDelete.value = null
+      await store.fetchRoles()
+    } catch (err) {
+      showSnackbar(err.apiMessage || 'Error al eliminar el rol', 'error')
+    }
+  }
+
   async function openEditVistas(role) {
     if (role.name === 'admin') return
 
@@ -458,15 +716,10 @@
     loadingMenuPermissions.value = true
 
     try {
-      const [menuResponse, roleResponse] = await Promise.all([
-        userService.getMenuPermissions(),
+      const [, roleResponse] = await Promise.all([
+        loadMenuPermissions(),
         userService.getRoleById(role.id),
       ])
-
-      const menuData = menuResponse?.data ?? menuResponse
-      menuPermissions.value = Array.isArray(menuData)
-        ? menuData
-        : (menuData?.data || [])
 
       const roleData = roleResponse?.data ?? roleResponse
       const current = roleData?.permissions

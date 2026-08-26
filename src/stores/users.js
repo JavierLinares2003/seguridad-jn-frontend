@@ -34,10 +34,12 @@ export const useUsersStore = defineStore('users', () => {
 
   // Helper para extraer datos de respuesta API
   function extractData(response) {
-    if (response?.data !== undefined) {
-      return response.data
+    const payload = response?.data !== undefined ? response.data : response
+    if (Array.isArray(payload)) return payload
+    if (payload && typeof payload === 'object' && payload.data !== undefined && (Array.isArray(payload.data) || payload.success !== undefined)) {
+      return payload.data
     }
-    return response
+    return payload
   }
 
   // Helper para extraer paginacion
@@ -297,7 +299,8 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const response = await userService.getRoles()
-      roles.value = extractData(response) || []
+      const data = extractData(response)
+      roles.value = Array.isArray(data) ? data : []
       return roles.value
     } catch (error_) {
       error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar roles'
@@ -323,6 +326,36 @@ export const useUsersStore = defineStore('users', () => {
       throw error_
     } finally {
       loading.value = false
+    }
+  }
+
+  async function createRole(payload) {
+    saving.value = true
+    error.value = null
+
+    try {
+      const response = await userService.createRole(payload)
+      return extractData(response)
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al crear rol'
+      throw error_
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteRole(id) {
+    saving.value = true
+    error.value = null
+
+    try {
+      const response = await userService.deleteRole(id)
+      return extractData(response)
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al eliminar rol'
+      throw error_
+    } finally {
+      saving.value = false
     }
   }
 
@@ -385,6 +418,8 @@ export const useUsersStore = defineStore('users', () => {
     // Actions - Roles catalogo
     fetchRoles,
     fetchRoleById,
+    createRole,
+    deleteRole,
     // Filtros
     setFilters,
     resetFilters,
