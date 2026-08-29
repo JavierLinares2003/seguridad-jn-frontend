@@ -304,6 +304,16 @@
                             <span v-else>-</span>
                           </v-list-item-title>
                         </v-list-item>
+                        <template v-if="personal.observaciones">
+                          <v-divider />
+                          <v-list-item>
+                            <template #prepend>
+                              <v-icon color="info" icon="mdi-information-outline" size="20" />
+                            </template>
+                            <v-list-item-subtitle class="text-caption">Observaciones</v-list-item-subtitle>
+                            <v-list-item-title class="text-wrap">{{ personal.observaciones }}</v-list-item-title>
+                          </v-list-item>
+                        </template>
                         <template v-if="personal.observacion_recontratacion">
                           <v-divider />
                           <v-list-item class="bg-amber-lighten-5">
@@ -525,18 +535,6 @@
                       </v-list>
                     </v-card-text>
                   </v-card>
-                </v-col>
-
-                <v-col v-if="personal.observaciones" cols="12">
-                  <v-alert
-                    prominent
-                    rounded="lg"
-                    type="info"
-                    variant="tonal"
-                  >
-                    <template #title>Observaciones</template>
-                    {{ personal.observaciones }}
-                  </v-alert>
                 </v-col>
               </v-row>
             </v-card-text>

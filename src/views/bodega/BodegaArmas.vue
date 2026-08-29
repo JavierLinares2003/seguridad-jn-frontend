@@ -131,7 +131,17 @@
         </template>
         <template #item.acciones="{ item }">
           <v-btn
+            v-if="canManage && item.proyecto_id"
+            color="warning"
+            size="small"
+            variant="tonal"
+            @click="devolver(item)"
+          >
+            Descargar
+          </v-btn>
+          <v-btn
             v-if="canManage"
+            class="ml-1"
             color="info"
             icon="mdi-pencil"
             size="small"
@@ -279,7 +289,7 @@
     { title: 'Vencimiento', key: 'vencimiento', width: '140px' },
     { title: 'Responsable / Proyecto', key: 'responsable', sortable: false },
     { title: 'Estado', key: 'estado', width: '140px' },
-    { title: '', key: 'acciones', sortable: false, width: '72px' },
+    { title: '', key: 'acciones', sortable: false, width: '160px' },
   ]
 
   const resumenCards = computed(() => {
@@ -364,6 +374,20 @@
       observaciones: item.observaciones || '',
     })
     dialog.value = true
+  }
+
+  async function devolver (item) {
+    try {
+      const res = await bodegaService.devolverArmaBodega(item.id)
+      snackbar.color = 'success'
+      snackbar.text = res.message || 'Arma descargada. Volvió a bodega.'
+      snackbar.show = true
+      await cargar()
+    } catch (error) {
+      snackbar.color = 'error'
+      snackbar.text = error.apiMessage || error.response?.data?.message || 'No se pudo descargar el arma'
+      snackbar.show = true
+    }
   }
 
   async function guardar () {

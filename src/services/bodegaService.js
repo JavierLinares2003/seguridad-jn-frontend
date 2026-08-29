@@ -179,6 +179,16 @@ export const bodegaService = {
     return response.data
   },
 
+  async asignarArmaProyecto (id, data) {
+    const response = await api.post(`/bodega/armas/${id}/asignar-proyecto`, data)
+    return response.data
+  },
+
+  async devolverArmaBodega (id) {
+    const response = await api.post(`/bodega/armas/${id}/devolver-bodega`)
+    return response.data
+  },
+
   async leerFacturaPdf (file) {
     const formData = new FormData()
     formData.append('pdf', file)
