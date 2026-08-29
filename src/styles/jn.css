@@ -1,0 +1,189 @@
+:root {
+  --jn-blue: #0a3d8f;
+  --jn-blue-deep: #072a66;
+  --jn-yellow: #f5c400;
+  --jn-yellow-deep: #d4a800;
+  --jn-paper: #f2f5fa;
+  --jn-ink: #0a2540;
+}
+
+html {
+  font-size: 16px;
+  height: 100%;
+  overflow: hidden;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.jn-shell.v-application,
+.jn-shell .v-application__wrap {
+  height: 100%;
+  min-height: 100% !important;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.jn-shell .v-navigation-drawer {
+  position: fixed !important;
+}
+
+.jn-shell .v-app-bar {
+  position: fixed !important;
+}
+
+.jn-shell .v-main {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+.v-application {
+  font-family: 'Source Sans 3', 'Segoe UI', sans-serif !important;
+  letter-spacing: 0.01em;
+}
+
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6,
+.jn-display {
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif !important;
+  letter-spacing: 0.06em;
+  font-weight: 600 !important;
+  text-wrap: balance;
+}
+
+.v-btn {
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+}
+
+.v-main .v-card {
+  box-shadow: none !important;
+  border: 1px solid color-mix(in srgb, var(--jn-blue) 12%, transparent);
+  border-radius: 2px !important;
+}
+
+.v-app-bar {
+  border-bottom: 1px solid color-mix(in srgb, var(--jn-blue) 14%, transparent) !important;
+  box-shadow: none !important;
+}
+
+.v-app-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--jn-yellow);
+  z-index: 1;
+}
+
+.v-navigation-drawer.jn-rail {
+  border-right: 0 !important;
+}
+
+.v-navigation-drawer.jn-rail .v-list-item--active {
+  background: color-mix(in srgb, var(--jn-yellow) 18%, transparent) !important;
+}
+
+.v-navigation-drawer.jn-rail .v-list-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--jn-yellow);
+}
+
+.v-overlay__scrim {
+  background: var(--jn-blue-deep) !important;
+  opacity: 0.55 !important;
+}
+
+.v-theme--jnDark {
+  --jn-paper: #071427;
+  --jn-ink: #f2f5fa;
+}
+
+.v-theme--jnDark .v-main .v-card {
+  border-color: color-mix(in srgb, var(--jn-yellow) 18%, transparent);
+}
+
+.v-theme--jnDark .bg-white,
+.v-theme--jnDark .bg-grey,
+.v-theme--jnDark .bg-grey-lighten-5,
+.v-theme--jnDark .bg-grey-lighten-4,
+.v-theme--jnDark .bg-grey-lighten-3,
+.v-theme--jnDark .bg-grey-lighten-2,
+.v-theme--jnDark .bg-grey-lighten-1 {
+  background-color: rgb(var(--v-theme-surface-light)) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+.v-theme--jnDark .v-tabs.bg-white,
+.v-theme--jnDark .v-tabs.bg-grey-lighten-5 {
+  background-color: rgb(var(--v-theme-surface)) !important;
+}
+
+.v-theme--jnDark .v-data-table,
+.v-theme--jnDark .v-table {
+  background: rgb(var(--v-theme-surface)) !important;
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.v-theme--jnDark .v-data-table-header__content,
+.v-theme--jnDark .v-data-table__th,
+.v-theme--jnDark .v-data-table .v-data-table-header {
+  background-color: rgb(var(--v-theme-surface-light)) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+.v-theme--jnDark .v-overlay__content > .v-card,
+.v-theme--jnDark .v-dialog > .v-overlay__content > .v-card {
+  background: rgb(var(--v-theme-surface)) !important;
+}
+
+.v-theme--jnDark .v-list {
+  background: rgb(var(--v-theme-surface));
+}
+
+.v-theme--jnDark .v-field {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.v-theme--jnDark .v-tab {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.v-theme--jnDark .v-tab--selected {
+  color: rgb(var(--v-theme-primary));
+}
+
+.v-theme--jnDark .v-card .v-card {
+  background: rgb(var(--v-theme-surface-bright)) !important;
+}
+
+.jn-banner-scrim {
+  width: 100%;
+  background: linear-gradient(to top, rgb(7 20 39 / 0.92), rgb(7 20 39 / 0.2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

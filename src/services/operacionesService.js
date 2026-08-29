@@ -214,9 +214,9 @@ export const operacionesService = {
   /**
      * Obtener personal disponible para reemplazos
      */
-  async getReemplazosDisponibles (fecha) {
+  async getReemplazosDisponibles (fecha, extra = {}) {
     const response = await api.get('/operaciones/asistencia/reemplazos-disponibles', {
-      params: { fecha },
+      params: { fecha, ...extra },
     })
     return response.data
   },
@@ -273,6 +273,14 @@ export const operacionesService = {
      */
   async getCalendarioTurno (personalAsignadoId, params = {}) {
     const response = await api.get(`/operaciones/asistencia/calendario-turno/${personalAsignadoId}`, { params })
+    return response.data
+  },
+
+  /**
+     * Calendario de días trabajados de un agente (con o sin puesto)
+     */
+  async getCalendarioDiasTrabajados (personalId, params = {}) {
+    const response = await api.get(`/operaciones/asistencia/calendario-personal/${personalId}`, { params })
     return response.data
   },
 

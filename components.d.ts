@@ -16,6 +16,7 @@ declare module 'vue' {
     DireccionForm: typeof import('./src/components/forms/DireccionForm.vue')['default']
     DocumentosPersonal: typeof import('./src/components/personal/DocumentosPersonal.vue')['default']
     DocumentosProyecto: typeof import('./src/components/proyectos/DocumentosProyecto.vue')['default']
+    EquipoBodegaPersonal: typeof import('./src/components/personal/EquipoBodegaPersonal.vue')['default']
     HelloWorld: typeof import('./src/components/HelloWorld.vue')['default']
     PermisosPersonal: typeof import('./src/components/personal/PermisosPersonal.vue')['default']
     PersonalSelector: typeof import('./src/components/planilla/PersonalSelector.vue')['default']

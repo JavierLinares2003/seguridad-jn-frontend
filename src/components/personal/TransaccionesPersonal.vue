@@ -140,8 +140,18 @@
                             variant="outlined"
                           />
                         </td>
-                        <td class="text-right font-weight-bold text-error">
-                          Q{{ formatNumber(cuota.monto) }}
+                        <td style="min-width: 140px;">
+                          <v-text-field
+                            v-model.number="cuota.monto"
+                            density="compact"
+                            hide-details
+                            min="0.01"
+                            prefix="Q"
+                            step="0.01"
+                            type="number"
+                            variant="outlined"
+                            @update:model-value="recalcularSaldosDesglose"
+                          />
                         </td>
                         <td class="text-right" :class="cuota.saldo_despues === 0 ? 'text-success font-weight-bold' : ''">
                           Q{{ formatNumber(cuota.saldo_despues) }}
@@ -151,8 +161,15 @@
                   </v-table>
                 </v-card-text>
                 <v-card-text class="pt-0 pb-3 px-4">
-                  <v-alert density="compact" type="info" variant="tonal">
-                    Puedes editar las fechas de cada cuota. Se descontará en la planilla del período correspondiente.
+                  <v-alert
+                    density="compact"
+                    :type="sumaCuotasDesgloseOk ? 'info' : 'warning'"
+                    variant="tonal"
+                  >
+                    Puedes editar fechas y montos de cada cuota.
+                    Suma: Q{{ formatNumber(sumaCuotasDesglose) }}
+                    / Total: Q{{ formatNumber(form.monto || 0) }}
+                    <span v-if="!sumaCuotasDesgloseOk"> — la suma debe coincidir con el total.</span>
                   </v-alert>
                 </v-card-text>
               </v-card>
@@ -568,7 +585,7 @@
                 @click="abrirGestionUniforme(transaccionSeleccionada.grupo_uniforme)"
               >
                 <v-icon start>mdi-calendar-edit</v-icon>
-                Editar fechas restantes
+                Editar cuotas restantes
               </v-btn>
             </div>
             <v-table density="compact">
@@ -609,7 +626,7 @@
       <v-card v-if="planGestion" rounded="xl">
         <v-card-title class="bg-info pa-4 d-flex align-center flex-wrap ga-2">
           <v-icon color="white" start>mdi-calendar-edit</v-icon>
-          <span class="text-white">Gestionar fechas del uniforme</span>
+          <span class="text-white">Gestionar cuotas del uniforme</span>
           <v-spacer />
           <v-chip color="white" size="small" variant="flat">
             {{ planGestion.cuotas_aplicadas || 0 }}/{{ planGestion.cuotas_totales }} aplicadas
@@ -786,8 +803,19 @@
                   />
                   <span v-else>{{ formatDate(cuota.fecha_transaccion) }}</span>
                 </td>
-                <td class="text-right font-weight-bold text-error">
-                  Q{{ formatNumber(cuota.monto) }}
+                <td style="min-width: 140px;">
+                  <v-text-field
+                    v-if="cuota.estado_transaccion === 'pendiente' && !readonly"
+                    v-model.number="cuota._montoEdit"
+                    density="compact"
+                    hide-details
+                    min="0.01"
+                    prefix="Q"
+                    step="0.01"
+                    type="number"
+                    variant="outlined"
+                  />
+                  <span v-else class="font-weight-bold text-error">Q{{ formatNumber(cuota.monto) }}</span>
                 </td>
                 <td class="text-right">Q{{ formatNumber(cuota.saldo_despues) }}</td>
                 <td>
@@ -810,7 +838,7 @@
             @click="guardarFechasGestion"
           >
             <v-icon start>mdi-content-save</v-icon>
-            Guardar fechas
+            Guardar cambios
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -889,6 +917,10 @@
       type: Boolean,
       default: false,
     },
+    prefill: {
+      type: Object,
+      default: null,
+    },
   })
 
   const emit = defineEmits(['saved', 'error'])
@@ -925,12 +957,21 @@
     (planesUniforme.value || []).filter(p => p.activo && p.cuotas_pendientes > 0),
   )
 
+  const sumaCuotasDesglose = computed(() =>
+    Math.round((desgloseUniforme.value || []).reduce((s, c) => s + (Number(c.monto) || 0), 0) * 100) / 100
+  )
+
+  const sumaCuotasDesgloseOk = computed(() =>
+    Math.abs(sumaCuotasDesglose.value - Number(form.monto || 0)) <= 0.05
+  )
+
   const hayCambiosFechasGestion = computed(() =>
-    cuotasGestion.value.some(c =>
-      c.estado_transaccion === 'pendiente'
-      && c._fechaEdit
-      && c._fechaEdit !== (c.fecha_transaccion || '').toString().slice(0, 10),
-    ),
+    cuotasGestion.value.some(c => {
+      if (c.estado_transaccion !== 'pendiente') return false
+      const fechaChanged = c._fechaEdit && c._fechaEdit !== (c.fecha_transaccion || '').toString().slice(0, 10)
+      const montoChanged = Number(c._montoEdit) !== Number(c.monto)
+      return fechaChanged || montoChanged
+    }),
   )
 
   const puedeCambiarCuotas = computed(() => {
@@ -1088,6 +1129,18 @@
     })
   }
 
+  function recalcularSaldosDesglose () {
+    const monto = Number(form.monto) || 0
+    let acumulado = 0
+    desgloseUniforme.value = desgloseUniforme.value.map(c => {
+      acumulado += Number(c.monto) || 0
+      return {
+        ...c,
+        saldo_despues: Math.round((monto - acumulado) * 100) / 100,
+      }
+    })
+  }
+
   function onTipoTransaccionChange () {
     if (esUniforme.value) {
       if (!form.cuotas_totales || form.cuotas_totales < 1) form.cuotas_totales = 1
@@ -1134,6 +1187,7 @@
     return (cuotas || []).map(c => ({
       ...c,
       _fechaEdit: (c.fecha_transaccion || '').toString().slice(0, 10),
+      _montoEdit: Number(c.monto),
     }))
   }
 
@@ -1174,14 +1228,16 @@
     if (!planGestion.value || !hayCambiosFechasGestion.value) return
 
     const cambios = cuotasGestion.value
-      .filter(c =>
-        c.estado_transaccion === 'pendiente'
-        && c._fechaEdit
-        && c._fechaEdit !== (c.fecha_transaccion || '').toString().slice(0, 10),
-      )
+      .filter(c => {
+        if (c.estado_transaccion !== 'pendiente') return false
+        const fechaChanged = c._fechaEdit && c._fechaEdit !== (c.fecha_transaccion || '').toString().slice(0, 10)
+        const montoChanged = Number(c._montoEdit) !== Number(c.monto)
+        return fechaChanged || montoChanged
+      })
       .map(c => ({
         id: c.id,
         fecha_transaccion: c._fechaEdit,
+        monto: Number(c._montoEdit),
       }))
 
     if (!cambios.length) return
@@ -1281,6 +1337,10 @@
       }
       if (!desgloseUniforme.value.length) {
         errors.fecha_transaccion = ['Indique la fecha de inicio']
+        return
+      }
+      if (!sumaCuotasDesgloseOk.value) {
+        errorMessage.value = 'La suma de las cuotas debe coincidir con el monto total.'
         return
       }
     }
@@ -1496,8 +1556,26 @@
     snackbar.show = true
   }
 
+  function aplicarPrefill () {
+    if (!props.prefill || props.readonly) return
+    if (props.prefill.tipo_transaccion) {
+      form.tipo_transaccion = props.prefill.tipo_transaccion
+    }
+    if (props.prefill.monto != null && !Number.isNaN(Number(props.prefill.monto))) {
+      form.monto = Number(props.prefill.monto)
+    }
+    if (props.prefill.descripcion) {
+      form.descripcion = props.prefill.descripcion
+    }
+    if (form.tipo_transaccion === 'uniforme') {
+      if (!form.cuotas_totales || form.cuotas_totales < 1) form.cuotas_totales = 10
+      regenerarDesgloseUniforme()
+    }
+  }
+
   onMounted(() => {
     cargarTransacciones()
+    aplicarPrefill()
   })
 </script>
 

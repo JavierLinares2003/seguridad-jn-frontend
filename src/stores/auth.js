@@ -21,6 +21,40 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const userName = computed(() => user.value?.name || '')
   const isSuperAdmin = computed(() => permissions.value.includes('*'))
+  const isAdmin = computed(() => {
+    const roles = user.value?.roles
+    if (Array.isArray(roles)) {
+      return roles.some(role => (typeof role === 'string' ? role : role?.name) === 'admin')
+    }
+    return user.value?.role === 'admin'
+  })
+
+  function unwrapPayload(response) {
+    const body = response?.data !== undefined ? response.data : response
+    if (body && typeof body === 'object' && body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+      if (body.data.user || body.data.token || body.data.id || body.data.permissions) {
+        return body.data
+      }
+    }
+    return body || {}
+  }
+
+  function normalizePermissions(raw) {
+    if (!raw) return []
+    const list = Array.isArray(raw) ? raw : Object.values(raw)
+    return list
+      .map(item => (typeof item === 'string' ? item : item?.name || item?.permission))
+      .filter(Boolean)
+  }
+
+  function applySession({ userData, authToken, rawPermissions }) {
+    user.value = userData || null
+    if (authToken) {
+      token.value = authToken
+      localStorage.setItem('auth_token_jn', authToken)
+    }
+    permissions.value = normalizePermissions(rawPermissions || userData?.permissions)
+  }
 
   // Actions
   async function login(credentials) {
@@ -28,14 +62,14 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      // API retorna: { success, message, data: { user, token, permissions } }
       const response = await authService.login(credentials)
-      const { user: userData, token: authToken, permissions: userPermissions } = response.data
-
-      user.value = userData
-      token.value = authToken
-      permissions.value = userPermissions || userData?.permissions || []
-      localStorage.setItem('auth_token_jn', authToken)
+      const payload = unwrapPayload(response)
+      const userData = payload.user || payload
+      applySession({
+        userData,
+        authToken: payload.token,
+        rawPermissions: payload.permissions || userData?.permissions,
+      })
 
       return { success: true }
     } catch (error_) {
@@ -53,12 +87,13 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // API retorna: { success, message, data: { user, token, permissions } }
       const response = await authService.register(userData)
-      const { user: newUser, token: authToken, permissions: userPermissions } = response.data
-
-      user.value = newUser
-      token.value = authToken
-      permissions.value = userPermissions || newUser?.permissions || []
-      localStorage.setItem('auth_token_jn', authToken)
+      const payload = unwrapPayload(response)
+      const newUser = payload.user || payload
+      applySession({
+        userData: newUser,
+        authToken: payload.token,
+        rawPermissions: payload.permissions || newUser?.permissions,
+      })
 
       return { success: true }
     } catch (error_) {
@@ -86,18 +121,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // API retorna: { success, message, data: {...} }
       const response = await authService.getProfile()
-      const data = response.data
+      const data = unwrapPayload(response)
+      const userData = data.user || (data.id ? data : null)
 
-      // Manejar diferentes estructuras de respuesta:
-      // 1. { user: {...}, permissions: [...] }
-      // 2. { id, name, ..., permissions: [...] } (usuario directo)
-      if (data.user) {
-        user.value = data.user
-        permissions.value = data.permissions || data.user?.permissions || []
-      } else if (data.id) {
-        // La respuesta es el usuario directamente
-        user.value = data
-        permissions.value = data.permissions || []
+      if (userData) {
+        applySession({
+          userData,
+          rawPermissions: data.permissions || userData.permissions,
+        })
       }
 
       initialized.value = true
@@ -132,15 +163,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // API retorna: { success, message, data: {...} }
       const response = await authService.getProfile()
-      const data = response.data
+      const data = unwrapPayload(response)
+      const userData = data.user || (data.id ? data : null)
 
-      // Manejar diferentes estructuras de respuesta
-      if (data.user) {
-        user.value = data.user
-        permissions.value = data.permissions || data.user?.permissions || []
-      } else if (data.id) {
-        user.value = data
-        permissions.value = data.permissions || []
+      if (userData) {
+        applySession({
+          userData,
+          rawPermissions: data.permissions || userData.permissions,
+        })
       }
 
       return user.value
@@ -156,6 +186,10 @@ export const useAuthStore = defineStore('auth', () => {
    * Verifica si el usuario tiene un permiso específico
    */
   function hasPermission(permission, requireAll = false) {
+    if (isAdmin.value) {
+      return true
+    }
+
     if (!permissions.value || !Array.isArray(permissions.value) || permissions.value.length === 0) {
       return false
     }
@@ -232,6 +266,7 @@ export const useAuthStore = defineStore('auth', () => {
     userRole,
     userName,
     isSuperAdmin,
+    isAdmin,
     // Actions
     login,
     register,

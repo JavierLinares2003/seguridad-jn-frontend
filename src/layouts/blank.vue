@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app class="jn-shell">
     <v-main>
       <router-view />
     </v-main>

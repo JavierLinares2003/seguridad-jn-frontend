@@ -13,7 +13,19 @@
           </div>
         </div>
       </v-col>
-      <v-col cols="auto">
+      <v-col cols="auto" class="d-flex ga-2">
+        <v-btn
+          v-if="canManageRoles"
+          class="text-none"
+          color="secondary"
+          rounded="lg"
+          size="large"
+          :to="{ name: 'configuracion-roles' }"
+          variant="tonal"
+        >
+          <v-icon start>mdi-eye-lock-outline</v-icon>
+          Roles y vistas
+        </v-btn>
         <v-btn
           class="text-none font-weight-bold"
           color="primary"
@@ -534,10 +546,13 @@
 <script setup>
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
-  import { onMounted, reactive, ref } from 'vue'
+  import { computed, onMounted, reactive, ref } from 'vue'
   import { useUsersStore } from '@/stores/users'
+  import { useAuthStore } from '@/stores/auth'
 
   const store = useUsersStore()
+  const authStore = useAuthStore()
+  const canManageRoles = computed(() => authStore.hasPermission('manage-roles'))
 
   // Estados
   const estadosUsuario = [

@@ -1,137 +1,76 @@
 <template>
-  <v-container class="fill-height" fluid>
-    <!-- Boton cambiar tema -->
-    <v-btn
-      class="theme-toggle-btn"
-      icon
-      position="fixed"
-      style="top: 16px; right: 16px; z-index: 10;"
-      variant="tonal"
-      @click="toggleTheme"
-    >
-      <v-icon>{{ theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-    </v-btn>
+  <div class="jn-login">
+    <aside class="jn-login__brand">
+      <div class="jn-login__mark">JN</div>
+      <h1 class="jn-display text-h3 mb-3">Seguridad JN</h1>
+      <p class="jn-login__tag">Control de personal, operaciones y planilla.</p>
+    </aside>
 
-    <v-row align="center" justify="center">
-      <v-col cols="12" lg="4" md="5" sm="10">
-        <v-card
-          class="mx-auto overflow-hidden"
-          elevation="8"
-          max-width="450"
-          rounded="xl"
-        >
-          <!-- Header con gradiente y avatar -->
-          <v-sheet
-            class="d-flex flex-column align-center justify-center py-8"
+    <main class="jn-login__form">
+      <v-btn class="jn-login__theme" icon size="small" variant="text" @click="toggleTheme">
+        <v-icon size="20">{{ theme.global.current.value.dark ? 'mdi-white-balance-sunny' : 'mdi-moon-waning-crescent' }}</v-icon>
+      </v-btn>
+
+      <div class="jn-login__panel">
+        <p class="jn-login__kicker">Acceso</p>
+        <h2 class="jn-display text-h4 mb-6">Entrar al sistema</h2>
+
+        <v-form @submit.prevent="onSubmit">
+          <v-text-field
+            v-model="email"
+            class="mb-2"
             color="primary"
-            rounded="0"
+            :disabled="authStore.loading"
+            :error-messages="errors.email"
+            label="Correo"
+            type="email"
+            @blur="validateField('email')"
+          />
+          <v-text-field
+            v-model="password"
+            :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
+            class="mb-2"
+            color="primary"
+            :disabled="authStore.loading"
+            :error-messages="errors.password"
+            label="Contraseña"
+            :type="showPassword ? 'text' : 'password'"
+            @blur="validateField('password')"
+            @click:append-inner="showPassword = !showPassword"
+          />
+          <v-checkbox
+            v-model="rememberEmail"
+            class="mt-n2 mb-3"
+            color="primary"
+            density="compact"
+            hide-details
+            label="Recordar correo"
+          />
+          <v-alert
+            v-if="authStore.error"
+            class="mb-4"
+            closable
+            type="error"
+            variant="tonal"
+            @click:close="authStore.clearError"
           >
-            <v-avatar
-              class="mb-4 elevation-4"
-              color="white"
-              size="80"
-            >
-              <v-icon
-                color="primary"
-                icon="mdi-account-circle"
-                size="60"
-              />
-            </v-avatar>
-            <h2 class="text-h5 font-weight-bold text-white">
-              Bienvenido
-            </h2>
-            <p class="text-body-2 text-white-darken-1 mt-1">
-              Inicia sesión para continuar
-            </p>
-          </v-sheet>
-
-          <v-card-text class="pa-6 pt-8">
-            <v-form @submit.prevent="onSubmit">
-              <v-text-field
-                v-model="email"
-                bg-color="grey-lighten-5"
-                class="mb-2"
-                color="primary"
-                density="comfortable"
-                :disabled="authStore.loading"
-                :error-messages="errors.email"
-                label="Correo electrónico"
-                prepend-inner-icon="mdi-email-outline"
-                rounded="lg"
-                type="email"
-                variant="outlined"
-                @blur="validateField('email')"
-              />
-
-              <v-text-field
-                v-model="password"
-                :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-                bg-color="grey-lighten-5"
-                class="mb-2"
-                color="primary"
-                density="comfortable"
-                :disabled="authStore.loading"
-                :error-messages="errors.password"
-                label="Contraseña"
-                prepend-inner-icon="mdi-lock-outline"
-                rounded="lg"
-                :type="showPassword ? 'text' : 'password'"
-                variant="outlined"
-                @blur="validateField('password')"
-                @click:append-inner="showPassword = !showPassword"
-              />
-
-              <v-alert
-                v-if="authStore.error"
-                class="mb-4"
-                closable
-                rounded="lg"
-                type="error"
-                variant="tonal"
-                @click:close="authStore.clearError"
-              >
-                {{ authStore.error }}
-              </v-alert>
-
-              <v-btn
-                block
-                class="mt-4 text-none font-weight-bold"
-                color="primary"
-                :disabled="!meta.valid || authStore.loading"
-                elevation="2"
-                :loading="authStore.loading"
-                rounded="lg"
-                size="x-large"
-                type="submit"
-              >
-                <v-icon icon="mdi-login" start />
-                Ingresar
-              </v-btn>
-            </v-form>
-          </v-card-text>
-
-          <v-divider class="mx-6" />
-
-          <!-- <v-card-actions class="justify-center pa-4">
-            <span class="text-body-2 text-medium-emphasis">¿No tienes cuenta?</span>
-            <v-btn
-              class="text-none font-weight-medium"
-              color="primary"
-              :to="{ name: 'register' }"
-              variant="text"
-            >
-              Regístrate aquí
-            </v-btn>
-          </v-card-actions> -->
-        </v-card>
-
-        <!-- Footer opcional -->
-        <p class="text-center text-caption text-medium-emphasis mt-6">
-          © {{ new Date().getFullYear() }} SeguridadJN. Todos los derechos reservados.
-        </p>
-      </v-col>
-    </v-row>
-  </v-container>
+            {{ authStore.error }}
+          </v-alert>
+          <v-btn
+            block
+            color="primary"
+            :disabled="!meta.valid || authStore.loading"
+            :loading="authStore.loading"
+            rounded="0"
+            size="large"
+            type="submit"
+          >
+            Ingresar
+          </v-btn>
+        </v-form>
+      </div>
+    </main>
+  </div>
 </template>
 
 <script setup>
@@ -148,22 +87,24 @@
   const theme = useTheme()
 
   const showPassword = ref(false)
+  const rememberEmail = ref(false)
+  const REMEMBER_EMAIL_KEY = 'login_email_jn'
 
-  // Cambiar tema
   function toggleTheme () {
-    theme.global.name.value = theme.global.current.value.dark ? 'light' : 'dark'
-    localStorage.setItem('theme', theme.global.name.value)
+    theme.global.name.value = theme.global.current.value.dark ? 'jnLight' : 'jnDark'
+    localStorage.setItem('jn-theme', theme.global.name.value)
   }
 
-  // Cargar tema guardado
   onMounted(() => {
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme) {
-      theme.global.name.value = savedTheme
+    const savedTheme = localStorage.getItem('jn-theme')
+    theme.global.name.value = savedTheme === 'jnDark' ? 'jnDark' : 'jnLight'
+    const savedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY)
+    if (savedEmail) {
+      email.value = savedEmail
+      rememberEmail.value = true
     }
   })
 
-  // Esquema de validación con Yup
   const validationSchema = yup.object({
     email: yup
       .string()
@@ -175,7 +116,6 @@
       .min(6, 'La contraseña debe tener al menos 6 caracteres'),
   })
 
-  // Configurar formulario con Vee-Validate
   const { handleSubmit, errors, meta, validateField } = useForm({
     validationSchema,
     initialValues: {
@@ -184,11 +124,9 @@
     },
   })
 
-  // Campos del formulario
   const { value: email } = useField('email')
   const { value: password } = useField('password')
 
-  // Manejar envío del formulario
   const onSubmit = handleSubmit(async values => {
     authStore.clearError()
 
@@ -198,8 +136,91 @@
     })
 
     if (result.success) {
+      if (rememberEmail.value) {
+        localStorage.setItem(REMEMBER_EMAIL_KEY, values.email)
+      } else {
+        localStorage.removeItem(REMEMBER_EMAIL_KEY)
+      }
       const redirect = route.query.redirect || '/inicio'
       router.push(redirect)
     }
   })
 </script>
+
+<style scoped>
+.jn-login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(280px, 42%) 1fr;
+}
+
+.jn-login__brand {
+  background: var(--jn-blue-deep);
+  color: #f2f5fa;
+  padding: clamp(2rem, 6vw, 4.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.jn-login__mark {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--jn-yellow);
+  color: var(--jn-yellow);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.jn-login__tag {
+  max-width: 18rem;
+  margin: 0;
+  color: var(--jn-yellow);
+  letter-spacing: 0.04em;
+}
+
+.jn-login__form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.jn-login__theme {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.jn-login__panel {
+  width: min(100%, 380px);
+}
+
+.jn-login__kicker {
+  margin: 0 0 0.4rem;
+  color: var(--jn-blue);
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .jn-login {
+    grid-template-columns: 1fr;
+  }
+
+  .jn-login__brand {
+    min-height: 28vh;
+    justify-content: flex-end;
+  }
+}
+</style>

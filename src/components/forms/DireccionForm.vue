@@ -68,7 +68,7 @@
             :error-messages="errors?.zona"
             label="Zona"
             :max="25"
-            :min="1"
+            :min="0"
             rounded="lg"
             type="number"
             variant="outlined"

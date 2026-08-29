@@ -568,12 +568,12 @@ export const useOperacionesStore = defineStore('operaciones', () => {
   /**
      * Obtener personal disponible para reemplazos
      */
-  async function fetchReemplazosDisponibles (fecha) {
+  async function fetchReemplazosDisponibles (fecha, extra = {}) {
     loading.value = true
     error.value = null
 
     try {
-      const response = await operacionesService.getReemplazosDisponibles(fecha)
+      const response = await operacionesService.getReemplazosDisponibles(fecha, extra)
       reemplazosDisponibles.value = extractData(response) || []
       return reemplazosDisponibles.value
     } catch (error_) {
@@ -655,6 +655,25 @@ export const useOperacionesStore = defineStore('operaciones', () => {
       return calendarioTurno.value
     } catch (error_) {
       error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar calendario de turno'
+      throw error_
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+     * Calendario de días trabajados de un agente sin puesto (o historial mixto)
+     */
+  async function fetchCalendarioDiasTrabajados (personalId, params = {}) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await operacionesService.getCalendarioDiasTrabajados(personalId, params)
+      calendarioTurno.value = extractData(response)
+      return calendarioTurno.value
+    } catch (error_) {
+      error.value = error_.apiMessage || error_.response?.data?.message || 'Error al cargar calendario de días trabajados'
       throw error_
     } finally {
       loading.value = false
@@ -783,6 +802,7 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     registrarAusencia,
     fetchVistaAgrupada,
     fetchCalendarioTurno,
+    fetchCalendarioDiasTrabajados,
     fetchDepartamentosDisponibles,
 
     // Utilidades

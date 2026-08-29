@@ -62,6 +62,16 @@ export const personalService = {
     return response.data
   },
 
+  async reingreso(id, data) {
+    const response = await api.post(`/personal/${id}/reingreso`, data)
+    return response.data
+  },
+
+  async preAlta(data) {
+    const response = await api.post('/personal/pre-alta', data)
+    return response.data
+  },
+
   /**
    * Subir foto del personal
    */

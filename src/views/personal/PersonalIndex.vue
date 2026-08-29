@@ -26,6 +26,18 @@
           <v-icon start>mdi-plus</v-icon>
           Nuevo Personal
         </v-btn>
+        <v-btn
+          v-can="'create-personal'"
+          class="text-none ml-2"
+          color="info"
+          rounded="lg"
+          size="large"
+          variant="tonal"
+          @click="dialogPreAlta = true"
+        >
+          <v-icon start>mdi-account-clock</v-icon>
+          Pre-alta
+        </v-btn>
       </v-col>
     </v-row>
 
@@ -46,7 +58,7 @@
               density="comfortable"
               hide-details
               label="Buscar"
-              placeholder="Nombre, DPI, Email..."
+              placeholder="Nombre, DPI, Email... (incluye bajas)"
               prepend-inner-icon="mdi-magnify"
               rounded="lg"
               variant="outlined"
@@ -153,21 +165,34 @@
 
         <!-- Telefono -->
         <template #item.telefono="{ item }">
-          <span class="text-body-2">{{ formatPhone(item.telefono) }}</span>
+          <div class="text-body-2">{{ formatPhone(item.telefono) }}</div>
+          <div v-if="item.telefono_whatsapp" class="text-caption text-medium-emphasis">
+            WA {{ formatPhone(item.telefono_whatsapp) }}
+          </div>
         </template>
 
         <!-- Estado -->
         <template #item.estado="{ item }">
-          <v-chip
-            class="font-weight-medium text-capitalize"
-            :color="getEstadoColor(item.estado)"
-            label
-            size="small"
-            variant="flat"
-          >
-            <v-icon :icon="getEstadoIcon(item.estado)" size="14" start />
-            {{ item.estado }}
-          </v-chip>
+          <div class="d-flex flex-column align-center ga-1">
+            <v-chip
+              class="font-weight-medium text-capitalize"
+              :color="getEstadoColor(item.estado)"
+              label
+              size="small"
+              variant="flat"
+            >
+              <v-icon :icon="getEstadoIcon(item.estado)" size="14" start />
+              {{ item.estado }}
+            </v-chip>
+            <v-chip
+              v-if="item.pendiente_liquidacion"
+              color="warning"
+              size="x-small"
+              variant="flat"
+            >
+              Equipo pendiente
+            </v-chip>
+          </div>
         </template>
 
         <!-- Departamento -->
@@ -197,6 +222,20 @@
                   rounded="lg"
                   size="small"
                   :to="{ name: 'personal-detalle', params: { id: item.id } }"
+                  variant="tonal"
+                />
+              </template>
+            </v-tooltip>
+            <v-tooltip location="top" text="Ver calendario">
+              <template #activator="{ props }">
+                <v-btn
+                  v-can="'view-personal'"
+                  v-bind="props"
+                  color="secondary"
+                  icon="mdi-calendar-month-outline"
+                  rounded="lg"
+                  size="small"
+                  :to="{ name: 'personal-detalle', params: { id: item.id }, query: { tab: 'asistencia' } }"
                   variant="tonal"
                 />
               </template>
@@ -299,6 +338,32 @@
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="dialogPreAlta" max-width="520">
+      <v-card rounded="xl">
+        <v-card-title class="bg-info pa-4 text-white">Pre-alta RRHH</v-card-title>
+        <v-card-text class="pa-5">
+          <p class="text-body-2 mb-4">
+            DPI, nombre y tallas. Queda pendiente de expediente; no es un alta completa.
+          </p>
+          <v-text-field v-model="preAlta.nombres" class="mb-2" label="Nombres *" variant="outlined" />
+          <v-text-field v-model="preAlta.apellidos" class="mb-2" label="Apellidos *" variant="outlined" />
+          <v-text-field v-model="preAlta.dpi" class="mb-2" label="DPI (13 dígitos) *" maxlength="13" variant="outlined" />
+          <v-text-field v-model="preAlta.telefono" class="mb-3" label="Teléfono" variant="outlined" />
+          <v-row dense>
+            <v-col cols="6"><v-text-field v-model="preAlta.tallas.talla_camisa" density="compact" label="Camisa" variant="outlined" /></v-col>
+            <v-col cols="6"><v-text-field v-model="preAlta.tallas.talla_pantalon" density="compact" label="Pantalón" variant="outlined" /></v-col>
+            <v-col cols="6"><v-text-field v-model="preAlta.tallas.talla_zapato" density="compact" label="Calzado" variant="outlined" /></v-col>
+            <v-col cols="6"><v-text-field v-model="preAlta.tallas.talla_chaleco" density="compact" label="Chaleco" variant="outlined" /></v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogPreAlta = false">Cancelar</v-btn>
+          <v-btn color="info" :loading="savingPreAlta" variant="elevated" @click="guardarPreAlta">Guardar pre-alta</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -325,6 +390,7 @@
   import { usePersonalStore } from '@/stores/personal'
   import { formatDPI } from '@/utils/dpiFormatter'
   import { formatPhone } from '@/utils/phoneFormatter'
+  import personalService from '@/services/personalService'
 
   const store = usePersonalStore()
 
@@ -335,10 +401,12 @@
   // Estados
   const estadosPersonal = [
     { text: 'Activo', value: 'activo' },
+    { text: 'Bajas y suspendidos', value: 'bajas' },
     { text: 'Inactivo', value: 'inactivo' },
     { text: 'Suspendido', value: 'suspendido' },
     { text: 'No Contratar', value: 'no_contratar' },
     { text: 'Extrero', value: 'extrero' },
+    { text: 'Pre-alta', value: 'pre_alta' },
   ]
 
   // Headers de la tabla
@@ -349,7 +417,7 @@
     { title: 'Teléfono', key: 'telefono', sortable: false },
     { title: 'Departamento', key: 'departamento', sortable: false },
     { title: 'Estado', key: 'estado', sortable: true, align: 'center' },
-    { title: 'Acciones', key: 'actions', sortable: false, align: 'center', width: '150px' },
+    { title: 'Acciones', key: 'actions', sortable: false, align: 'center', width: '188px' },
   ]
 
   // Búsqueda con debounce
@@ -367,6 +435,15 @@
   // Dialog de eliminación
   const deleteDialog = ref(false)
   const itemToDelete = ref(null)
+  const dialogPreAlta = ref(false)
+  const savingPreAlta = ref(false)
+  const preAlta = reactive({
+    nombres: '',
+    apellidos: '',
+    dpi: '',
+    telefono: '',
+    tallas: { talla_camisa: '', talla_pantalon: '', talla_zapato: '', talla_chaleco: '' },
+  })
 
   // Snackbar
   const snackbar = reactive({
@@ -412,6 +489,31 @@
     loadData(true)
   }
 
+  async function guardarPreAlta () {
+    if (!preAlta.nombres || !preAlta.apellidos || !preAlta.dpi) {
+      showSnackbar('Nombres, apellidos y DPI son obligatorios', 'error')
+      return
+    }
+    savingPreAlta.value = true
+    try {
+      await personalService.preAlta({ ...preAlta })
+      dialogPreAlta.value = false
+      Object.assign(preAlta, {
+        nombres: '',
+        apellidos: '',
+        dpi: '',
+        telefono: '',
+        tallas: { talla_camisa: '', talla_pantalon: '', talla_zapato: '', talla_chaleco: '' },
+      })
+      showSnackbar('Pre-alta registrada')
+      loadData(true)
+    } catch (e) {
+      showSnackbar(e.response?.data?.message || 'No se pudo guardar la pre-alta', 'error')
+    } finally {
+      savingPreAlta.value = false
+    }
+  }
+
   // Color del estado
   function getEstadoColor (estado) {
     const colors = {
@@ -420,6 +522,7 @@
       suspendido: 'warning',
       no_contratar: 'error',
       extrero: 'purple',
+      pre_alta: 'info',
     }
     return colors[estado] || 'grey'
   }
@@ -432,6 +535,7 @@
       suspendido: 'mdi-pause-circle-outline',
       no_contratar: 'mdi-cancel',
       extrero: 'mdi-account-arrow-right-outline',
+      pre_alta: 'mdi-account-clock-outline',
     }
     return icons[estado] || 'mdi-help-circle-outline'
   }

@@ -134,6 +134,16 @@
                     variant="outlined"
                   />
                 </v-col>
+                <v-col cols="12" md="9">
+                  <v-textarea
+                    v-model="observacion_recontratacion"
+                    auto-grow
+                    label="Observación de recontratación / ingreso"
+                    placeholder="Visible junto al tipo de sangre para RRHH y operaciones"
+                    rows="1"
+                    variant="outlined"
+                  />
+                </v-col>
                 <v-col cols="12" md="3">
                   <v-text-field
                     v-model.number="altura"
@@ -219,12 +229,23 @@
                 <v-col cols="12" md="6">
                   <v-text-field
                     :error-messages="errors.telefono"
-                    label="Teléfono *"
+                    label="Teléfono (llamadas) *"
                     maxlength="9"
                     :model-value="telefonoDisplay"
                     placeholder="0000-0000"
                     variant="outlined"
                     @update:model-value="onTelefonoInput"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    :error-messages="errors.telefono_whatsapp"
+                    label="WhatsApp"
+                    maxlength="9"
+                    :model-value="telefonoWhatsappDisplay"
+                    placeholder="0000-0000"
+                    variant="outlined"
+                    @update:model-value="onTelefonoWhatsappInput"
                   />
                 </v-col>
               </v-row>
@@ -319,10 +340,28 @@
                   <v-text-field
                     v-model="fecha_inicio"
                     :error-messages="errors.fecha_inicio"
-                    label="Fecha de Inicio *"
+                    label="Fecha de Ingreso *"
                     type="date"
                     variant="outlined"
                     prepend-inner-icon="mdi-calendar"
+                  />
+                </v-col>
+                <v-col v-if="isEditing" cols="12" md="4">
+                  <v-text-field
+                    :model-value="fecha_ingreso_original"
+                    disabled
+                    label="Ingreso original (no se pisa)"
+                    type="date"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col v-if="isEditing" cols="12" md="4">
+                  <v-text-field
+                    v-model="fecha_reingreso"
+                    clearable
+                    label="Fecha de reingreso"
+                    type="date"
+                    variant="outlined"
                   />
                 </v-col>
 
@@ -463,6 +502,33 @@
             </v-card-text>
           </v-card>
 
+          <!-- Tallas -->
+          <v-card class="mb-4">
+            <v-card-title>
+              <v-icon start>mdi-tshirt-crew</v-icon>
+              Tallas de uniforme
+            </v-card-title>
+            <v-card-text>
+              <v-row dense>
+                <v-col cols="6">
+                  <v-text-field v-model="talla_camisa" density="compact" label="Camisa" variant="outlined" />
+                </v-col>
+                <v-col cols="6">
+                  <v-text-field v-model="talla_pantalon" density="compact" label="Pantalón" variant="outlined" />
+                </v-col>
+                <v-col cols="6">
+                  <v-text-field v-model="talla_zapato" density="compact" label="Calzado" variant="outlined" />
+                </v-col>
+                <v-col cols="6">
+                  <v-text-field v-model="talla_chaleco" density="compact" label="Chaleco" variant="outlined" />
+                </v-col>
+                <v-col cols="6">
+                  <v-text-field v-model="talla_gorra" density="compact" label="Gorra" variant="outlined" />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
           <!-- Estado -->
           <v-card class="mb-4">
             <v-card-title>
@@ -575,6 +641,7 @@
     { text: 'Suspendido', value: 'suspendido' },
     { text: 'No Contratar', value: 'no_contratar' },
     { text: 'Extrero', value: 'extrero' },
+    { text: 'Pre-alta', value: 'pre_alta' },
   ]
 
   // Foto
@@ -598,13 +665,18 @@
       .string()
       .required('El teléfono es requerido')
       .matches(/^\d{8}$/, 'El teléfono debe tener 8 dígitos'),
+    telefono_whatsapp: yup
+      .string()
+      .nullable()
+      .transform(v => v === '' ? null : v)
+      .matches(/^\d{8}$/, 'El WhatsApp debe tener 8 dígitos'),
     fecha_nacimiento: yup.string().required('La fecha de nacimiento es requerida'),
     sexo_id: yup.number().required('El sexo es requerido'),
     estado_civil_id: yup.number().required('El estado civil es requerido'),
     altura: yup.number().required('La altura es requerida').min(0.5, 'Altura mínima 0.5m').max(2.5, 'Altura máxima 2.5m'),
     peso: yup.number().nullable().min(50, 'Peso mínimo 50 lb').max(400, 'Peso máximo 400 lb'),
     direccion_completa: yup.string().required('La dirección es requerida'),
-    zona: yup.number().nullable().min(1, 'Mínimo zona 1').max(25, 'Máximo zona 25'),
+    zona: yup.number().nullable().min(0, 'Mínimo zona 0').max(25, 'Máximo zona 25'),
     departamento_id: yup.number().required('El departamento es requerido'),
     puesto: yup.string().required('El puesto es requerido'),
     tipo_contratacion_id: yup.number().required('El tipo de contratación es requerido'),
@@ -641,6 +713,7 @@
   const { value: numero_igss } = useField('numero_igss')
   const { value: email } = useField('email')
   const { value: telefono } = useField('telefono')
+  const { value: telefono_whatsapp } = useField('telefono_whatsapp')
   const { value: fecha_nacimiento } = useField('fecha_nacimiento')
   const { value: sexo_id } = useField('sexo_id')
   const { value: estado_civil_id } = useField('estado_civil_id')
@@ -667,6 +740,14 @@
   const { value: confirmar_numero_cuenta } = useField('confirmar_numero_cuenta')
   const { value: estado } = useField('estado', undefined, { initialValue: 'activo' })
   const { value: observaciones } = useField('observaciones')
+  const { value: observacion_recontratacion } = useField('observacion_recontratacion')
+  const { value: fecha_ingreso_original } = useField('fecha_ingreso_original')
+  const { value: fecha_reingreso } = useField('fecha_reingreso')
+  const { value: talla_camisa } = useField('talla_camisa')
+  const { value: talla_pantalon } = useField('talla_pantalon')
+  const { value: talla_zapato } = useField('talla_zapato')
+  const { value: talla_chaleco } = useField('talla_chaleco')
+  const { value: talla_gorra } = useField('talla_gorra')
   const { value: nivel_estudio_id } = useField('nivel_estudio_id')
   const { value: tiene_igss } = useField('tiene_igss', undefined, { initialValue: false })
   const { value: tiene_prestaciones } = useField('tiene_prestaciones', undefined, { initialValue: false })
@@ -685,11 +766,14 @@
 
   // Telefono formateado para visualizacion
   const telefonoDisplay = computed(() => formatPhoneInput(telefono.value))
+  const telefonoWhatsappDisplay = computed(() => formatPhoneInput(telefono_whatsapp.value))
 
-  // Handler para input de telefono
   function onTelefonoInput(value) {
-    // Guardar solo los digitos
     telefono.value = cleanPhone(value)
+  }
+
+  function onTelefonoWhatsappInput(value) {
+    telefono_whatsapp.value = cleanPhone(value)
   }
 
   // Edad calculada
@@ -800,6 +884,14 @@
         sabe_leer: data.sabe_leer !== false, // default true
         sabe_escribir: data.sabe_escribir !== false, // default true
         sabe_usar_computadora: !!data.sabe_usar_computadora,
+        observacion_recontratacion: data.observacion_recontratacion || '',
+        fecha_ingreso_original: data.fecha_ingreso_original || data.fecha_inicio || '',
+        fecha_reingreso: data.fecha_reingreso || '',
+        talla_camisa: data.tallas?.talla_camisa || '',
+        talla_pantalon: data.tallas?.talla_pantalon || '',
+        talla_zapato: data.tallas?.talla_zapato || '',
+        talla_chaleco: data.tallas?.talla_chaleco || '',
+        talla_gorra: data.tallas?.talla_gorra || '',
         // Mapear campos de dirección
         direccion_completa: direccionData.direccion_completa || data.direccion_completa || '',
         departamento_geografico_id: direccionData.departamento_geografico?.id || direccionData.departamento_geografico_id || direccionData.departamento_geo_id || data.departamento_geografico_id,
@@ -877,6 +969,22 @@
       delete data.redes_sociales
       delete data.familiares
       delete data.referencias_laborales
+
+      data.tallas = {
+        talla_camisa: data.talla_camisa || null,
+        talla_pantalon: data.talla_pantalon || null,
+        talla_zapato: data.talla_zapato || null,
+        talla_chaleco: data.talla_chaleco || null,
+        talla_gorra: data.talla_gorra || null,
+      }
+      delete data.talla_camisa
+      delete data.talla_pantalon
+      delete data.talla_zapato
+      delete data.talla_chaleco
+      delete data.talla_gorra
+      if (isEditing.value) {
+        delete data.fecha_ingreso_original
+      }
 
       let result
       result = await (isEditing.value ? store.update(route.params.id, data) : store.create(data))

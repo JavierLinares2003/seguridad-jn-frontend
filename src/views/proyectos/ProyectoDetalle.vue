@@ -40,19 +40,21 @@
         height="150"
         src="https://cdn.vuetifyjs.com/images/cards/server-room.jpg"
       >
-        <v-card-title class="text-white text-h4 font-weight-bold ml-4 mb-2">
-          {{ proyecto.nombre_proyecto }}
-          <span v-if="proyecto.telefono" class="text-h6 font-weight-regular ml-2">
-            <v-icon color="white" size="20">mdi-phone</v-icon>
-            {{ proyecto.telefono }}
-          </span>
-        </v-card-title>
-        <v-card-subtitle class="text-white ml-4 mb-4 text-h6">
-          {{ proyecto.correlativo }} - {{ proyecto.empresa_cliente }}
-        </v-card-subtitle>
+        <div class="jn-banner-scrim">
+          <v-card-title class="text-white text-h4 font-weight-bold ml-4 mb-2">
+            {{ proyecto.nombre_proyecto }}
+            <span v-if="proyecto.telefono" class="text-h6 font-weight-regular ml-2">
+              <v-icon color="white" size="20">mdi-phone</v-icon>
+              {{ proyecto.telefono }}
+            </span>
+          </v-card-title>
+          <v-card-subtitle class="text-white ml-4 mb-4 text-h6">
+            {{ proyecto.correlativo }} - {{ proyecto.empresa_cliente }}
+          </v-card-subtitle>
+        </div>
       </v-img>
 
-      <v-tabs v-model="tab" align-tabs="start" bg-color="white" color="primary" slider-color="primary">
+      <v-tabs v-model="tab" align-tabs="start" bg-color="surface" color="primary" slider-color="primary">
         <v-tab value="general">Información General</v-tab>
         <v-tab value="ubicacion">Ubicación y Facturación</v-tab>
         <v-tab value="contactos">Contactos</v-tab>
@@ -62,7 +64,7 @@
         <v-tab value="documentos">Documentos</v-tab>
       </v-tabs>
 
-      <v-card-text class="bg-grey-lighten-5 pt-4">
+      <v-card-text class="bg-surface-light pt-4">
         <v-window v-model="tab">
 
           <!-- TAB 1: Información General -->

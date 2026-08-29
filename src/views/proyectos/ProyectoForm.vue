@@ -13,7 +13,7 @@
         <!-- Columna Principal -->
         <v-col cols="12" lg="8">
           <v-card class="mb-4" elevation="2" rounded="xl">
-            <v-tabs v-model="activeTab" bg-color="white" color="primary" slider-color="primary">
+            <v-tabs v-model="activeTab" bg-color="surface" color="primary" slider-color="primary">
               <v-tab value="general">Información General</v-tab>
               <v-tab value="ubicacion">Ubicación</v-tab>
               <v-tab value="facturacion">Facturación</v-tab>
@@ -338,7 +338,7 @@
     tipo_proyecto_id: yup.number().required('El tipo de proyecto es requerido'),
     nombre_proyecto: yup.string().required('El nombre del proyecto es requerido').max(255),
     empresa_cliente: yup.string().required('La empresa cliente es requerida').max(200),
-    telefono: yup.string().nullable().max(50),
+    telefono: yup.string().nullable().max(20),
     telefono_validado: yup.boolean().nullable(),
     fecha_inicio_estimada: yup.date().nullable(),
     fecha_fin_estimada: yup.date().nullable(),
@@ -508,6 +508,13 @@
       payload.fecha_inicio_real = payload.fecha_inicio_estimada
       payload.fecha_fin_estimada = payload.fecha_fin_real
 
+      if (payload.telefono === '' || payload.telefono == null) {
+        payload.telefono = null
+      } else {
+        payload.telefono = String(payload.telefono).replace(/\D/g, '').slice(0, 20)
+      }
+      payload.telefono_validado = !!payload.telefono_validado
+
       // Limpiar campos planos
       delete payload.ubicacion_departamento_geo_id
       delete payload.ubicacion_municipio_id
@@ -535,10 +542,16 @@
       setTimeout(() => {
         router.push({ name: 'proyectos' })
       }, 1500)
-    } catch {
+    } catch (err) {
+      const apiErrors = err?.apiErrors
+      let detail = store.error || err?.apiMessage || 'Error al guardar'
+      if (apiErrors && typeof apiErrors === 'object') {
+        const first = Object.values(apiErrors).flat()[0]
+        if (first) detail = first
+      }
       snackbar.value = {
         show: true,
-        text: store.error || 'Error al guardar',
+        text: detail,
         color: 'error',
       }
     }

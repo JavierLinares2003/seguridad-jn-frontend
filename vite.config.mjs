@@ -30,10 +30,16 @@ export default defineConfig(({ mode }) => ({
     Components(),
     Fonts({
       google: {
-        families: [{
-          name: 'Roboto',
-          styles: 'wght@100;300;400;500;700;900',
-        }],
+        families: [
+          {
+            name: 'Barlow Condensed',
+            styles: 'wght@500;600;700',
+          },
+          {
+            name: 'Source Sans 3',
+            styles: 'wght@400;500;600;700',
+          },
+        ],
       },
     }),
     AutoImport({

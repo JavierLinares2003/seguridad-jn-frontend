@@ -98,6 +98,61 @@ const manualRoutes = [
     component: () => import('@/views/proyectos/ProyectoForm.vue'),
     meta: { requiresAuth: true, permissions: ['edit-proyectos'] },
   },
+  // Bodega
+  {
+    path: '/bodega',
+    name: 'bodega',
+    component: () => import('@/views/bodega/BodegaDashboard.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/productos',
+    name: 'bodega-productos',
+    component: () => import('@/views/bodega/BodegaProductos.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/productos/:id',
+    name: 'bodega-producto-detalle',
+    component: () => import('@/views/bodega/BodegaProductoDetalle.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/movimientos',
+    name: 'bodega-movimientos',
+    component: () => import('@/views/bodega/BodegaMovimientos.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/entregas',
+    name: 'bodega-entregas',
+    component: () => import('@/views/bodega/BodegaEntregas.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/combos',
+    name: 'bodega-combos',
+    component: () => import('@/views/bodega/BodegaCombos.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/proveedores',
+    name: 'bodega-proveedores',
+    component: () => import('@/views/bodega/BodegaProveedores.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/compras',
+    name: 'bodega-compras',
+    component: () => import('@/views/bodega/BodegaCompras.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
+    path: '/bodega/armas',
+    name: 'bodega-armas',
+    component: () => import('@/views/bodega/BodegaArmas.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
   // Operaciones
   {
     path: '/operaciones',

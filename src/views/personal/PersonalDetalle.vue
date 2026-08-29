@@ -54,6 +54,16 @@
                   <v-icon size="14" start>{{ getEstadoIcon(personal.estado) }}</v-icon>
                   {{ personal.estado }}
                 </v-chip>
+                <v-chip
+                  v-if="personal.pendiente_liquidacion"
+                  color="warning"
+                  label
+                  size="small"
+                  variant="flat"
+                >
+                  <v-icon size="14" start>mdi-tshirt-crew</v-icon>
+                  Uniforme / equipo pendiente
+                </v-chip>
               </div>
             </div>
           </div>
@@ -101,17 +111,64 @@
               <v-icon start>mdi-pencil-outline</v-icon>
               Editar
             </v-btn>
+            <v-btn
+              v-if="['suspendido', 'no_contratar', 'inactivo'].includes(personal.estado)"
+              v-can="'edit-personal'"
+              class="text-none font-weight-bold"
+              color="success"
+              rounded="lg"
+              variant="tonal"
+              @click="dialogReingreso = true"
+            >
+              <v-icon start>mdi-account-reactivate</v-icon>
+              Reingreso
+            </v-btn>
+            <v-btn
+              class="text-none font-weight-bold"
+              color="secondary"
+              rounded="lg"
+              variant="tonal"
+              @click="abrirTabCalendario"
+            >
+              <v-icon start>mdi-calendar-month-outline</v-icon>
+              Ver calendario
+            </v-btn>
           </div>
         </div>
       </v-card-text>
     </v-card>
+
+    <v-alert
+      v-if="esBajaOSuspendido"
+      class="mb-6"
+      prominent
+      type="info"
+      variant="tonal"
+    >
+      <div class="font-weight-bold mb-1">Calendario consultable</div>
+      Esta persona está {{ etiquetaEstadoBaja }}. El calendario de días trabajados se conserva
+      para que RRHH y contabilidad vean con exactitud qué días pagar. Ábralo en la pestaña Asistencia
+      o con el botón Ver calendario.
+    </v-alert>
+
+    <v-alert
+      v-if="personal?.pendiente_liquidacion"
+      class="mb-6"
+      prominent
+      type="warning"
+      variant="tonal"
+    >
+      <div class="font-weight-bold mb-1">Revisar liquidación de uniforme / equipo</div>
+      Esta persona está {{ personal.estado }} y tiene boletas de uniforme/equipo sin devolver.
+      Revise la pestaña Equipo / boletas antes de pagar: o se descuenta, o se registra la devolución.
+    </v-alert>
 
     <template v-if="personal">
       <!-- Tabs -->
       <v-card elevation="2" rounded="xl">
         <v-tabs
           v-model="tab"
-          bg-color="grey-lighten-5"
+          bg-color="surface"
           class="border-b"
           color="primary"
           show-arrows
@@ -140,6 +197,14 @@
           <v-tab class="text-none" value="proyectos">
             <v-icon size="20" start>mdi-clipboard-list-outline</v-icon>
             Proyectos
+          </v-tab>
+          <v-tab class="text-none" value="asistencia">
+            <v-icon size="20" start>mdi-calendar-check-outline</v-icon>
+            Asistencia
+          </v-tab>
+          <v-tab class="text-none" value="equipo">
+            <v-icon size="20" start>mdi-tshirt-crew</v-icon>
+            Equipo / boletas
           </v-tab>
           <v-tab class="text-none" value="transacciones">
             <v-icon size="20" start>mdi-cash-multiple</v-icon>
@@ -239,6 +304,16 @@
                             <span v-else>-</span>
                           </v-list-item-title>
                         </v-list-item>
+                        <template v-if="personal.observacion_recontratacion">
+                          <v-divider />
+                          <v-list-item class="bg-amber-lighten-5">
+                            <template #prepend>
+                              <v-icon color="warning" icon="mdi-comment-alert-outline" size="20" />
+                            </template>
+                            <v-list-item-subtitle class="text-caption">Observación de recontratación</v-list-item-subtitle>
+                            <v-list-item-title class="text-wrap">{{ personal.observacion_recontratacion }}</v-list-item-title>
+                          </v-list-item>
+                        </template>
                         <template v-if="personal.alergias">
                           <v-divider />
                           <v-list-item class="bg-error-lighten-5">
@@ -283,9 +358,19 @@
                           <template #prepend>
                             <v-icon color="grey" icon="mdi-calendar-today" size="20" />
                           </template>
-                          <v-list-item-subtitle class="text-caption">Fecha de Inicio</v-list-item-subtitle>
-                          <v-list-item-title>{{ formatDate(personal.fecha_inicio) }}</v-list-item-title>
+                          <v-list-item-subtitle class="text-caption">Fecha de Ingreso</v-list-item-subtitle>
+                          <v-list-item-title>{{ formatDate(personal.fecha_ingreso_original || personal.fecha_inicio) }}</v-list-item-title>
                         </v-list-item>
+                        <template v-if="personal.fecha_reingreso">
+                          <v-divider />
+                          <v-list-item>
+                            <template #prepend>
+                              <v-icon color="grey" icon="mdi-calendar-refresh" size="20" />
+                            </template>
+                            <v-list-item-subtitle class="text-caption">Fecha de reingreso</v-list-item-subtitle>
+                            <v-list-item-title>{{ formatDate(personal.fecha_reingreso) }}</v-list-item-title>
+                          </v-list-item>
+                        </template>
                         <v-divider />
                         <v-list-item>
                           <template #prepend>
@@ -381,8 +466,15 @@
                           <template #prepend>
                             <v-icon color="grey" icon="mdi-phone-outline" size="20" />
                           </template>
-                          <v-list-item-subtitle class="text-caption">Telefono</v-list-item-subtitle>
+                          <v-list-item-subtitle class="text-caption">Teléfono (llamadas)</v-list-item-subtitle>
                           <v-list-item-title>{{ formatPhone(personal.telefono) }}</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item v-if="personal.telefono_whatsapp">
+                          <template #prepend>
+                            <v-icon color="grey" icon="mdi-whatsapp" size="20" />
+                          </template>
+                          <v-list-item-subtitle class="text-caption">WhatsApp</v-list-item-subtitle>
+                          <v-list-item-title>{{ formatPhone(personal.telefono_whatsapp) }}</v-list-item-title>
                         </v-list-item>
                       </v-list>
                     </v-card-text>
@@ -687,12 +779,103 @@
             </v-card-text>
           </v-tabs-window-item>
 
+          <!-- Tab: Asistencia -->
+          <v-tabs-window-item value="asistencia">
+            <v-card-text class="pa-6">
+              <div class="d-flex flex-wrap ga-3 mb-4">
+                <v-text-field
+                  v-model="asistenciaFechaInicio"
+                  density="compact"
+                  hide-details
+                  label="Desde"
+                  style="max-width: 180px"
+                  type="date"
+                  variant="outlined"
+                />
+                <v-text-field
+                  v-model="asistenciaFechaFin"
+                  density="compact"
+                  hide-details
+                  label="Hasta"
+                  style="max-width: 180px"
+                  type="date"
+                  variant="outlined"
+                />
+                <v-btn color="primary" :loading="loadingAsistencia" variant="tonal" @click="loadAsistenciaHistorial">
+                  Consultar
+                </v-btn>
+              </div>
+              <div v-if="asistenciaHistorial?.resumen" class="d-flex flex-wrap ga-2 mb-4">
+                <v-chip color="success" variant="tonal">{{ asistenciaHistorial.resumen.dias_trabajados }} trabajados</v-chip>
+                <v-chip color="info" variant="tonal">{{ asistenciaHistorial.resumen.dias_descanso }} descansos</v-chip>
+                <v-chip v-if="asistenciaHistorial.resumen.dias_extra" color="teal" variant="tonal">{{ asistenciaHistorial.resumen.dias_extra }} extras</v-chip>
+                <v-chip v-if="asistenciaHistorial.resumen.dias_cobertura" color="purple" variant="tonal">{{ asistenciaHistorial.resumen.dias_cobertura }} coberturas</v-chip>
+                <v-chip color="error" variant="tonal">{{ asistenciaHistorial.resumen.dias_ausente }} ausencias</v-chip>
+              </div>
+              <div v-if="calendarioMes.length" class="mb-6">
+                <div class="text-subtitle-2 mb-2">Calendario del período</div>
+                <p class="text-caption text-medium-emphasis mb-3">
+                  Sigue visible si la persona está suspendida o dada de baja. Use las fechas de arriba y Consultar.
+                </p>
+                <div class="calendario-head">
+                  <span v-for="nombre in calendarioDiasSemana" :key="nombre">{{ nombre }}</span>
+                </div>
+                <div class="calendario-grid">
+                  <div
+                    v-for="(dia, idx) in calendarioCeldas"
+                    :key="dia?.fecha || `empty-${idx}`"
+                    class="calendario-dia"
+                    :class="dia ? calendarioDiaClass(dia) : 'calendario-dia--empty'"
+                  >
+                    <v-tooltip v-if="dia" location="top">
+                      <template #activator="{ props: tipProps }">
+                        <div v-bind="tipProps" class="calendario-dia__inner">
+                          <span class="calendario-dia__num">{{ dia.fecha?.substring(8) }}</span>
+                          <span class="calendario-dia__tag">{{ calendarioEtiqueta(dia) }}</span>
+                        </div>
+                      </template>
+                      <div>{{ dia.fecha }} · {{ calendarioEtiqueta(dia) }}</div>
+                      <div v-if="dia.proyecto">{{ dia.proyecto }}</div>
+                    </v-tooltip>
+                  </div>
+                </div>
+              </div>
+              <v-data-table
+                density="compact"
+                :headers="asistenciaHeaders"
+                :items="asistenciaHistorial?.registros || []"
+                :loading="loadingAsistencia"
+                :items-per-page="20"
+              >
+                <template #item.estado="{ item }">
+                  <v-chip :color="asistenciaEstadoColor(item.estado)" size="small" variant="tonal">
+                    {{ item.estado }}
+                  </v-chip>
+                </template>
+              </v-data-table>
+            </v-card-text>
+          </v-tabs-window-item>
+
+          <!-- Tab: Equipo / boletas -->
+          <v-tabs-window-item value="equipo">
+            <v-card-text class="pa-6">
+              <EquipoBodegaPersonal
+                :personal-id="parseInt(route.params.id)"
+                :estado-personal="personal.estado"
+                :pendiente-liquidacion="!!personal.pendiente_liquidacion"
+                @error="showSnackbar($event, 'error')"
+                @updated="loadPersonal"
+              />
+            </v-card-text>
+          </v-tabs-window-item>
+
           <!-- Tab: Transacciones -->
           <v-tabs-window-item value="transacciones">
             <v-card-text class="pa-6">
               <TransaccionesPersonal
                 :personal-id="parseInt(route.params.id)"
                 :readonly="!$can('edit-personal')"
+                :prefill="prefillTransaccion"
                 @error="showSnackbar($event, 'error')"
               />
             </v-card-text>
@@ -979,6 +1162,37 @@
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="dialogReingreso" max-width="480">
+      <v-card rounded="xl">
+        <v-card-title class="bg-success pa-4 text-white">Registrar reingreso</v-card-title>
+        <v-card-text class="pa-5">
+          <p class="text-body-2 mb-3">
+            El ingreso original y el calendario se conservan para que RRHH y contabilidad terminen de pagar.
+          </p>
+          <v-text-field
+            v-model="reingresoForm.fecha_reingreso"
+            class="mb-3"
+            label="Fecha de reingreso"
+            type="date"
+            variant="outlined"
+          />
+          <v-textarea
+            v-model="reingresoForm.observacion_recontratacion"
+            label="Observación de recontratación"
+            rows="3"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogReingreso = false">Cancelar</v-btn>
+          <v-btn color="success" :loading="savingReingreso" variant="elevated" @click="confirmarReingreso">
+            Reingresar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar
       v-model="snackbar.show"
@@ -1006,8 +1220,10 @@
   import PermisosPersonal from '@/components/personal/PermisosPersonal.vue'
   import ReferenciasLaborales from '@/components/personal/ReferenciasLaborales.vue'
   import TransaccionesPersonal from '@/components/personal/TransaccionesPersonal.vue'
+  import EquipoBodegaPersonal from '@/components/personal/EquipoBodegaPersonal.vue'
   import { CATALOGOS } from '@/services/catalogoService'
   import personalService from '@/services/personalService'
+  import operacionesService from '@/services/operacionesService'
   import { useCatalogosStore } from '@/stores/catalogos'
   import { usePersonalStore } from '@/stores/personal'
   import { formatDPI } from '@/utils/dpiFormatter'
@@ -1020,6 +1236,27 @@
 
   const tab = ref('personal')
   const personal = computed(() => store.currentItem)
+  const esBajaOSuspendido = computed(() =>
+    ['suspendido', 'no_contratar', 'inactivo'].includes(personal.value?.estado),
+  )
+  const etiquetaEstadoBaja = computed(() => {
+    const map = { suspendido: 'suspendida', no_contratar: 'dada de baja (no contratar)', inactivo: 'inactiva' }
+    return map[personal.value?.estado] || personal.value?.estado
+  })
+
+  const prefillTransaccion = computed(() => {
+    if (route.query.tab !== 'transacciones') return null
+    const monto = route.query.monto != null ? Number(route.query.monto) : null
+    let desc = route.query.desc
+    if (typeof desc === 'string') {
+      try { desc = decodeURIComponent(desc) } catch { /* keep */ }
+    }
+    return {
+      tipo_transaccion: route.query.tipo || 'uniforme',
+      monto: Number.isFinite(monto) ? monto : null,
+      descripcion: typeof desc === 'string' ? desc : '',
+    }
+  })
 
   // Datos relacionados
   const familiares = ref([])
@@ -1057,9 +1294,116 @@
     }
   }
 
+  const asistenciaFechaInicio = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
+  const asistenciaFechaFin = ref(new Date().toISOString().split('T')[0])
+  const loadingAsistencia = ref(false)
+  const asistenciaHistorial = ref(null)
+  const calendarioMes = ref([])
+  const dialogReingreso = ref(false)
+  const savingReingreso = ref(false)
+  const reingresoForm = reactive({
+    fecha_reingreso: new Date().toISOString().split('T')[0],
+    observacion_recontratacion: '',
+  })
+  const asistenciaHeaders = [
+    { title: 'Fecha', key: 'fecha' },
+    { title: 'Proyecto', key: 'proyecto' },
+    { title: 'Turno', key: 'turno' },
+    { title: 'Estado', key: 'estado' },
+    { title: 'Obs.', key: 'observaciones' },
+  ]
+
+  async function loadAsistenciaHistorial () {
+    loadingAsistencia.value = true
+    try {
+      const response = await operacionesService.getHistorialAsistencia(route.params.id, {
+        fecha_inicio: asistenciaFechaInicio.value,
+        fecha_fin: asistenciaFechaFin.value,
+      })
+      asistenciaHistorial.value = response.data
+      const cal = await operacionesService.getCalendarioDiasTrabajados(route.params.id, {
+        fecha_inicio: asistenciaFechaInicio.value,
+        fecha_fin: asistenciaFechaFin.value,
+      })
+      calendarioMes.value = cal.data?.calendario || []
+    } catch {
+      showSnackbar('Error al cargar asistencia', 'error')
+    } finally {
+      loadingAsistencia.value = false
+    }
+  }
+
+  async function confirmarReingreso () {
+    savingReingreso.value = true
+    try {
+      await personalService.reingreso(route.params.id, { ...reingresoForm })
+      dialogReingreso.value = false
+      showSnackbar('Reingreso registrado', 'success')
+      await store.fetchById(route.params.id)
+    } catch (e) {
+      showSnackbar(e.response?.data?.message || 'No se pudo registrar el reingreso', 'error')
+    } finally {
+      savingReingreso.value = false
+    }
+  }
+
+  function abrirTabCalendario () {
+    tab.value = 'asistencia'
+    if (!asistenciaHistorial.value) loadAsistenciaHistorial()
+  }
+
+  const calendarioDiasSemana = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
+  const calendarioCeldas = computed(() => {
+    const dias = calendarioMes.value || []
+    if (!dias.length) return []
+    const primera = dias[0]?.fecha
+    if (!primera) return dias
+    const jsDay = new Date(`${primera}T00:00:00`).getDay()
+    const offsetLunes = (jsDay + 6) % 7
+    return [...Array.from({ length: offsetLunes }, () => null), ...dias]
+  })
+
+  function calendarioEtiqueta (dia) {
+    const map = {
+      cobertura: 'cubrió',
+      trabajo: 'trabajo',
+      extra: 'extra',
+      descanso: 'descanso',
+      falta: 'falta',
+      reemplazado: 'reemplazo',
+      sin_marcar: 's/marcar',
+      sin_asignacion: 's/asignar',
+    }
+    return map[dia?.tipo] || dia?.tipo || '—'
+  }
+
+  function calendarioDiaClass (dia) {
+    const map = {
+      cobertura: 'bg-purple',
+      trabajo: 'bg-success',
+      extra: 'bg-teal',
+      descanso: 'bg-info',
+      falta: 'bg-error',
+      reemplazado: 'bg-warning',
+      sin_marcar: 'bg-grey',
+      sin_asignacion: 'bg-grey-darken-1',
+    }
+    return map[dia?.tipo] || 'bg-grey'
+  }
+
+  function asistenciaEstadoColor (estado) {
+    if (estado === 'presente' || estado === 'extra' || estado === 'cobertura' || estado === 'trabajo') return estado === 'extra' ? 'teal' : (estado === 'cobertura' ? 'purple' : 'success')
+    if (estado === 'descanso') return 'info'
+    if (String(estado || '').includes('ausente')) return 'error'
+    return 'grey'
+  }
+
   watch(tab, newTab => {
     if (newTab === 'historial-salarios' && historialSalarios.value.length === 0) {
       loadHistorialSalarios()
+    }
+    if (newTab === 'asistencia' && !asistenciaHistorial.value) {
+      loadAsistenciaHistorial()
     }
   })
 
@@ -1143,12 +1487,12 @@
   }
 
   function getEstadoColor (estado) {
-    const colors = { activo: 'success', inactivo: 'grey', suspendido: 'warning', no_contratar: 'error', extrero: 'purple' }
+    const colors = { activo: 'success', inactivo: 'grey', suspendido: 'warning', no_contratar: 'error', extrero: 'purple', pre_alta: 'info' }
     return colors[estado] || 'grey'
   }
 
   function getEstadoIcon (estado) {
-    const icons = { activo: 'mdi-check-circle', inactivo: 'mdi-close-circle', suspendido: 'mdi-pause-circle', no_contratar: 'mdi-cancel', extrero: 'mdi-account-arrow-right' }
+    const icons = { activo: 'mdi-check-circle', inactivo: 'mdi-close-circle', suspendido: 'mdi-pause-circle', no_contratar: 'mdi-cancel', extrero: 'mdi-account-arrow-right', pre_alta: 'mdi-account-clock' }
     return icons[estado] || 'mdi-circle'
   }
 
@@ -1507,10 +1851,14 @@
     }
   }
 
-  // Inicializar
-  onMounted(async () => {
+  async function initDetalle () {
+    asistenciaHistorial.value = null
+    calendarioMes.value = []
+    const tabQuery = route.query.tab
+    if (typeof tabQuery === 'string' && tabQuery) {
+      tab.value = tabQuery
+    }
     await loadPersonal()
-    // Cargar datos relacionados en paralelo
     Promise.all([
       loadFamiliares(),
       loadRedesSociales(),
@@ -1518,6 +1866,16 @@
       loadParentescos(),
       loadRedesSocialesCatalogo(),
     ])
+  }
+
+  onMounted(() => {
+    initDetalle()
+  })
+
+  watch(() => route.params.id, (id, prev) => {
+    if (id && id !== prev) {
+      initDetalle()
+    }
   })
 </script>
 
@@ -1537,5 +1895,62 @@
 
 .min-w-0 {
   min-width: 0;
+}
+
+.calendario-head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.calendario-head span {
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  font-weight: 600;
+}
+
+.calendario-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendario-dia {
+  min-height: 58px;
+  min-width: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.calendario-dia--empty {
+  background: transparent;
+  min-height: 58px;
+}
+
+.calendario-dia__inner {
+  height: 100%;
+  min-height: 58px;
+  padding: 6px 4px 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff;
+  cursor: default;
+}
+
+.calendario-dia__num {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.calendario-dia__tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.92;
 }
 </style>

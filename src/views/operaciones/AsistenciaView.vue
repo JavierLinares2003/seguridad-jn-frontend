@@ -5,7 +5,7 @@
       <v-col>
         <h1 class="text-h4">Control de Asistencia</h1>
         <p class="text-body-2 text-medium-emphasis">
-          Registre la asistencia diaria del personal asignado
+          Registre la asistencia diaria. El calendario de bajas y suspendidos se consulta aquí abajo, buscando a la persona.
         </p>
       </v-col>
     </v-row>
@@ -35,12 +35,40 @@
               v-model="buscarTexto"
               clearable
               density="comfortable"
-              label="Buscar personal"
+              label="Buscar en el día"
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
               @click:clear="buscarTexto = ''; cargarAsistencia()"
               @keyup.enter="cargarAsistencia"
             />
+          </v-col>
+
+          <v-col cols="12" md="3">
+            <v-autocomplete
+              v-model="consultaCalendario"
+              clearable
+              density="comfortable"
+              hide-no-data
+              item-title="nombre_completo"
+              item-value="id"
+              :items="opcionesCalendario"
+              label="Calendario (incluye bajas)"
+              :loading="buscandoCalendario"
+              no-filter
+              placeholder="Nombre o DPI"
+              prepend-inner-icon="mdi-calendar-search"
+              return-object
+              variant="outlined"
+              @update:search="onBuscarCalendario"
+              @update:model-value="onElegirCalendario"
+            >
+              <template #item="{ props, item }">
+                <v-list-item
+                  v-bind="props"
+                  :subtitle="`${item.raw.dpi || ''} · ${item.raw.estado || ''}`"
+                />
+              </template>
+            </v-autocomplete>
           </v-col>
 
           <!-- Filtro por proyecto (solo en tab Proyectos) -->
@@ -133,7 +161,7 @@
     </v-card>
 
     <!-- Tabs -->
-    <v-tabs v-model="activeTab" bg-color="white" class="mb-4" color="primary" slider-color="primary" @update:model-value="onTabChange">
+    <v-tabs v-model="activeTab" bg-color="surface" class="mb-4" color="primary" slider-color="primary" @update:model-value="onTabChange">
       <v-tab value="proyectos">
         <v-icon start>mdi-briefcase</v-icon>
         Proyectos
@@ -168,11 +196,18 @@
             <v-chip v-if="grupo.proyecto?.correlativo || grupo.proyecto?.codigo" class="ml-2" color="secondary" size="small" variant="tonal">
               {{ grupo.proyecto.correlativo || grupo.proyecto.codigo }}
             </v-chip>
+            <v-chip v-if="grupo.proyecto?.telefono" class="ml-2" color="primary" size="small" variant="tonal">
+              <v-icon start size="small">mdi-phone</v-icon>
+              {{ grupo.proyecto.telefono }}
+            </v-chip>
             <v-spacer />
             <!-- Resumen inline -->
             <div class="d-flex ga-2 flex-wrap">
               <v-chip color="success" size="small" variant="tonal">
                 {{ grupo.resumen?.presentes || 0 }} presentes
+              </v-chip>
+              <v-chip v-if="contarExtrasGrupo(grupo)" color="teal" size="small" variant="tonal">
+                {{ contarExtrasGrupo(grupo) }} extras
               </v-chip>
               <v-chip v-if="grupo.resumen?.tardanzas" color="warning" size="small" variant="tonal">
                 {{ grupo.resumen.tardanzas }} tardanzas
@@ -220,6 +255,10 @@
                       <v-icon size="x-small">mdi-phone</v-icon>
                       {{ item._personal.telefono }}
                     </div>
+                    <div v-if="item._personal?.telefono_whatsapp" class="text-caption text-medium-emphasis">
+                      <v-icon size="x-small">mdi-whatsapp</v-icon>
+                      {{ item._personal.telefono_whatsapp }}
+                    </div>
                   </div>
                 </div>
               </template>
@@ -248,6 +287,10 @@
                     <v-btn :color="item.estadoLocal === 'presente' ? 'success' : ''" size="small" value="presente">
                       <v-icon size="small">mdi-check</v-icon>
                       <v-tooltip activator="parent">Presente</v-tooltip>
+                    </v-btn>
+                    <v-btn :color="item.estadoLocal === 'extra' ? 'teal' : ''" size="small" value="extra">
+                      <v-icon size="small">mdi-clock-plus</v-icon>
+                      <v-tooltip activator="parent">Extra</v-tooltip>
                     </v-btn>
                     <v-btn :color="item.estadoLocal === 'descanso' ? 'info' : ''" size="small" value="descanso">
                       <v-icon size="small">mdi-sleep</v-icon>
@@ -320,30 +363,52 @@
                     </div>
                   </v-tooltip>
                   <v-chip
-                    v-if="item.asistencia?.fue_reemplazado"
+                    v-if="item.asistencia?.fue_reemplazado || item.reemplazoLocal"
                     color="purple"
                     size="x-small"
                     variant="flat"
                   >
-                    Reemplazado
+                    Cubierto
+                  </v-chip>
+                  <v-chip
+                    v-if="item.asistencia?.cubrio_en"
+                    color="teal"
+                    size="x-small"
+                    variant="tonal"
+                  >
+                    Cubrió otro puesto
                   </v-chip>
                 </div>
               </template>
 
               <!-- Info Ausencia / Reemplazo -->
               <template #item.ausencia_info="{ item }">
-                <div v-if="item.estadoLocal === 'ausente'">
-                  <div v-if="item.motivoAusenciaLocal" class="text-caption">
+                <div v-if="item.estadoLocal === 'ausente' || item.estadoLocal === 'descanso' || item.asistencia?.cubrio_en">
+                  <div v-if="item.estadoLocal === 'ausente' && item.motivoAusenciaLocal" class="text-caption">
                     <v-icon color="orange" size="x-small">mdi-alert-circle</v-icon>
                     {{ item.motivoAusenciaLocal.nombre }}
                   </div>
                   <div v-if="item.reemplazoLocal" class="text-caption mt-1">
                     <v-icon color="purple" size="x-small">mdi-account-switch</v-icon>
-                    {{ item.reemplazoLocal.nombres }} {{ item.reemplazoLocal.apellidos }}
+                    Cubrió: {{ item.reemplazoLocal.nombres }} {{ item.reemplazoLocal.apellidos }}
                   </div>
-                  <div v-else-if="item.sinReemplazo" class="text-caption text-medium-emphasis mt-1">
-                    Sin reemplazo
+                  <div v-else-if="item.estadoLocal === 'ausente' && item.sinReemplazo" class="text-caption text-medium-emphasis mt-1">
+                    Sin cubridor
                   </div>
+                  <div v-if="item.asistencia?.cubrio_en" class="text-caption mt-1 text-teal">
+                    <v-icon color="teal" size="x-small">mdi-account-arrow-right</v-icon>
+                    Cubrió en {{ item.asistencia.cubrio_en.proyecto || 'otro proyecto' }}
+                  </div>
+                  <v-btn
+                    v-if="item.estadoLocal === 'descanso' || item.estadoLocal === 'ausente'"
+                    class="mt-1 text-none"
+                    color="purple"
+                    size="x-small"
+                    variant="text"
+                    @click="abrirCubridoresDialog(item)"
+                  >
+                    {{ item.reemplazoLocal ? 'Cambiar cubridor' : 'Asignar cubridor' }}
+                  </v-btn>
                 </div>
                 <span v-else class="text-medium-emphasis">-</span>
               </template>
@@ -488,6 +553,10 @@
                       <v-icon size="x-small">mdi-phone</v-icon>
                       {{ item._personal.telefono }}
                     </div>
+                    <div v-if="item._personal?.telefono_whatsapp" class="text-caption text-medium-emphasis">
+                      <v-icon size="x-small">mdi-whatsapp</v-icon>
+                      {{ item._personal.telefono_whatsapp }}
+                    </div>
                   </div>
                 </div>
               </template>
@@ -504,6 +573,10 @@
                     <v-btn :color="item.estadoLocal === 'presente' ? 'success' : ''" size="small" value="presente">
                       <v-icon size="small">mdi-check</v-icon>
                       <v-tooltip activator="parent">Presente</v-tooltip>
+                    </v-btn>
+                    <v-btn :color="item.estadoLocal === 'extra' ? 'teal' : ''" size="small" value="extra">
+                      <v-icon size="small">mdi-clock-plus</v-icon>
+                      <v-tooltip activator="parent">Extra</v-tooltip>
                     </v-btn>
                     <v-btn :color="item.estadoLocal === 'descanso' ? 'info' : ''" size="small" value="descanso">
                       <v-icon size="small">mdi-sleep</v-icon>
@@ -567,6 +640,14 @@
                       </div>
                     </div>
                   </v-tooltip>
+                  <v-btn
+                    icon="mdi-calendar-month"
+                    size="small"
+                    variant="text"
+                    @click="abrirCalendarioPersonal(item)"
+                  >
+                    <v-tooltip activator="parent">Ver días trabajados</v-tooltip>
+                  </v-btn>
                 </div>
               </template>
 
@@ -606,6 +687,12 @@
                         <v-icon size="20">mdi-cash-minus</v-icon>
                       </template>
                       <v-list-item-title>Registrar Transaccion</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item @click="abrirCalendarioPersonal(item)">
+                      <template #prepend>
+                        <v-icon size="20">mdi-calendar-month</v-icon>
+                      </template>
+                      <v-list-item-title>Ver días trabajados</v-list-item-title>
                     </v-list-item>
                     <v-list-item
                       v-if="item.estadoLocal === 'presente'"
@@ -858,16 +945,19 @@
       <v-card rounded="xl">
         <v-card-title class="bg-purple pa-4">
           <v-icon color="white" start>mdi-account-switch</v-icon>
-          <span class="text-white">Seleccionar Reemplazo</span>
+          <span class="text-white">Asignar cubridor</span>
         </v-card-title>
 
         <v-card-text class="pa-4">
           <div v-if="selectedAusenteItem" class="mb-4">
             <v-alert density="compact" type="info" variant="tonal">
               <div class="text-body-2">
-                Ausencia de <strong>{{ selectedAusenteItem._personal?.nombres }}
+                Cubrir a <strong>{{ selectedAusenteItem._personal?.nombres }}
                 {{ selectedAusenteItem._personal?.apellidos }}</strong>
-                — {{ motivoSeleccionado?.nombre }}
+                ({{ selectedAusenteItem.estadoLocal === 'descanso' ? 'descanso' : 'ausencia' }})
+              </div>
+              <div class="text-caption mt-1">
+                El cubridor debe estar de descanso en su puesto o sin asignación. Su descanso original no se toca.
               </div>
             </v-alert>
           </div>
@@ -877,7 +967,7 @@
             class="mb-4"
             clearable
             density="compact"
-            label="Buscar personal disponible"
+            label="Buscar cubridor (disponible o de descanso)"
             prepend-inner-icon="mdi-magnify"
             variant="outlined"
           />
@@ -897,8 +987,22 @@
                 </v-avatar>
               </template>
               <v-list-item-title>{{ persona.nombres }} {{ persona.apellidos }}</v-list-item-title>
-              <v-list-item-subtitle>{{ formatDPI(persona.dpi) }}</v-list-item-subtitle>
+              <v-list-item-subtitle>
+                {{ formatDPI(persona.dpi) }}
+                <span v-if="persona.origen_cobertura === 'descanso'">
+                  · Descanso en {{ persona.proyecto_origen || 'su puesto' }}
+                </span>
+                <span v-else> · Disponible (sin puesto)</span>
+              </v-list-item-subtitle>
               <template #append>
+                <v-chip
+                  class="mr-2"
+                  :color="persona.origen_cobertura === 'descanso' ? 'info' : 'success'"
+                  size="x-small"
+                  variant="tonal"
+                >
+                  {{ persona.origen_cobertura === 'descanso' ? 'Descanso' : 'Disponible' }}
+                </v-chip>
                 <v-icon v-if="selectedReemplazoPersona?.id === persona.id" color="success">
                   mdi-check-circle
                 </v-icon>
@@ -907,7 +1011,7 @@
           </v-list>
 
           <v-alert v-else density="compact" type="info" variant="tonal">
-            No hay personal disponible para reemplazo en esta fecha
+            No hay cubridores: alguien sin puesto, o de descanso en otro proyecto.
           </v-alert>
         </v-card-text>
 
@@ -918,7 +1022,7 @@
           </v-btn>
           <v-spacer />
           <v-btn color="grey" variant="tonal" @click="confirmarSinReemplazo">
-            No requiere reemplazo
+            Sin cubridor
           </v-btn>
           <v-btn
             color="purple"
@@ -926,7 +1030,7 @@
             variant="elevated"
             @click="confirmarConReemplazo"
           >
-            Confirmar Reemplazo
+            Confirmar cubridor
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -1018,6 +1122,15 @@
             rows="3"
             variant="outlined"
           />
+          <v-btn
+            class="mt-2"
+            color="secondary"
+            prepend-icon="mdi-calendar-month"
+            variant="tonal"
+            @click="abrirCalendarioDesdeBaja"
+          >
+            Ver días trabajados
+          </v-btn>
         </v-card-text>
         <v-card-actions class="pa-4 pt-0">
           <v-spacer />
@@ -1036,11 +1149,11 @@
     </v-dialog>
 
     <!-- ==================== DIALOG CALENDARIO TURNO ==================== -->
-    <v-dialog v-model="dialogCalendarioTurno" max-width="700px">
+    <v-dialog v-model="dialogCalendarioTurno" max-width="840px" scrollable>
       <v-card rounded="xl">
         <v-card-title class="bg-secondary pa-4">
           <v-icon color="white" start>mdi-calendar-month</v-icon>
-          <span class="text-white">Calendario de Turno</span>
+          <span class="text-white">{{ calendarioTitulo }}</span>
           <v-spacer />
           <v-btn color="white" icon="mdi-close" variant="text" @click="dialogCalendarioTurno = false" />
         </v-card-title>
@@ -1049,33 +1162,69 @@
             <v-progress-circular color="primary" indeterminate />
           </div>
           <template v-else-if="calendarioData">
-            <v-row class="mb-4">
-              <v-col cols="12" sm="3">
+            <v-row class="mb-3" dense>
+              <v-col cols="12" sm="4">
                 <div class="text-caption text-medium-emphasis">Agente</div>
                 <div class="font-weight-medium">{{ calendarioData.personal?.nombre }}</div>
               </v-col>
-              <v-col cols="12" sm="3">
-                <div class="text-caption text-medium-emphasis">Proyecto</div>
-                <div class="font-weight-medium">{{ calendarioData.proyecto?.nombre }}</div>
+              <v-col cols="12" sm="4">
+                <div class="text-caption text-medium-emphasis">Proyecto actual</div>
+                <div class="font-weight-medium">
+                  {{ calendarioData.sin_asignacion ? 'Sin puesto asignado' : (calendarioData.proyecto?.nombre || '—') }}
+                </div>
               </v-col>
-              <v-col cols="12" sm="3">
-                <div class="text-caption text-medium-emphasis">Turno</div>
-                <v-chip color="secondary" size="small" variant="tonal">
+              <v-col cols="12" sm="4">
+                <div class="text-caption text-medium-emphasis">
+                  {{ calendarioData.sin_asignacion ? 'Días del periodo' : 'Inicio en puesto' }}
+                </div>
+                <div class="font-weight-medium">
+                  <template v-if="calendarioData.sin_asignacion">
+                    {{ calendarioData.resumen?.dias_trabajados || 0 }} trabajados
+                  </template>
+                  <template v-else>
+                    {{ calendarioData.fecha_inicio_asignacion ? String(calendarioData.fecha_inicio_asignacion).substring(0, 10) : '—' }}
+                  </template>
+                </div>
+                <v-chip
+                  v-if="calendarioData.turno?.nombre"
+                  class="mt-1"
+                  color="secondary"
+                  size="x-small"
+                  variant="tonal"
+                >
                   {{ calendarioData.turno?.nombre }}
                   ({{ calendarioData.turno?.dias_trabajo }}T / {{ calendarioData.turno?.dias_descanso }}D)
                 </v-chip>
               </v-col>
-              <v-col cols="12" sm="3">
-                <div class="text-caption text-medium-emphasis">Inicio en puesto</div>
-                <div class="font-weight-medium">
-                  {{ calendarioData.fecha_inicio_asignacion ? String(calendarioData.fecha_inicio_asignacion).substring(0, 10) : '—' }}
-                </div>
-                <div class="text-caption text-medium-emphasis">
-                  (el rango Desde/Hasta solo filtra la vista del mes)
-                </div>
-              </v-col>
             </v-row>
-            <v-row class="mb-3">
+            <v-alert
+              v-if="calendarioData.puestos_anteriores?.length"
+              class="mb-3"
+              density="compact"
+              type="info"
+              variant="tonal"
+            >
+              Días de otro puesto se marcan con una franja a la izquierda:
+              {{ calendarioData.puestos_anteriores.map(p => p.proyecto).filter(Boolean).join(', ') }}
+            </v-alert>
+            <div
+              v-if="calendarioData.sin_asignacion && calendarioData.resumen"
+              class="d-flex flex-wrap ga-2 mb-3"
+            >
+              <v-chip color="success" size="small" variant="tonal">
+                {{ calendarioData.resumen.dias_trabajados }} trabajados
+              </v-chip>
+              <v-chip color="teal" size="small" variant="tonal">
+                {{ calendarioData.resumen.dias_extra }} extra
+              </v-chip>
+              <v-chip color="info" size="small" variant="tonal">
+                {{ calendarioData.resumen.dias_descanso }} descanso
+              </v-chip>
+              <v-chip color="error" size="small" variant="tonal">
+                {{ calendarioData.resumen.dias_falta }} faltas
+              </v-chip>
+            </div>
+            <v-row class="mb-3" dense>
               <v-col cols="5">
                 <v-text-field v-model="calendarioFechaInicio" density="compact" hide-details label="Desde" type="date" variant="outlined" />
               </v-col>
@@ -1088,28 +1237,41 @@
                 </v-btn>
               </v-col>
             </v-row>
+            <div class="calendario-head">
+              <span v-for="nombre in calendarioDiasSemana" :key="nombre">{{ nombre }}</span>
+            </div>
             <div class="calendario-grid">
               <div
-                v-for="dia in calendarioData.calendario"
-                :key="dia.fecha"
-                class="calendario-dia pa-2 rounded text-center"
-                :class="calendarioDiaClass(dia)"
-                style="opacity: 0.9;"
+                v-for="(dia, idx) in calendarioCeldas"
+                :key="dia?.fecha || `empty-${idx}`"
+                class="calendario-dia"
+                :class="dia ? [calendarioDiaClass(dia), { 'calendario-dia--otro': dia.puesto_anterior }] : 'calendario-dia--empty'"
               >
-                <div class="text-caption font-weight-bold">{{ dia.dia_semana?.substring(0, 3) }}</div>
-                <div class="text-body-2">{{ dia.fecha?.substring(8) }}</div>
-                <v-chip :color="calendarioChipColor(dia)" size="x-small" variant="flat">
-                  {{ calendarioEtiqueta(dia) }}
-                </v-chip>
+                <v-tooltip v-if="dia" location="top">
+                  <template #activator="{ props: tipProps }">
+                    <div v-bind="tipProps" class="calendario-dia__inner">
+                      <span class="calendario-dia__num">{{ dia.fecha?.substring(8) }}</span>
+                      <span class="calendario-dia__tag">{{ calendarioEtiqueta(dia) }}</span>
+                    </div>
+                  </template>
+                  <div>
+                    <div>{{ dia.fecha }} · {{ calendarioEtiqueta(dia) }}</div>
+                    <div v-if="dia.proyecto">{{ dia.puesto_anterior ? 'Puesto anterior: ' : '' }}{{ dia.proyecto }}</div>
+                    <div v-if="dia.observaciones">{{ dia.observaciones }}</div>
+                  </div>
+                </v-tooltip>
               </div>
             </div>
             <div class="d-flex flex-wrap ga-2 mt-3 text-caption">
+              <v-chip color="purple" size="x-small" variant="tonal">cubrió</v-chip>
               <v-chip color="success" size="x-small" variant="tonal">trabajo</v-chip>
+              <v-chip color="teal" size="x-small" variant="tonal">extra</v-chip>
               <v-chip color="info" size="x-small" variant="tonal">descanso</v-chip>
               <v-chip color="error" size="x-small" variant="tonal">falta</v-chip>
-              <v-chip color="warning" size="x-small" variant="tonal">reemplazado</v-chip>
+              <v-chip color="warning" size="x-small" variant="tonal">reemplazo</v-chip>
               <v-chip color="grey" size="x-small" variant="tonal">sin marcar</v-chip>
-              <v-chip color="blue-grey" size="x-small" variant="tonal">sin asignación</v-chip>
+              <v-chip color="blue-grey" size="x-small" variant="tonal">sin asignar</v-chip>
+              <v-chip color="secondary" size="x-small" variant="outlined">franja = otro puesto</v-chip>
             </div>
           </template>
           <v-alert v-else density="compact" type="info" variant="tonal">
@@ -1278,6 +1440,10 @@
   // Datos
   const selectedDate = ref(localDateStr())
   const buscarTexto = ref('')
+  const consultaCalendario = ref(null)
+  const opcionesCalendario = ref([])
+  const buscandoCalendario = ref(false)
+  let busquedaCalendarioTimeout = null
   const selectedProyecto = ref(null)   // objeto completo del proyecto seleccionado
   const proyectosAutocomplete = ref([])
   const loadingProyectosAutocomplete = ref(false)
@@ -1327,6 +1493,7 @@
   const calendarioFechaInicio = ref(null)
   const calendarioFechaFin = ref(null)
   const calendarioAsignacionId = ref(null)
+  const calendarioPersonalId = ref(null)
 
   // Dar de baja
   const dialogBaja = ref(false)
@@ -1682,7 +1849,7 @@
           // CASO 2: respuesta plana [ { asignacion, asistencia } ] — envolver en un único grupo
           gruposProyectos.value = [{
             proyecto: selectedProyecto.value
-              ? { id: selectedProyecto.value.id, nombre: selectedProyecto.value.nombre_proyecto, correlativo: selectedProyecto.value.correlativo }
+              ? { id: selectedProyecto.value.id, nombre: selectedProyecto.value.nombre_proyecto, correlativo: selectedProyecto.value.correlativo, telefono: selectedProyecto.value.telefono }
               : { id: response.meta?.proyecto_id, nombre: 'Proyecto' },
             resumen: null,
             personalMapped: (response.items || []).map(mapPersonalItemCaso2),
@@ -1827,6 +1994,7 @@
     if (asistencia.es_descanso || asistencia.estado === 'descanso') return 'descanso'
     if (asistencia.es_ausente || asistencia.estado === 'ausente_justificado' || asistencia.estado === 'ausente_injustificado') return 'ausente'
     if (asistencia.fue_reemplazado || asistencia.estado === 'reemplazado') return 'ausente'
+    if (asistencia.es_extra || asistencia.estado === 'extra') return 'extra'
     return 'presente'
   }
 
@@ -1838,12 +2006,10 @@
       item.horaSalidaLocal = ''
       item.llegoTardeLocal = false
       item.minutosRetrasoLocal = 0
-      item.reemplazoLocal = null
       item.motivoAusenciaLocal = null
       item.tipoAusenciaLocal = null
       item.tipoInasistenciaLocal = null
       item.descripcionAusenciaLocal = ''
-      item.sinReemplazo = false
       persistirPendientes()
     } else if (item.estadoLocal === 'ausente') {
       item.horaEntradaLocal = ''
@@ -1868,7 +2034,22 @@
     persistirPendientes()
   }
 
-  // ==================== FLUJO AUSENCIA ====================
+  // ==================== FLUJO AUSENCIA / COBERTURA ====================
+
+  async function abrirCubridoresDialog (item) {
+    selectedAusenteItem.value = item
+    filtroReemplazo.value = ''
+    selectedReemplazoPersona.value = item.reemplazoLocal || null
+    try {
+      await operacionesStore.fetchReemplazosDisponibles(selectedDate.value, {
+        excluir_personal_id: item._personalId,
+        proyecto_id: item.proyecto?.id || item._proyectoId || null,
+      })
+    } catch (error) {
+      console.error('Error cargando cubridores:', error)
+    }
+    dialogReemplazo.value = true
+  }
 
   async function abrirAusenciaDialog (item) {
     selectedAusenteItem.value = item
@@ -1932,9 +2113,13 @@
     selectedReemplazoPersona.value = selectedAusenteItem.value.reemplazoLocal || null
 
     try {
-      await operacionesStore.fetchReemplazosDisponibles(selectedDate.value)
+      await operacionesStore.fetchReemplazosDisponibles(selectedDate.value, {
+        excluir_personal_id: selectedAusenteItem.value?._personalId,
+        proyecto_id: selectedAusenteItem.value?.proyecto?.id
+          || gruposProyectos.value.find(g => (g.personalMapped || []).includes(selectedAusenteItem.value))?.proyecto?.id,
+      })
     } catch (error) {
-      console.error('Error cargando reemplazos:', error)
+      console.error('Error cargando cubridores:', error)
     }
 
     dialogReemplazo.value = true
@@ -2063,6 +2248,11 @@
 
         if (item.estadoLocal === 'descanso') {
           registro.es_descanso = true
+          if (item.reemplazoLocal) {
+            registro.fue_reemplazado = true
+            registro.personal_reemplazo_id = item.reemplazoLocal.id
+            registro.motivo_reemplazo = 'Cobertura'
+          }
         } else if (item.estadoLocal === 'ausente') {
           registro.es_ausente = true
           registro.motivo_ausencia_id = item.motivoAusenciaLocal?.id || null
@@ -2074,8 +2264,10 @@
           if (item.reemplazoLocal) {
             registro.fue_reemplazado = true
             registro.personal_reemplazo_id = item.reemplazoLocal.id
+            registro.motivo_reemplazo = 'Cobertura'
           }
         } else {
+          registro.es_extra = item.estadoLocal === 'extra'
           registro.hora_entrada = item.horaEntradaLocal || null
           registro.hora_salida = item.horaSalidaLocal || null
           registro.llego_tarde = item.llegoTardeLocal
@@ -2154,18 +2346,69 @@
 
   // ==================== CALENDARIO TURNO ====================
 
+  const calendarioTitulo = computed(() => {
+    return calendarioData.value?.sin_asignacion
+      ? 'Calendario de días trabajados'
+      : 'Calendario de Turno'
+  })
+
+  const calendarioDiasSemana = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
+
+  const calendarioCeldas = computed(() => {
+    const dias = calendarioData.value?.calendario || []
+    if (!dias.length) return []
+    const primera = dias[0]?.fecha
+    if (!primera) return dias
+    const jsDay = new Date(`${primera}T00:00:00`).getDay()
+    const offsetLunes = (jsDay + 6) % 7
+    return [...Array.from({ length: offsetLunes }, () => null), ...dias]
+  })
+
+  function rangoCalendarioMesActual () {
+    const today = new Date()
+    calendarioFechaInicio.value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+    calendarioFechaFin.value = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+  }
+
+  function onBuscarCalendario (texto) {
+    clearTimeout(busquedaCalendarioTimeout)
+    const q = String(texto || '').trim()
+    if (q.length < 2) {
+      opcionesCalendario.value = []
+      return
+    }
+    busquedaCalendarioTimeout = setTimeout(async () => {
+      buscandoCalendario.value = true
+      try {
+        const res = await personalService.getAll({ buscar: q, per_page: 20 })
+        const items = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : [])
+        opcionesCalendario.value = items
+      } catch {
+        opcionesCalendario.value = []
+      } finally {
+        buscandoCalendario.value = false
+      }
+    }, 300)
+  }
+
+  function onElegirCalendario (persona) {
+    if (!persona?.id) return
+    abrirCalendarioPersonal({
+      _personalId: persona.id,
+      _personal: { id: persona.id, nombre_completo: persona.nombre_completo },
+    })
+  }
+
   async function abrirCalendarioTurno (item) {
     const asignacionId = item._asignacionId
     if (!asignacionId) return
 
     calendarioAsignacionId.value = asignacionId
+    calendarioPersonalId.value = null
     dialogCalendarioTurno.value = true
     loadingCalendario.value = true
     calendarioData.value = null
-
-    const today = new Date()
-    calendarioFechaInicio.value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-    calendarioFechaFin.value = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+    rangoCalendarioMesActual()
 
     try {
       calendarioData.value = await operacionesStore.fetchCalendarioTurno(asignacionId, {
@@ -2180,15 +2423,55 @@
     }
   }
 
-  async function recargarCalendario () {
-    if (!calendarioAsignacionId.value) return
+  function abrirCalendarioDesdeBaja () {
+    if (!selectedBajaItem.value) return
+    if (selectedBajaItem.value._asignacionId) {
+      abrirCalendarioTurno(selectedBajaItem.value)
+      return
+    }
+    abrirCalendarioPersonal(selectedBajaItem.value)
+  }
 
+  async function abrirCalendarioPersonal (item) {
+    const personalId = item._personalId || item._personal?.id
+    if (!personalId) return
+
+    calendarioPersonalId.value = personalId
+    calendarioAsignacionId.value = null
+    dialogCalendarioTurno.value = true
     loadingCalendario.value = true
+    calendarioData.value = null
+    rangoCalendarioMesActual()
+
     try {
-      calendarioData.value = await operacionesStore.fetchCalendarioTurno(calendarioAsignacionId.value, {
+      calendarioData.value = await operacionesStore.fetchCalendarioDiasTrabajados(personalId, {
         fecha_inicio: calendarioFechaInicio.value,
         fecha_fin: calendarioFechaFin.value,
       })
+    } catch (error) {
+      console.error('Error cargando calendario:', error)
+      showSnackbar('Error al cargar el calendario de días trabajados', 'error')
+    } finally {
+      loadingCalendario.value = false
+    }
+  }
+
+  async function recargarCalendario () {
+    if (!calendarioAsignacionId.value && !calendarioPersonalId.value) return
+
+    loadingCalendario.value = true
+    try {
+      if (calendarioPersonalId.value) {
+        calendarioData.value = await operacionesStore.fetchCalendarioDiasTrabajados(calendarioPersonalId.value, {
+          fecha_inicio: calendarioFechaInicio.value,
+          fecha_fin: calendarioFechaFin.value,
+        })
+      } else {
+        calendarioData.value = await operacionesStore.fetchCalendarioTurno(calendarioAsignacionId.value, {
+          fecha_inicio: calendarioFechaInicio.value,
+          fecha_fin: calendarioFechaFin.value,
+        })
+      }
     } catch (error) {
       console.error('Error recargando calendario:', error)
     } finally {
@@ -2198,31 +2481,23 @@
 
   function calendarioEtiqueta (dia) {
     const map = {
+      cobertura: 'cubrió',
       trabajo: 'trabajo',
+      extra: 'extra',
       descanso: 'descanso',
       falta: 'falta',
       reemplazado: 'reemplazo',
-      sin_marcar: 'sin marcar',
-      sin_asignacion: 'sin asignar',
+      sin_marcar: 's/marcar',
+      sin_asignacion: 's/asignar',
     }
     return map[dia?.tipo] || dia?.tipo || '—'
   }
 
-  function calendarioChipColor (dia) {
-    const map = {
-      trabajo: 'success',
-      descanso: 'info',
-      falta: 'error',
-      reemplazado: 'warning',
-      sin_marcar: 'grey',
-      sin_asignacion: 'blue-grey',
-    }
-    return map[dia?.tipo] || 'grey'
-  }
-
   function calendarioDiaClass (dia) {
     const map = {
+      cobertura: 'bg-purple',
       trabajo: 'bg-success',
+      extra: 'bg-teal',
       descanso: 'bg-info',
       falta: 'bg-error',
       reemplazado: 'bg-warning',
@@ -2233,6 +2508,10 @@
   }
 
   // ==================== UTILIDADES ====================
+
+  function contarExtrasGrupo (grupo) {
+    return (grupo?.personalMapped || []).filter(i => i.estadoLocal === 'extra').length
+  }
 
   function getInitials (personal) {
     if (!personal) return '?'
@@ -2332,17 +2611,71 @@
   font-weight: 600 !important;
 }
 
+.calendario-head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.calendario-head span {
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  font-weight: 600;
+}
+
 .calendario-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .calendario-dia {
-  min-height: 70px;
+  min-height: 58px;
+  min-width: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.calendario-dia--empty {
+  background: transparent;
+  min-height: 58px;
+}
+
+.calendario-dia--otro {
+  box-shadow: inset 4px 0 0 var(--jn-blue);
+}
+
+.calendario-dia__inner {
+  height: 100%;
+  min-height: 58px;
+  padding: 6px 4px 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  cursor: default;
+}
+
+.calendario-dia__num {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.calendario-dia__tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  opacity: 0.9;
 }
 </style>

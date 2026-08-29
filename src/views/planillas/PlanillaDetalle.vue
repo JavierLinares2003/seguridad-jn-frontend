@@ -107,6 +107,18 @@
         </v-col>
       </v-row>
 
+      <v-alert
+        v-if="hayPendienteLiquidacion"
+        class="mb-6"
+        prominent
+        type="warning"
+        variant="tonal"
+      >
+        <div class="font-weight-bold mb-1">Revisar pendientes de uniforme / equipo antes de pagar</div>
+        Hay personal suspendido o dado de baja con boletas de uniforme/equipo sin devolver.
+        Confirme devolución o descuento pendiente antes de aprobar o marcar como pagada.
+      </v-alert>
+
       <!-- Acciones -->
       <v-card class="mb-6" elevation="2" rounded="xl">
         <v-card-text class="pa-4">
@@ -208,6 +220,15 @@
                 <v-chip v-if="item.sin_actividad" class="mt-1" color="warning" size="x-small">
                   Sin actividad
                 </v-chip>
+                <v-chip
+                  v-if="item.personal?.pendiente_liquidacion"
+                  class="mt-1"
+                  color="warning"
+                  size="x-small"
+                  variant="flat"
+                >
+                  Revisar uniforme / equipo
+                </v-chip>
               </div>
             </template>
 
@@ -227,6 +248,9 @@
               <div class="d-flex ga-1 justify-center flex-wrap">
                 <v-chip color="info" size="x-small">{{ item.dias_trabajados }}T</v-chip>
                 <v-chip color="grey" size="x-small">{{ item.dias_descanso }}D</v-chip>
+                <v-chip v-if="item.dias_extra > 0" color="teal" size="x-small">
+                  {{ item.dias_extra }}E
+                </v-chip>
                 <v-chip v-if="item.dias_ausentes > 0" color="error" size="x-small">
                   {{ item.dias_ausentes }}A
                 </v-chip>
@@ -573,7 +597,7 @@
 <script setup>
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
-  import { onMounted, reactive, ref } from 'vue'
+  import { computed, onMounted, reactive, ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { usePlanillaStore } from '@/stores/planilla'
   import planillaService from '@/services/planillaService'
@@ -596,6 +620,10 @@
   const tipoHistorial = ref('todos')
   const historialPersonalNombre = ref('')
   const historialPersonalId = ref(null)
+
+  const hayPendienteLiquidacion = computed(() =>
+    (planilla.value?.detalles || []).some(d => d.personal?.pendiente_liquidacion)
+  )
 
   // Snackbar
   const snackbar = reactive({
@@ -630,7 +658,10 @@
   }
 
   async function aprobar () {
-    if (!confirm('¿Aprobar esta planilla? Esto marcará las transacciones como aplicadas.')) {
+    const extra = hayPendienteLiquidacion.value
+      ? '\n\nATENCIÓN: hay personal con uniforme o equipo pendiente. Revise antes de aprobar el pago.'
+      : ''
+    if (!confirm(`¿Aprobar esta planilla? Esto marcará las transacciones como aplicadas.${extra}`)) {
       return
     }
 
@@ -647,7 +678,10 @@
   }
 
   async function marcarPagada () {
-    if (!confirm('¿Marcar esta planilla como pagada?')) {
+    const extra = hayPendienteLiquidacion.value
+      ? '\n\nATENCIÓN: hay personal con uniforme o equipo pendiente. Revise liquidación antes de pagar.'
+      : ''
+    if (!confirm(`¿Marcar esta planilla como pagada?${extra}`)) {
       return
     }
 

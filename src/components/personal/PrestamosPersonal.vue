@@ -197,6 +197,40 @@
               />
             </v-col>
 
+            <v-col v-if="desglosePrestamo.length" cols="12">
+              <v-alert class="mb-2" density="compact" type="info" variant="tonal">
+                Puedes dejar todas las cuotas iguales o cambiar montos. Suma:
+                Q{{ formatNumber(sumaDesglosePrestamo) }} / Total a pagar Q{{ formatNumber(totalPagarPrestamo) }}
+              </v-alert>
+              <v-table density="compact">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th class="text-right">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(c, idx) in desglosePrestamo" :key="idx">
+                    <td>{{ idx + 1 }}</td>
+                    <td>{{ c.fecha }}</td>
+                    <td style="max-width: 160px;">
+                      <v-text-field
+                        v-model.number="c.monto"
+                        density="compact"
+                        hide-details
+                        min="0.01"
+                        prefix="Q"
+                        step="0.01"
+                        type="number"
+                        variant="outlined"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-col>
+
             <v-col cols="12" md="6">
               <v-textarea
                 v-model="formPrestamo.observaciones"
@@ -623,6 +657,7 @@
   const confirmacionEliminar = ref('')
   const savingEliminar = ref(false)
   const historialPagos = ref([])
+  const desglosePrestamo = ref([])
 
   // Formulario Préstamo
   const formPrestamo = reactive({
@@ -635,25 +670,49 @@
     observaciones: '',
   })
 
+  const totalPagarPrestamo = computed(() => {
+    const monto = Number(formPrestamo.monto_total || 0)
+    const tasa = Number(formPrestamo.tasa_interes || 0)
+    return Math.round((monto * (1 + tasa / 100)) * 100) / 100
+  })
+
+  const sumaDesglosePrestamo = computed(() =>
+    Math.round((desglosePrestamo.value || []).reduce((s, c) => s + (Number(c.monto) || 0), 0) * 100) / 100
+  )
+
   // Calcular cuota automáticamente
   watch(
-    () => [formPrestamo.monto_total, formPrestamo.cuotas_totales, formPrestamo.tasa_interes],
-    ([monto, cuotas, tasa]) => {
+    () => [formPrestamo.monto_total, formPrestamo.cuotas_totales, formPrestamo.tasa_interes, formPrestamo.fecha_primer_pago],
+    ([monto, cuotas, tasa, fechaInicio]) => {
       if (!monto || !cuotas || cuotas < 1) {
         formPrestamo.monto_cuota = null
+        desglosePrestamo.value = []
         return
       }
 
       const montoPrincipal = Number.parseFloat(monto)
       const numCuotas = Number.parseInt(cuotas)
       const porcentajeInteres = Number.parseFloat(tasa || 0)
-
-      // Cálculo: (Monto + (Monto * Tasa / 100)) / Cuotas
       const totalInteres = montoPrincipal * (porcentajeInteres / 100)
       const totalPagar = montoPrincipal + totalInteres
-      const cuota = totalPagar / numCuotas
+      const cuota = Math.round((totalPagar / numCuotas) * 100) / 100
+      formPrestamo.monto_cuota = cuota
 
-      formPrestamo.monto_cuota = Number.parseFloat(cuota.toFixed(2))
+      const items = []
+      let fecha = fechaInicio ? new Date(fechaInicio + 'T12:00:00') : new Date()
+      let acumulado = 0
+      for (let i = 0; i < numCuotas; i++) {
+        const m = i === numCuotas - 1
+          ? Math.round((totalPagar - acumulado) * 100) / 100
+          : cuota
+        acumulado += m
+        const y = fecha.getFullYear()
+        const mo = String(fecha.getMonth() + 1).padStart(2, '0')
+        const d = String(fecha.getDate()).padStart(2, '0')
+        items.push({ fecha: `${y}-${mo}-${d}`, monto: m })
+        fecha = new Date(fecha.getFullYear(), fecha.getMonth() + 1, fecha.getDate())
+      }
+      desglosePrestamo.value = items
     },
   )
 
@@ -744,12 +803,17 @@
       errorsPrestamo.fecha_primer_pago = ['La fecha del primer pago es obligatoria']
       return
     }
+    if (desglosePrestamo.value.length && Math.abs(sumaDesglosePrestamo.value - totalPagarPrestamo.value) > 0.05) {
+      errorMessagePrestamo.value = 'La suma de las cuotas debe coincidir con el total a pagar.'
+      return
+    }
 
     savingPrestamo.value = true
     try {
       const data = {
         personal_id: props.personalId,
         ...formPrestamo,
+        cuotas_montos: desglosePrestamo.value.map(c => Number(c.monto)),
         comprobante: comprobanteFile.value || undefined,
       }
 
@@ -895,6 +959,7 @@
     formPrestamo.fecha_prestamo = new Date().toISOString().split('T')[0]
     formPrestamo.fecha_primer_pago = new Date().toISOString().split('T')[0]
     formPrestamo.observaciones = ''
+    desglosePrestamo.value = []
     comprobanteFile.value = null
     for (const key of Object.keys(errorsPrestamo)) errorsPrestamo[key] = []
     errorMessagePrestamo.value = null
