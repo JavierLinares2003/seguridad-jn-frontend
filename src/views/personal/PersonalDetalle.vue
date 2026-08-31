@@ -1225,6 +1225,7 @@
   import { useCatalogosStore } from '@/stores/catalogos'
   import { usePersonalStore } from '@/stores/personal'
   import { formatDPI } from '@/utils/dpiFormatter'
+  import { formatDateGT } from '@/utils/dateFormatter'
   import { cleanPhone, formatPhone, formatPhoneInput } from '@/utils/phoneFormatter'
 
   const route = useRoute()
@@ -1475,8 +1476,7 @@
 
   // Helpers
   function formatDate (date) {
-    if (!date) return '-'
-    return new Date(date).toLocaleDateString('es-GT')
+    return formatDateGT(date)
   }
 
   function formatNumber (num) {

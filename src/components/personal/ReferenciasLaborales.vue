@@ -338,7 +338,8 @@
   // Helpers
   function formatDate (date) {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('es-GT', {
+    const dateOnly = typeof date === 'string' && date.includes('T') ? date.split('T')[0] : String(date).substring(0, 10)
+    return new Date(`${dateOnly}T12:00:00`).toLocaleDateString('es-GT', {
       year: 'numeric',
       month: 'short',
     })
