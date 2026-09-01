@@ -312,7 +312,7 @@
                           <template #prepend>
                             <v-icon color="grey" icon="mdi-gender-male-female" size="20" />
                           </template>
-                          <v-list-item-subtitle class="text-caption">Sexo</v-list-item-subtitle>
+                          <v-list-item-subtitle class="text-caption">Género</v-list-item-subtitle>
                           <v-list-item-title>{{ personal.sexo?.nombre || '-' }}</v-list-item-title>
                         </v-list-item>
                         <v-divider />
@@ -413,14 +413,6 @@
                             <v-list-item-title>{{ formatDate(personal.fecha_reingreso) }}</v-list-item-title>
                           </v-list-item>
                         </template>
-                        <v-divider />
-                        <v-list-item>
-                          <template #prepend>
-                            <v-icon color="grey" icon="mdi-file-sign" size="20" />
-                          </template>
-                          <v-list-item-subtitle class="text-caption">Tipo Contratacion</v-list-item-subtitle>
-                          <v-list-item-title>{{ personal.tipo_contratacion?.nombre || '-' }}</v-list-item-title>
-                        </v-list-item>
                         <v-divider />
                         <v-list-item>
                           <template #prepend>

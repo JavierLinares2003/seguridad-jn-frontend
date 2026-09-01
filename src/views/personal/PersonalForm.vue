@@ -105,7 +105,7 @@
                     item-title="nombre"
                     item-value="id"
                     :items="sexos"
-                    label="Sexo"
+                    label="Género"
                     :loading="catalogosLoading"
                     variant="outlined"
                   />
@@ -321,20 +321,7 @@
                   />
                 </v-col>
 
-                <v-col cols="12" md="4">
-                  <v-select
-                    v-model="tipo_contratacion_id"
-                    clearable
-                    :error-messages="errors.tipo_contratacion_id"
-                    item-title="nombre"
-                    item-value="id"
-                    :items="tiposContratacion"
-                    label="Tipo de Contratación"
-                    :loading="catalogosLoading"
-                    variant="outlined"
-                  />
-                </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="6">
                   <v-select
                     v-model="tipo_pago_id"
                     clearable
@@ -348,7 +335,7 @@
                   />
                 </v-col>
 
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="6">
                   <v-text-field
                     v-model.number="salario_base"
                     :error-messages="errors.salario_base"
@@ -647,7 +634,6 @@
   const estadosCiviles = computed(() => catalogosStore.getCatalogo(CATALOGOS.ESTADOS_CIVILES))
   const tiposSangre = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_SANGRE))
   const departamentos = computed(() => catalogosStore.getCatalogo(CATALOGOS.DEPARTAMENTOS))
-  const tiposContratacion = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_CONTRATACION))
   const tiposPago = computed(() => catalogosStore.getCatalogo(CATALOGOS.TIPOS_PAGO))
   const nivelesEstudio = computed(() => catalogosStore.getCatalogo(CATALOGOS.NIVELES_ESTUDIO))
 
@@ -884,7 +870,6 @@
           CATALOGOS.ESTADOS_CIVILES,
           CATALOGOS.TIPOS_SANGRE,
           CATALOGOS.DEPARTAMENTOS,
-          CATALOGOS.TIPOS_CONTRATACION,
           CATALOGOS.TIPOS_PAGO,
           CATALOGOS.NIVELES_ESTUDIO,
         ]),
@@ -1012,6 +997,8 @@
 
       // Limpiar campo de confirmación (no se envía al backend)
       delete data.confirmar_numero_cuenta
+      delete data.tipo_contratacion_id
+      delete data.tipo_contratacion
 
       // Si no es transferencia, limpiar datos bancarios
       if (!esTipoTransferencia.value) {
