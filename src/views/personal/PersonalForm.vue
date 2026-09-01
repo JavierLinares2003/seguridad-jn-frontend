@@ -100,11 +100,12 @@
                 <v-col cols="12" md="3">
                   <v-select
                     v-model="sexo_id"
+                    clearable
                     :error-messages="errors.sexo_id"
                     item-title="nombre"
                     item-value="id"
                     :items="sexos"
-                    label="Sexo *"
+                    label="Sexo"
                     :loading="catalogosLoading"
                     variant="outlined"
                   />
@@ -112,11 +113,12 @@
                 <v-col cols="12" md="3">
                   <v-select
                     v-model="estado_civil_id"
+                    clearable
                     :error-messages="errors.estado_civil_id"
                     item-title="nombre"
                     item-value="id"
                     :items="estadosCiviles"
-                    label="Estado Civil *"
+                    label="Estado Civil"
                     :loading="catalogosLoading"
                     variant="outlined"
                   />
@@ -266,7 +268,19 @@
               zona: errors.zona,
               direccion: errors.direccion_completa,
             }"
-          />
+          >
+            <template #extra>
+              <v-checkbox
+                v-model="vive_en_cuadra"
+                color="primary"
+                hide-details
+                label="Vivirá en cuadra con nosotros"
+              />
+              <p class="text-caption text-medium-emphasis mb-0 mt-n1">
+                Cuartos que la empresa da para dormir. No sustituye la dirección de casa.
+              </p>
+            </template>
+          </DireccionForm>
 
           <!-- Información Laboral -->
           <v-card class="mb-4">
@@ -279,11 +293,12 @@
                 <v-col cols="12" md="6">
                   <v-select
                     v-model="departamento_id"
+                    clearable
                     :error-messages="errors.departamento_id"
                     item-title="nombre"
                     item-value="id"
                     :items="departamentos"
-                    label="Departamento Empresa *"
+                    label="Departamento Empresa"
                     :loading="catalogosLoading"
                     variant="outlined"
                   />
@@ -297,15 +312,24 @@
                     variant="outlined"
                   />
                 </v-col>
+                <v-col v-if="canManageAdministrativo" cols="12">
+                  <v-checkbox
+                    v-model="es_administrativo"
+                    color="primary"
+                    hide-details
+                    label="Personal administrativo (expediente solo gerencia y RRHH)"
+                  />
+                </v-col>
 
                 <v-col cols="12" md="4">
                   <v-select
                     v-model="tipo_contratacion_id"
+                    clearable
                     :error-messages="errors.tipo_contratacion_id"
                     item-title="nombre"
                     item-value="id"
                     :items="tiposContratacion"
-                    label="Tipo de Contratación *"
+                    label="Tipo de Contratación"
                     :loading="catalogosLoading"
                     variant="outlined"
                   />
@@ -313,11 +337,12 @@
                 <v-col cols="12" md="4">
                   <v-select
                     v-model="tipo_pago_id"
+                    clearable
                     :error-messages="errors.tipo_pago_id"
                     item-title="nombre"
                     item-value="id"
                     :items="tiposPago"
-                    label="Tipo de Pago *"
+                    label="Tipo de Pago"
                     :loading="catalogosLoading"
                     variant="outlined"
                   />
@@ -340,7 +365,7 @@
                   <v-text-field
                     v-model="fecha_inicio"
                     :error-messages="errors.fecha_inicio"
-                    label="Fecha de Ingreso *"
+                    label="Fecha de Ingreso"
                     type="date"
                     variant="outlined"
                     prepend-inner-icon="mdi-calendar"
@@ -602,6 +627,7 @@
   import { CATALOGOS } from '@/services/catalogoService'
   import { useCatalogosStore } from '@/stores/catalogos'
   import { usePersonalStore } from '@/stores/personal'
+  import { useAuthStore } from '@/stores/auth'
   import { cleanDPI, formatDPIInput } from '@/utils/dpiFormatter'
   import { cleanPhone, formatPhoneInput } from '@/utils/phoneFormatter'
 
@@ -609,6 +635,8 @@
   const router = useRouter()
   const store = usePersonalStore()
   const catalogosStore = useCatalogosStore()
+  const authStore = useAuthStore()
+  const canManageAdministrativo = computed(() => authStore.hasPermission('manage-personal-administrativo'))
 
   // Props
   const isEditing = computed(() => !!route.params.id)
@@ -652,6 +680,19 @@
   // Snackbar
   const snackbar = ref({ show: false, text: '', color: 'success' })
 
+  const optionalId = () => yup
+    .number()
+    .transform((value, originalValue) => {
+      if (originalValue === '' || originalValue === null || originalValue === undefined) return null
+      return Number.isNaN(value) ? null : value
+    })
+    .nullable()
+
+  const optionalText = () => yup
+    .string()
+    .transform(value => (value === '' ? null : value))
+    .nullable()
+
   // Validación con Yup
   const validationSchema = yup.object({
     nombres: yup.string().required('Los nombres son requeridos'),
@@ -671,18 +712,20 @@
       .transform(v => v === '' ? null : v)
       .matches(/^\d{8}$/, 'El WhatsApp debe tener 8 dígitos'),
     fecha_nacimiento: yup.string().required('La fecha de nacimiento es requerida'),
-    sexo_id: yup.number().required('El sexo es requerido'),
-    estado_civil_id: yup.number().required('El estado civil es requerido'),
+    sexo_id: optionalId(),
+    estado_civil_id: optionalId(),
     altura: yup.number().required('La altura es requerida').min(0.5, 'Altura mínima 0.5m').max(2.5, 'Altura máxima 2.5m'),
     peso: yup.number().nullable().min(50, 'Peso mínimo 50 lb').max(400, 'Peso máximo 400 lb'),
-    direccion_completa: yup.string().required('La dirección es requerida'),
+    direccion_completa: optionalText(),
     zona: yup.number().nullable().min(0, 'Mínimo zona 0').max(25, 'Máximo zona 25'),
-    departamento_id: yup.number().required('El departamento es requerido'),
+    departamento_id: optionalId(),
     puesto: yup.string().required('El puesto es requerido'),
-    tipo_contratacion_id: yup.number().required('El tipo de contratación es requerido'),
-    tipo_pago_id: yup.number().required('El tipo de pago es requerido'),
+    es_administrativo: yup.boolean(),
+    vive_en_cuadra: yup.boolean(),
+    tipo_contratacion_id: optionalId(),
+    tipo_pago_id: optionalId(),
     salario_base: yup.number().required('El salario base es requerido').min(0, 'El salario debe ser mayor a 0'),
-    fecha_inicio: yup.string().required('La fecha de inicio es requerida'),
+    fecha_inicio: optionalText(),
     nivel_estudio_id: yup.number().nullable(),
     tiene_igss: yup.boolean(),
     tiene_prestaciones: yup.boolean(),
@@ -729,6 +772,8 @@
   const { value: zona } = useField('zona')
   const { value: departamento_id } = useField('departamento_id')
   const { value: puesto } = useField('puesto')
+  const { value: es_administrativo } = useField('es_administrativo', undefined, { initialValue: false })
+  const { value: vive_en_cuadra } = useField('vive_en_cuadra', undefined, { initialValue: false })
   const { value: tipo_contratacion_id } = useField('tipo_contratacion_id')
   const { value: tipo_pago_id } = useField('tipo_pago_id')
   const { value: salario_base } = useField('salario_base')
@@ -867,6 +912,9 @@
         estado_civil_id: data.estado_civil?.id || data.estado_civil_id,
         tipo_sangre_id: data.tipo_sangre?.id || data.tipo_sangre_id,
         departamento_id: data.departamento?.id || data.departamento_id,
+        puesto: data.puesto || '',
+        es_administrativo: !!data.es_administrativo,
+        vive_en_cuadra: !!data.vive_en_cuadra,
         tipo_contratacion_id: data.tipo_contratacion?.id || data.tipo_contratacion_id,
         tipo_pago_id: data.tipo_pago?.id || data.tipo_pago_id,
         // Datos bancarios
@@ -941,14 +989,22 @@
       }
       delete data.es_alergico
 
-      // Estructurar dirección como espera el API
-      data.direccion = {
-        direccion_completa: data.direccion_completa,
-        departamento_geo_id: data.departamento_geografico_id,
-        municipio_id: data.municipio_id,
-        zona: data.zona,
+      // No reenviar el objeto direccion del GET (viene null en pre-alta y rompe el update)
+      delete data.direccion
+      const tieneDireccion = Boolean(
+        (data.direccion_completa && String(data.direccion_completa).trim())
+        || data.departamento_geografico_id
+        || data.municipio_id
+        || (data.zona !== '' && data.zona != null)
+      )
+      if (tieneDireccion) {
+        data.direccion = {
+          direccion_completa: data.direccion_completa,
+          departamento_geo_id: data.departamento_geografico_id,
+          municipio_id: data.municipio_id,
+          zona: data.zona,
+        }
       }
-      // Limpiar campos individuales ya que van dentro de direccion
       delete data.direccion_completa
       delete data.departamento_geografico_id
       delete data.municipio_id

@@ -247,6 +247,7 @@
         estado: 'activo',
         periodo_inicio: props.periodoInicio,
         periodo_fin: props.periodoFin,
+        directorio: 1,
       }
       if (searchQuery.value?.trim()) params.buscar = searchQuery.value.trim()
 

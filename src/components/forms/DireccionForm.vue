@@ -115,6 +115,9 @@
             </span>
           </v-alert>
         </v-col>
+        <v-col v-if="$slots.extra" cols="12">
+          <slot name="extra" />
+        </v-col>
       </v-row>
     </v-card-text>
   </v-card>

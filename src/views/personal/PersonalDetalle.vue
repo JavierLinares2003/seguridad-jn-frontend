@@ -35,6 +35,25 @@
               </p>
               <div class="d-flex align-center flex-wrap ga-2" :class="{ 'mt-2': !personal.puesto }">
                 <v-chip
+                  v-if="personal.es_administrativo"
+                  color="primary"
+                  label
+                  size="small"
+                  variant="flat"
+                >
+                  Administrativo
+                </v-chip>
+                <v-chip
+                  v-if="personal.vive_en_cuadra"
+                  color="teal"
+                  label
+                  size="small"
+                  variant="tonal"
+                >
+                  <v-icon size="14" start>mdi-bed</v-icon>
+                  Cuadra
+                </v-chip>
+                <v-chip
                   v-if="personal.departamento?.nombre"
                   color="primary"
                   label
@@ -80,6 +99,7 @@
               Volver
             </v-btn>
             <v-btn
+              v-if="expedienteCompleto"
               class="text-none font-weight-bold"
               color="secondary"
               :loading="downloadingCV"
@@ -91,6 +111,7 @@
               CV
             </v-btn>
             <v-btn
+              v-if="expedienteCompleto"
               class="text-none font-weight-bold"
               color="info"
               :loading="downloadingExpediente"
@@ -102,7 +123,7 @@
               Expediente
             </v-btn>
             <v-btn
-              v-can="'edit-personal'"
+              v-if="puedeEditarExpediente"
               class="text-none font-weight-bold"
               color="primary"
               rounded="lg"
@@ -178,6 +199,7 @@
             <v-icon size="20" start>mdi-account-outline</v-icon>
             Informacion Personal
           </v-tab>
+          <template v-if="expedienteCompleto">
           <v-tab class="text-none" value="referencias">
             <v-icon size="20" start>mdi-briefcase-outline</v-icon>
             Referencias
@@ -222,7 +244,8 @@
             <v-icon size="20" start>mdi-clipboard-check-outline</v-icon>
             Permisos
           </v-tab>
-          <v-tab class="text-none" value="historial-salarios">
+          </template>
+          <v-tab v-if="expedienteCompleto || alcanceNomina" class="text-none" value="historial-salarios">
             <v-icon size="20" start>mdi-chart-line</v-icon>
             Historial Salarios
           </v-tab>
@@ -232,6 +255,15 @@
           <!-- Tab: Informacion Personal -->
           <v-tabs-window-item value="personal">
             <v-card-text class="pa-6">
+              <v-alert
+                v-if="alcanceNomina"
+                class="mb-4"
+                color="info"
+                density="compact"
+                variant="tonal"
+              >
+                Vista de nómina: salario y datos de pago. El expediente completo solo lo ven gerencia y RRHH.
+              </v-alert>
               <v-row>
                 <v-col cols="12" md="6">
                   <v-card class="h-100" rounded="lg" variant="outlined">
@@ -272,7 +304,7 @@
                           </template>
                           <v-list-item-subtitle class="text-caption">Fecha Nacimiento</v-list-item-subtitle>
                           <v-list-item-title>{{ formatDate(personal.fecha_nacimiento) }}
-                            <v-chip class="ml-1" color="primary" size="x-small" variant="tonal">{{ personal.edad }} anos</v-chip>
+                            <v-chip v-if="personal.edad" class="ml-1" color="primary" size="x-small" variant="tonal">{{ personal.edad }} anos</v-chip>
                           </v-list-item-title>
                         </v-list-item>
                         <v-divider />
@@ -531,6 +563,16 @@
                           </template>
                           <v-list-item-subtitle class="text-caption">Dirección Completa</v-list-item-subtitle>
                           <v-list-item-title>{{ personal.direccion?.direccion_completa || '-' }}</v-list-item-title>
+                        </v-list-item>
+                        <v-divider />
+                        <v-list-item>
+                          <template #prepend>
+                            <v-icon color="grey" icon="mdi-bed" size="20" />
+                          </template>
+                          <v-list-item-subtitle class="text-caption">Cuadra</v-list-item-subtitle>
+                          <v-list-item-title>
+                            {{ personal.vive_en_cuadra ? 'Vive en cuadra con la empresa' : 'No' }}
+                          </v-list-item-title>
                         </v-list-item>
                       </v-list>
                     </v-card-text>
@@ -1224,6 +1266,7 @@
   import operacionesService from '@/services/operacionesService'
   import { useCatalogosStore } from '@/stores/catalogos'
   import { usePersonalStore } from '@/stores/personal'
+  import { useAuthStore } from '@/stores/auth'
   import { formatDPI } from '@/utils/dpiFormatter'
   import { formatDateGT } from '@/utils/dateFormatter'
   import { cleanPhone, formatPhone, formatPhoneInput } from '@/utils/phoneFormatter'
@@ -1232,9 +1275,16 @@
   const router = useRouter()
   const store = usePersonalStore()
   const catalogosStore = useCatalogosStore()
+  const authStore = useAuthStore()
 
   const tab = ref('personal')
   const personal = computed(() => store.currentItem)
+  const expedienteCompleto = computed(() => personal.value?.alcance !== 'nomina' && personal.value?.alcance !== 'directorio')
+  const alcanceNomina = computed(() => personal.value?.alcance === 'nomina')
+  const puedeEditarExpediente = computed(() => {
+    if (!personal.value?.es_administrativo) return authStore.hasPermission('edit-personal')
+    return authStore.hasPermission('manage-personal-administrativo')
+  })
   const esBajaOSuspendido = computed(() =>
     ['suspendido', 'no_contratar', 'inactivo'].includes(personal.value?.estado),
   )
@@ -1857,6 +1907,7 @@
       tab.value = tabQuery
     }
     await loadPersonal()
+    if (!expedienteCompleto.value) return
     Promise.all([
       loadFamiliares(),
       loadRedesSociales(),

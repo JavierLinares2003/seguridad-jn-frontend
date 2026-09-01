@@ -60,6 +60,13 @@
           :to="{ name: 'operaciones-asistencia' }"
         />
         <v-list-item
+          v-if="authStore.hasPermission('view-asistencia-administrativa')"
+          prepend-icon="mdi-account-tie-outline"
+          rounded="0"
+          title="Asistencia administrativa"
+          :to="{ name: 'asistencia-administrativa' }"
+        />
+        <v-list-item
           v-if="authStore.hasPermission('view-planillas')"
           prepend-icon="mdi-cash-multiple"
           rounded="0"
@@ -177,6 +184,7 @@
     bodega: 'Bodega',
     operaciones: 'Operaciones',
     'operaciones-asistencia': 'Asistencia',
+    'asistencia-administrativa': 'Asistencia administrativa',
     'operaciones-planillas': 'Planillas',
     'configuracion-usuarios': 'Usuarios',
     'configuracion-roles': 'Roles y vistas',

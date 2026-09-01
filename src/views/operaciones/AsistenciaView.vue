@@ -395,6 +395,12 @@
                   <div v-else-if="item.estadoLocal === 'ausente' && item.sinReemplazo" class="text-caption text-medium-emphasis mt-1">
                     Sin cubridor
                   </div>
+                  <div
+                    v-else-if="item.estadoLocal === 'descanso' && !item.reemplazoLocal"
+                    class="text-caption text-medium-emphasis mt-1"
+                  >
+                    Descanso. No hay que cubrir si el turno ya tiene a otro agente.
+                  </div>
                   <div v-if="item.asistencia?.cubrio_en" class="text-caption mt-1 text-teal">
                     <v-icon color="teal" size="x-small">mdi-account-arrow-right</v-icon>
                     Cubrió en {{ item.asistencia.cubrio_en.proyecto || 'otro proyecto' }}
@@ -402,12 +408,12 @@
                   <v-btn
                     v-if="item.estadoLocal === 'descanso' || item.estadoLocal === 'ausente'"
                     class="mt-1 text-none"
-                    color="purple"
+                    :color="item.estadoLocal === 'descanso' && !item.reemplazoLocal ? 'medium-emphasis' : 'purple'"
                     size="x-small"
                     variant="text"
                     @click="abrirCubridoresDialog(item)"
                   >
-                    {{ item.reemplazoLocal ? 'Cambiar cubridor' : 'Asignar cubridor' }}
+                    {{ textoCubrimiento(item) }}
                   </v-btn>
                 </div>
                 <span v-else class="text-medium-emphasis">-</span>
@@ -2035,6 +2041,12 @@
   }
 
   // ==================== FLUJO AUSENCIA / COBERTURA ====================
+
+  function textoCubrimiento (item) {
+    if (item.reemplazoLocal) return 'Cambiar cubridor'
+    if (item.estadoLocal === 'descanso') return 'Poner cubridor (opcional)'
+    return 'Asignar cubridor'
+  }
 
   async function abrirCubridoresDialog (item) {
     selectedAusenteItem.value = item

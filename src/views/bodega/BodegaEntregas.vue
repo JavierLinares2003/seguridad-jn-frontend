@@ -768,7 +768,7 @@
       if (term.length > 0 && term.length < 2) return
       loadingPersonal.value = true
       try {
-        const params = { per_page: 25, estado: 'activo', sort_by: 'apellidos', sort_order: 'asc' }
+        const params = { per_page: 25, estado: 'activo', sort_by: 'apellidos', sort_order: 'asc', directorio: 1 }
         if (term) params.buscar = term
         const res = await personalService.getAll(params)
         personalOpts.value = mapPersonal(res?.data || [])
@@ -951,7 +951,7 @@
     loadingPersonal.value = true
     try {
       const [pers, kitsRes] = await Promise.all([
-        personalService.getAll({ per_page: 30, estado: 'activo', sort_by: 'apellidos', sort_order: 'asc' }),
+        personalService.getAll({ per_page: 30, estado: 'activo', sort_by: 'apellidos', sort_order: 'asc', directorio: 1 }),
         bodegaService.getKits(),
         cargarProductosOpts(),
       ])

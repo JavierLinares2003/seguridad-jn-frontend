@@ -167,6 +167,12 @@ const manualRoutes = [
     meta: { requiresAuth: true, permissions: ['view-operaciones'] },
   },
   {
+    path: '/asistencia-administrativa',
+    name: 'asistencia-administrativa',
+    component: () => import('@/views/operaciones/AsistenciaAdministrativaView.vue'),
+    meta: { requiresAuth: true, permissions: ['view-asistencia-administrativa'] },
+  },
+  {
     path: '/operaciones/asignaciones',
     name: 'operaciones-asignaciones',
     component: () => import('@/views/operaciones/OperacionesIndex.vue'),

@@ -150,7 +150,27 @@
         <!-- Nombre completo -->
         <template #item.nombre_completo="{ item }">
           <div class="py-2">
-            <p class="text-body-1 font-weight-medium mb-0">{{ item.apellidos }}, {{ item.nombres }}</p>
+            <p class="text-body-1 font-weight-medium mb-0">
+              {{ item.apellidos }}, {{ item.nombres }}
+              <v-chip
+                v-if="item.es_administrativo"
+                class="ml-2"
+                color="primary"
+                size="x-small"
+                variant="tonal"
+              >
+                Administrativo
+              </v-chip>
+              <v-chip
+                v-if="item.vive_en_cuadra"
+                class="ml-2"
+                color="teal"
+                size="x-small"
+                variant="tonal"
+              >
+                Cuadra
+              </v-chip>
+            </p>
             <p class="text-caption text-medium-emphasis mb-0">
               <v-icon class="mr-1" icon="mdi-card-account-details-outline" size="12" />
               {{ formatDPI(item.dpi) }}

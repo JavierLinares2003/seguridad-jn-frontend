@@ -3,6 +3,7 @@
  */
 
 import { createVuetify } from 'vuetify'
+import { es } from 'vuetify/locale'
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
 
@@ -63,6 +64,11 @@ const jnDark = {
 }
 
 export default createVuetify({
+  locale: {
+    locale: 'es',
+    fallback: 'en',
+    messages: { es },
+  },
   theme: {
     defaultTheme: 'jnLight',
     themes: {
