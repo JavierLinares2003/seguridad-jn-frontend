@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="pa-6">
     <div class="d-flex align-center flex-wrap ga-3 mb-4">
-      <v-btn icon="mdi-arrow-left" variant="text" :to="{ name: 'bodega' }" />
+      <v-btn icon="mdi-arrow-left" variant="text" :to="rutaAtras" />
       <div>
         <h1 class="text-h5 font-weight-bold mb-0">Armas</h1>
         <p class="text-caption text-medium-emphasis mb-0">
@@ -255,7 +255,10 @@
   import { useAuthStore } from '@/stores/auth'
 
   const authStore = useAuthStore()
-  const canManage = computed(() => authStore.hasPermission('manage-bodega'))
+  const canManage = computed(() => authStore.hasPermission('manage-armas'))
+  const rutaAtras = computed(() =>
+    authStore.hasPermission('view-bodega') ? { name: 'bodega' } : { name: 'inicio' },
+  )
 
   const loading = ref(false)
   const saving = ref(false)

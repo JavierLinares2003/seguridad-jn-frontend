@@ -159,19 +159,8 @@
           <v-text-field
             v-model.number="form.precio_venta"
             class="mb-2"
-            hint="Precio de nuevo. Si no hay precio usado, uniforme usado = 50%."
-            label="Precio nuevo Q"
-            min="0"
-            persistent-hint
-            step="0.01"
-            type="number"
-            variant="outlined"
-          />
-          <v-text-field
-            v-model.number="form.precio_usado"
-            class="mb-2"
-            hint="Opcional. Gorgorito, cincho, etc. pueden costar igual usados."
-            label="Precio usado Q"
+            hint="Lo que se cobra si se entrega nuevo."
+            label="Precio Q"
             min="0"
             persistent-hint
             step="0.01"
@@ -181,14 +170,50 @@
           <v-text-field
             v-if="!editId"
             v-model.number="form.existencia_inicial"
-            class="mb-2"
+            class="mb-3"
             label="Existencia inicial"
             type="number"
             variant="outlined"
           />
-          <v-switch v-model="form.es_uniforme" color="info" label="Es uniforme (permite descuento quincenal)" />
-          <v-switch v-model="form.usa_talla" color="primary" label="Usa tallas" />
-          <v-switch v-model="form.usa_condicion" color="primary" label="Usa nuevo/usado" />
+
+          <div class="text-subtitle-2 font-weight-bold mb-2">Cómo se entrega</div>
+          <v-checkbox
+            v-model="form.es_uniforme"
+            color="info"
+            hide-details
+            label="Es uniforme (se puede descontar en planilla)"
+          />
+          <v-checkbox
+            v-model="form.usa_talla"
+            class="mt-1"
+            color="primary"
+            hide-details
+            label="Tiene tallas (S, M, L, 34, 41…)"
+          />
+          <p class="text-caption text-medium-emphasis ml-8 mb-1">
+            Camisa, pantalón, botas. Después agregás cada talla en el producto. Cincho o gorgorito no lo necesitan.
+          </p>
+          <v-checkbox
+            v-model="form.usa_condicion"
+            color="primary"
+            hide-details
+            label="Se entrega nuevo o usado"
+          />
+          <p class="text-caption text-medium-emphasis ml-8 mb-2">
+            Activá esto si el mismo artículo puede salir nuevo o de segunda. Así se cobra un precio u otro.
+          </p>
+          <v-text-field
+            v-if="form.usa_condicion"
+            v-model.number="form.precio_usado"
+            class="mb-2"
+            hint="Si lo dejás vacío y es uniforme, el usado se cobra al 50% del precio nuevo."
+            label="Precio usado Q"
+            min="0"
+            persistent-hint
+            step="0.01"
+            type="number"
+            variant="outlined"
+          />
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer />
@@ -320,7 +345,7 @@
         categoria_id: form.categoria_id,
         nombre: form.nombre,
         precio_venta: form.precio_venta || null,
-        precio_usado: form.precio_usado || null,
+        precio_usado: form.usa_condicion ? (form.precio_usado || null) : null,
         es_uniforme: form.es_uniforme,
         usa_talla: form.usa_talla,
         usa_condicion: form.usa_condicion,

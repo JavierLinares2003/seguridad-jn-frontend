@@ -46,6 +46,13 @@
           :to="{ name: 'bodega' }"
         />
         <v-list-item
+          v-if="authStore.hasPermission('view-armas')"
+          prepend-icon="mdi-pistol"
+          rounded="0"
+          title="Armas"
+          :to="{ name: 'bodega-armas' }"
+        />
+        <v-list-item
           v-if="authStore.hasPermission('view-operaciones')"
           prepend-icon="mdi-radar"
           rounded="0"
@@ -182,6 +189,7 @@
     personal: 'Personal',
     proyectos: 'Proyectos',
     bodega: 'Bodega',
+    'bodega-armas': 'Armas',
     operaciones: 'Operaciones',
     'operaciones-asistencia': 'Asistencia',
     'asistencia-administrativa': 'Asistencia administrativa',

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <v-card class="mb-6" elevation="0" variant="outlined" rounded="xl">
+    <v-card v-if="canViewArmas" class="mb-6" elevation="0" variant="outlined" rounded="xl">
       <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4">
         <v-icon start>mdi-pistol</v-icon>
         <span class="text-h6">Armas del proyecto</span>
@@ -305,9 +305,8 @@
   const snackbar = reactive({ show: false, text: '', color: 'success' })
 
   const canManage = computed(() => authStore.hasPermission('manage-proyectos-inventario'))
-  const canManageArmas = computed(() =>
-    authStore.hasPermission('manage-bodega') || authStore.hasPermission('manage-proyectos-inventario'),
-  )
+  const canViewArmas = computed(() => authStore.hasPermission('view-armas'))
+  const canManageArmas = computed(() => authStore.hasPermission('manage-armas'))
 
   const headers = computed(() => {
     const baseHeaders = [
@@ -537,7 +536,7 @@
   function loadAll () {
     if (!props.proyectoId) return
     loadItems()
-    loadArmas()
+    if (canViewArmas.value) loadArmas()
   }
 
   watch(() => props.proyectoId, () => {

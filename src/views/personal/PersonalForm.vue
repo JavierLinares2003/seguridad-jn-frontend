@@ -274,7 +274,7 @@
                 v-model="vive_en_cuadra"
                 color="primary"
                 hide-details
-                label="Vivirá en cuadra con nosotros"
+                label="Hará uso de cuadra"
               />
               <p class="text-caption text-medium-emphasis mb-0 mt-n1">
                 Cuartos que la empresa da para dormir. No sustituye la dirección de casa.

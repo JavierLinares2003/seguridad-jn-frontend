@@ -25,6 +25,10 @@
         <template #item.codigo="{ item }">
           <span class="font-weight-medium">{{ item.codigo || '—' }}</span>
         </template>
+        <template #item.precio="{ item }">
+          <span v-if="item.precio">Q{{ Number(item.precio).toFixed(2) }}</span>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
         <template #item.items="{ item }">
           {{ item.items?.length || 0 }} producto(s)
           <div class="text-caption text-medium-emphasis">
@@ -70,6 +74,17 @@
             label="Código"
             persistent-hint
             readonly
+            variant="outlined"
+          />
+          <v-text-field
+            v-model.number="form.precio"
+            class="mb-2"
+            hint="Precio total del combo al entregarlo. Si lo dejás vacío, se usa la suma de cada producto."
+            label="Precio del combo Q"
+            min="0"
+            persistent-hint
+            step="0.01"
+            type="number"
             variant="outlined"
           />
           <v-textarea v-model="form.observaciones" class="mb-4" label="Observaciones" rows="2" variant="outlined" />
@@ -166,6 +181,7 @@
   const form = reactive({
     nombre: '',
     codigo: '',
+    precio: null,
     observaciones: '',
     items: [],
   })
@@ -174,6 +190,7 @@
   const headers = [
     { title: 'Nombre', key: 'nombre' },
     { title: 'Código', key: 'codigo' },
+    { title: 'Precio', key: 'precio' },
     { title: 'Ítems', key: 'items', sortable: false },
     { title: 'Estado', key: 'activo' },
     { title: '', key: 'acciones', sortable: false, width: '120px' },
@@ -219,6 +236,7 @@
     editId.value = null
     form.nombre = ''
     form.codigo = ''
+    form.precio = null
     form.observaciones = ''
     form.items = []
     draft.producto_id = null
@@ -232,6 +250,7 @@
     editId.value = kit.id
     form.nombre = kit.nombre
     form.codigo = kit.codigo || ''
+    form.precio = kit.precio != null ? Number(kit.precio) : null
     form.observaciones = kit.observaciones || ''
     form.items = (kit.items || []).map(i => ({
       producto_id: i.producto_id,
@@ -277,6 +296,7 @@
     try {
       const payload = {
         nombre: form.nombre,
+        precio: form.precio === '' || form.precio == null ? null : Number(form.precio),
         observaciones: form.observaciones || null,
         items: form.items.map(i => ({
           producto_id: i.producto_id,

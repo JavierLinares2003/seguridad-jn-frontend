@@ -563,7 +563,7 @@
                           </template>
                           <v-list-item-subtitle class="text-caption">Cuadra</v-list-item-subtitle>
                           <v-list-item-title>
-                            {{ personal.vive_en_cuadra ? 'Vive en cuadra con la empresa' : 'No' }}
+                            {{ personal.vive_en_cuadra ? 'Hace uso de cuadra' : 'No' }}
                           </v-list-item-title>
                         </v-list-item>
                       </v-list>

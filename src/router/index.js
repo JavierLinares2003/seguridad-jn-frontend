@@ -151,7 +151,7 @@ const manualRoutes = [
     path: '/bodega/armas',
     name: 'bodega-armas',
     component: () => import('@/views/bodega/BodegaArmas.vue'),
-    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+    meta: { requiresAuth: true, permissions: ['view-armas'] },
   },
   // Operaciones
   {

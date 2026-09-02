@@ -154,13 +154,39 @@
           <v-text-field
             v-model.number="editForm.precio_venta"
             class="mb-2"
-            label="Precio nuevo Q"
+            label="Precio Q"
             min="0"
             step="0.01"
             type="number"
             variant="outlined"
           />
+          <v-checkbox
+            v-model="editForm.es_uniforme"
+            color="info"
+            hide-details
+            label="Es uniforme (se puede descontar en planilla)"
+          />
+          <v-checkbox
+            v-model="editForm.usa_talla"
+            class="mt-1"
+            color="primary"
+            hide-details
+            label="Tiene tallas (S, M, L, 34, 41…)"
+          />
+          <p class="text-caption text-medium-emphasis ml-8 mb-1">
+            Camisa, pantalón, botas. Las tallas se agregan abajo en variantes.
+          </p>
+          <v-checkbox
+            v-model="editForm.usa_condicion"
+            color="primary"
+            hide-details
+            label="Se entrega nuevo o usado"
+          />
+          <p class="text-caption text-medium-emphasis ml-8 mb-2">
+            Activá esto si puede salir nuevo o de segunda.
+          </p>
           <v-text-field
+            v-if="editForm.usa_condicion"
             v-model.number="editForm.precio_usado"
             class="mb-2"
             label="Precio usado Q"
@@ -169,9 +195,6 @@
             type="number"
             variant="outlined"
           />
-          <v-switch v-model="editForm.es_uniforme" color="info" label="Es uniforme" />
-          <v-switch v-model="editForm.usa_talla" color="primary" label="Usa tallas" />
-          <v-switch v-model="editForm.usa_condicion" color="primary" label="Usa nuevo/usado" />
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer />
@@ -322,7 +345,7 @@
       await bodegaService.updateProducto(producto.value.id, {
         nombre: editForm.nombre,
         precio_venta: editForm.precio_venta || null,
-        precio_usado: editForm.precio_usado || null,
+        precio_usado: editForm.usa_condicion ? (editForm.precio_usado || null) : null,
         es_uniforme: editForm.es_uniforme,
         usa_talla: editForm.usa_talla,
         usa_condicion: editForm.usa_condicion,

@@ -854,16 +854,35 @@
         etiqueta: `${v.etiqueta} (stock ${v.existencia})`,
       }))
       const unica = variantes.length === 1 ? variantes[0] : null
+      const precioLinea = unica ? precioSugerido(unica) : Number(prod.precio_venta || 0)
       form.items.push({
         producto_id: prod.id,
         variante_id: unica?.id || null,
         cantidad: item.cantidad || 1,
-        precio_unitario: unica ? precioSugerido(unica) : Number(prod.precio_venta || 0),
+        precio_unitario: precioLinea,
         nombre: productoLabel(prod),
         etiqueta: unica ? unica.etiqueta : 'Elegir talla / condición',
         existencia: unica?.existencia || 0,
         variantes,
         fromCombo: true,
+      })
+    }
+    const precioCombo = Number(kit.precio)
+    if (precioCombo > 0 && form.items.length) {
+      const totalCantidad = form.items.reduce((s, it) => s + (Number(it.cantidad) || 0), 0)
+      const pesos = form.items.map(it => {
+        const p = Number(it.precio_unitario) || 0
+        const c = Number(it.cantidad) || 0
+        return p > 0 ? p * c : c
+      })
+      const sumaPesos = pesos.reduce((s, w) => s + w, 0)
+      form.items.forEach((it, idx) => {
+        const cant = Number(it.cantidad) || 1
+        if (sumaPesos > 0) {
+          it.precio_unitario = Math.round((precioCombo * (pesos[idx] / sumaPesos) / cant) * 100) / 100
+        } else if (totalCantidad > 0) {
+          it.precio_unitario = Math.round((precioCombo / totalCantidad) * 100) / 100
+        }
       })
     }
   }
