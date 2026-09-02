@@ -28,15 +28,6 @@
         <v-icon start>mdi-file-document-plus-outline</v-icon>
         Compras
       </v-btn>
-      <v-btn
-        v-if="canViewArmas"
-        color="error"
-        variant="tonal"
-        :to="{ name: 'bodega-armas' }"
-      >
-        <v-icon start>mdi-pistol</v-icon>
-        Armas
-      </v-btn>
       <v-btn color="success" variant="elevated" :to="{ name: 'bodega-entregas' }">
         <v-icon start>mdi-account-arrow-right</v-icon>
         Entregar
@@ -273,7 +264,6 @@
 
   const authStore = useAuthStore()
   const canManage = computed(() => authStore.hasPermission('manage-bodega'))
-  const canViewArmas = computed(() => authStore.hasPermission('view-armas'))
 
   const dashboard = ref(null)
   const stockBajo = ref([])
@@ -313,16 +303,12 @@
 
   const resumenCards = computed(() => {
     const t = dashboard.value?.totales || {}
-    const cards = [
+    return [
       { title: 'Productos', value: t.productos ?? '—', color: 'text-primary' },
       { title: 'Existencia total', value: t.existencia ?? '—', color: 'text-success' },
       { title: 'Stock bajo', value: t.stock_bajo ?? '—', color: 'text-warning' },
       { title: 'Movimientos hoy', value: t.movimientos_hoy ?? '—', color: 'text-info' },
     ]
-    if (canViewArmas.value) {
-      cards.push({ title: 'Armas', value: t.armas ?? '—', color: 'text-error' })
-    }
-    return cards
   })
 
   const movimientos = computed(() => (dashboard.value?.ultimos_movimientos || []).slice(0, 5))
