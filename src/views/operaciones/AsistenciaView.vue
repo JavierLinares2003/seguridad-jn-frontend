@@ -475,14 +475,26 @@
         </v-card>
 
         <!-- Paginacion -->
-        <div v-if="paginationData" class="d-flex justify-center align-center pa-4">
+        <div v-if="paginationData" class="d-flex justify-center align-center flex-wrap ga-3 pa-4">
+          <v-select
+            v-model="perPageProyectos"
+            density="compact"
+            hide-details
+            item-title="title"
+            item-value="value"
+            :items="opcionesPorPagina"
+            label="Por página"
+            style="max-width: 140px"
+            variant="outlined"
+            @update:model-value="onPerPageChange"
+          />
           <v-pagination
             :model-value="currentPage"
             :length="paginationData.lastPage"
             :total-visible="7"
             @update:model-value="onPageChange"
           />
-          <span class="text-caption text-medium-emphasis ml-4">
+          <span class="text-caption text-medium-emphasis">
             {{ paginationData.total }} proyectos
           </span>
         </div>
@@ -1458,6 +1470,13 @@
   const departamentosDisponibles = ref([])
   const paginationData = ref(null)
   const currentPage = ref(1)
+  const perPageProyectos = ref(25)
+  const opcionesPorPagina = [
+    { title: '10', value: 10 },
+    { title: '25', value: 25 },
+    { title: '50', value: 50 },
+    { title: 'Todos', value: 200 },
+  ]
 
   // Datos agrupados
   const gruposProyectos = ref([])
@@ -1687,6 +1706,11 @@
     })
   }
 
+  function onPerPageChange () {
+    currentPage.value = 1
+    cargarAsistencia()
+  }
+
   function onDepartamentoChange () {
     currentPage.value = 1
     gruposDepartamentos.value = []
@@ -1846,7 +1870,7 @@
 
         if (!proyectoId) {
           params.page = currentPage.value
-          params.per_page = 10
+          params.per_page = perPageProyectos.value
         }
 
         const response = await operacionesStore.fetchAsistenciaPorFecha(selectedDate.value, params)
