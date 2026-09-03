@@ -156,13 +156,25 @@
             variant="outlined"
           />
           <v-text-field v-model="form.nombre" class="mb-2" label="Nombre *" variant="outlined" />
+          <div class="d-flex flex-wrap ga-2 mb-2">
+            <v-checkbox
+              v-model="form.entrega_nuevo"
+              color="primary"
+              hide-details
+              label="Nuevo"
+            />
+            <v-checkbox
+              v-model="form.entrega_usado"
+              color="primary"
+              hide-details
+              label="Usado"
+            />
+          </div>
           <v-text-field
             v-model.number="form.precio_venta"
             class="mb-2"
-            hint="Lo que se cobra si se entrega nuevo."
             label="Precio Q"
             min="0"
-            persistent-hint
             step="0.01"
             type="number"
             variant="outlined"
@@ -170,47 +182,9 @@
           <v-text-field
             v-if="!editId"
             v-model.number="form.existencia_inicial"
-            class="mb-3"
-            label="Existencia inicial"
-            type="number"
-            variant="outlined"
-          />
-
-          <div class="text-subtitle-2 font-weight-bold mb-2">Cómo se entrega</div>
-          <v-checkbox
-            v-model="form.es_uniforme"
-            color="info"
-            hide-details
-            label="Es uniforme (se puede descontar en planilla)"
-          />
-          <v-checkbox
-            v-model="form.usa_talla"
-            class="mt-1"
-            color="primary"
-            hide-details
-            label="Tiene tallas (S, M, L, 34, 41…)"
-          />
-          <p class="text-caption text-medium-emphasis ml-8 mb-1">
-            Camisa, pantalón, botas. Después agregás cada talla en el producto. Cincho o gorgorito no lo necesitan.
-          </p>
-          <v-checkbox
-            v-model="form.usa_condicion"
-            color="primary"
-            hide-details
-            label="Se entrega nuevo o usado"
-          />
-          <p class="text-caption text-medium-emphasis ml-8 mb-2">
-            Activá esto si el mismo artículo puede salir nuevo o de segunda. Así se cobra un precio u otro.
-          </p>
-          <v-text-field
-            v-if="form.usa_condicion"
-            v-model.number="form.precio_usado"
             class="mb-2"
-            hint="Si lo dejás vacío y es uniforme, el usado se cobra al 50% del precio nuevo."
-            label="Precio usado Q"
+            label="Existencia inicial"
             min="0"
-            persistent-hint
-            step="0.01"
             type="number"
             variant="outlined"
           />
@@ -273,11 +247,11 @@
     categoria_id: null,
     nombre: '',
     precio_venta: null,
-    precio_usado: null,
     existencia_inicial: 0,
+    entrega_nuevo: true,
+    entrega_usado: false,
     es_uniforme: false,
     usa_talla: false,
-    usa_condicion: false,
   })
 
   const headers = [
@@ -311,11 +285,11 @@
     form.categoria_id = filtros.categoria_id
     form.nombre = ''
     form.precio_venta = null
-    form.precio_usado = null
     form.existencia_inicial = 0
+    form.entrega_nuevo = true
+    form.entrega_usado = false
     form.es_uniforme = false
     form.usa_talla = false
-    form.usa_condicion = false
     dialogCrear.value = true
   }
 
@@ -325,10 +299,10 @@
     form.categoria_id = item.categoria_id
     form.nombre = item.nombre
     form.precio_venta = item.precio_venta != null ? Number(item.precio_venta) : null
-    form.precio_usado = item.precio_usado != null ? Number(item.precio_usado) : null
+    form.entrega_nuevo = true
+    form.entrega_usado = !!item.usa_condicion
     form.es_uniforme = !!item.es_uniforme
     form.usa_talla = !!item.usa_talla
-    form.usa_condicion = !!item.usa_condicion
     dialogCrear.value = true
   }
 
@@ -339,27 +313,38 @@
 
   async function guardarProducto () {
     if (!form.categoria_id || !form.nombre) return
+    if (!form.entrega_nuevo && !form.entrega_usado) {
+      snackbar.color = 'error'
+      snackbar.text = 'Marca si el producto es nuevo, usado o ambos.'
+      snackbar.show = true
+      return
+    }
     saving.value = true
     try {
+      const usaCondicion = !!form.entrega_usado
       const payload = {
         categoria_id: form.categoria_id,
         nombre: form.nombre,
         precio_venta: form.precio_venta || null,
-        precio_usado: form.usa_condicion ? (form.precio_usado || null) : null,
+        precio_usado: null,
         es_uniforme: form.es_uniforme,
         usa_talla: form.usa_talla,
-        usa_condicion: form.usa_condicion,
+        usa_condicion: usaCondicion,
       }
       if (editId.value) {
         await bodegaService.updateProducto(editId.value, payload)
         snackbar.text = 'Producto actualizado.'
       } else {
+        const variante = {
+          existencia_inicial: form.existencia_inicial || 0,
+          stock_minimo: 1,
+        }
+        if (form.entrega_usado && !form.entrega_nuevo) {
+          variante.condicion = 'usado'
+        }
         await bodegaService.createProducto({
           ...payload,
-          variantes: [{
-            existencia_inicial: form.existencia_inicial || 0,
-            stock_minimo: 1,
-          }],
+          variantes: [variante],
         })
         snackbar.text = 'Producto creado.'
       }

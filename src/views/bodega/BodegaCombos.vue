@@ -26,7 +26,7 @@
           <span class="font-weight-medium">{{ item.codigo || '—' }}</span>
         </template>
         <template #item.precio="{ item }">
-          <span v-if="item.precio">Q{{ Number(item.precio).toFixed(2) }}</span>
+          <span v-if="precioKit(item)">Q{{ Number(precioKit(item)).toFixed(2) }}</span>
           <span v-else class="text-medium-emphasis">—</span>
         </template>
         <template #item.items="{ item }">
@@ -62,7 +62,7 @@
       </v-data-table>
     </v-card>
 
-    <v-dialog v-model="dialog" max-width="720" persistent scrollable>
+    <v-dialog v-model="dialog" max-width="800" persistent scrollable>
       <v-card rounded="xl">
         <v-card-title class="pa-4">{{ editId ? 'Editar combo' : 'Nuevo combo' }}</v-card-title>
         <v-card-text class="pa-6">
@@ -76,22 +76,14 @@
             readonly
             variant="outlined"
           />
-          <v-text-field
-            v-model.number="form.precio"
-            class="mb-2"
-            hint="Precio total del combo al entregarlo. Si lo dejás vacío, se usa la suma de cada producto."
-            label="Precio del combo Q"
-            min="0"
-            persistent-hint
-            step="0.01"
-            type="number"
-            variant="outlined"
-          />
           <v-textarea v-model="form.observaciones" class="mb-4" label="Observaciones" rows="2" variant="outlined" />
 
           <div class="text-subtitle-2 font-weight-bold mb-2">Productos del combo</div>
+          <p class="text-caption text-medium-emphasis mb-2">
+            El precio es de cada producto (unidad). Al entregar el combo se usa ese precio por ítem.
+          </p>
           <v-row dense class="mb-2">
-            <v-col cols="12" md="7">
+            <v-col cols="12" md="5">
               <v-autocomplete
                 v-model="draft.producto_id"
                 clearable
@@ -103,13 +95,25 @@
                 label="Producto"
                 placeholder="Buscar..."
                 variant="outlined"
+                @update:model-value="sugerirPrecioDraft"
                 @update:search="buscarProducto"
               />
             </v-col>
-            <v-col cols="8" md="3">
+            <v-col cols="4" md="2">
               <v-text-field v-model.number="draft.cantidad" density="compact" label="Cant." min="1" type="number" variant="outlined" />
             </v-col>
-            <v-col cols="4" md="2" class="d-flex align-center">
+            <v-col cols="8" md="3">
+              <v-text-field
+                v-model.number="draft.precio"
+                density="compact"
+                label="Precio Q"
+                min="0"
+                step="0.01"
+                type="number"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12" md="2" class="d-flex align-center">
               <v-btn block color="secondary" variant="tonal" @click="agregarItem">Agregar</v-btn>
             </v-col>
           </v-row>
@@ -121,6 +125,7 @@
               <tr>
                 <th>Producto</th>
                 <th>Cant.</th>
+                <th>Precio Q</th>
                 <th />
               </tr>
             </thead>
@@ -134,6 +139,18 @@
                     hide-details
                     min="1"
                     style="max-width: 90px"
+                    type="number"
+                    variant="outlined"
+                  />
+                </td>
+                <td>
+                  <v-text-field
+                    v-model.number="it.precio"
+                    density="compact"
+                    hide-details
+                    min="0"
+                    step="0.01"
+                    style="max-width: 120px"
                     type="number"
                     variant="outlined"
                   />
@@ -181,11 +198,10 @@
   const form = reactive({
     nombre: '',
     codigo: '',
-    precio: null,
     observaciones: '',
     items: [],
   })
-  const draft = reactive({ producto_id: null, cantidad: 1 })
+  const draft = reactive({ producto_id: null, cantidad: 1, precio: null })
 
   const headers = [
     { title: 'Nombre', key: 'nombre' },
@@ -204,6 +220,25 @@
 
   function resumenItems (kit) {
     return (kit.items || []).map(i => i.producto?.nombre).filter(Boolean).slice(0, 4).join(', ')
+  }
+
+  function precioKit (kit) {
+    const suma = (kit.items || []).reduce((s, i) => {
+      const p = Number(i.precio)
+      if (!p) return s
+      return s + p * (Number(i.cantidad) || 0)
+    }, 0)
+    return suma > 0 ? suma : Number(kit.precio) || 0
+  }
+
+  function precioProducto (prod) {
+    const n = Number(prod?.precio_venta)
+    return n > 0 ? n : null
+  }
+
+  function sugerirPrecioDraft (productoId) {
+    const prod = productosOpts.value.find(p => p.id === productoId)
+    draft.precio = precioProducto(prod)
   }
 
   async function cargar () {
@@ -236,11 +271,11 @@
     editId.value = null
     form.nombre = ''
     form.codigo = ''
-    form.precio = null
     form.observaciones = ''
     form.items = []
     draft.producto_id = null
     draft.cantidad = 1
+    draft.precio = null
     itemError.value = ''
     dialog.value = true
     cargarProductos()
@@ -250,15 +285,16 @@
     editId.value = kit.id
     form.nombre = kit.nombre
     form.codigo = kit.codigo || ''
-    form.precio = kit.precio != null ? Number(kit.precio) : null
     form.observaciones = kit.observaciones || ''
     form.items = (kit.items || []).map(i => ({
       producto_id: i.producto_id,
       cantidad: i.cantidad,
+      precio: i.precio != null ? Number(i.precio) : precioProducto(i.producto),
       nombre: i.producto?.nombre || 'Producto',
     }))
     draft.producto_id = null
     draft.cantidad = 1
+    draft.precio = null
     itemError.value = ''
     dialog.value = true
     cargarProductos()
@@ -279,15 +315,20 @@
     const ya = form.items.find(i => i.producto_id === prod.id)
     if (ya) {
       ya.cantidad += cantidad
+      if (draft.precio != null && draft.precio !== '') {
+        ya.precio = Number(draft.precio)
+      }
     } else {
       form.items.push({
         producto_id: prod.id,
         cantidad,
+        precio: draft.precio === '' || draft.precio == null ? precioProducto(prod) : Number(draft.precio),
         nombre: productoLabel(prod),
       })
     }
     draft.producto_id = null
     draft.cantidad = 1
+    draft.precio = null
   }
 
   async function guardar () {
@@ -296,11 +337,11 @@
     try {
       const payload = {
         nombre: form.nombre,
-        precio: form.precio === '' || form.precio == null ? null : Number(form.precio),
         observaciones: form.observaciones || null,
         items: form.items.map(i => ({
           producto_id: i.producto_id,
           cantidad: Number(i.cantidad) || 1,
+          precio: i.precio === '' || i.precio == null ? null : Number(i.precio),
         })),
       }
       if (editId.value) {

@@ -41,10 +41,7 @@
       </v-btn>
       <v-chip v-if="producto?.codigo" class="mr-2" color="secondary" variant="tonal">{{ producto.codigo }}</v-chip>
       <v-chip v-if="producto?.precio_venta" class="mr-2" color="success" variant="tonal">
-        Nuevo Q{{ Number(producto.precio_venta).toFixed(2) }}
-      </v-chip>
-      <v-chip v-if="producto?.precio_usado != null" class="mr-2" color="warning" variant="tonal">
-        Usado Q{{ Number(producto.precio_usado).toFixed(2) }}
+        Precio Q{{ Number(producto.precio_venta).toFixed(2) }}
       </v-chip>
       <v-chip v-if="producto?.es_uniforme" color="info" variant="flat">Uniforme</v-chip>
     </div>
@@ -151,45 +148,24 @@
         <v-card-title class="pa-4">Editar producto</v-card-title>
         <v-card-text>
           <v-text-field v-model="editForm.nombre" class="mb-2" label="Nombre *" variant="outlined" />
+          <div class="d-flex flex-wrap ga-2 mb-2">
+            <v-checkbox
+              v-model="editForm.entrega_nuevo"
+              color="primary"
+              hide-details
+              label="Nuevo"
+            />
+            <v-checkbox
+              v-model="editForm.entrega_usado"
+              color="primary"
+              hide-details
+              label="Usado"
+            />
+          </div>
           <v-text-field
             v-model.number="editForm.precio_venta"
             class="mb-2"
             label="Precio Q"
-            min="0"
-            step="0.01"
-            type="number"
-            variant="outlined"
-          />
-          <v-checkbox
-            v-model="editForm.es_uniforme"
-            color="info"
-            hide-details
-            label="Es uniforme (se puede descontar en planilla)"
-          />
-          <v-checkbox
-            v-model="editForm.usa_talla"
-            class="mt-1"
-            color="primary"
-            hide-details
-            label="Tiene tallas (S, M, L, 34, 41…)"
-          />
-          <p class="text-caption text-medium-emphasis ml-8 mb-1">
-            Camisa, pantalón, botas. Las tallas se agregan abajo en variantes.
-          </p>
-          <v-checkbox
-            v-model="editForm.usa_condicion"
-            color="primary"
-            hide-details
-            label="Se entrega nuevo o usado"
-          />
-          <p class="text-caption text-medium-emphasis ml-8 mb-2">
-            Activá esto si puede salir nuevo o de segunda.
-          </p>
-          <v-text-field
-            v-if="editForm.usa_condicion"
-            v-model.number="editForm.precio_usado"
-            class="mb-2"
-            label="Precio usado Q"
             min="0"
             step="0.01"
             type="number"
@@ -244,10 +220,10 @@
   const editForm = reactive({
     nombre: '',
     precio_venta: null,
-    precio_usado: null,
+    entrega_nuevo: true,
+    entrega_usado: false,
     es_uniforme: false,
     usa_talla: false,
-    usa_condicion: false,
   })
 
   const motivosSalida = [
@@ -329,26 +305,34 @@
   function abrirEditar () {
     const p = producto.value
     if (!p) return
+    const condiciones = (p.variantes || []).map(v => v.condicion)
     editForm.nombre = p.nombre
     editForm.precio_venta = p.precio_venta != null ? Number(p.precio_venta) : null
-    editForm.precio_usado = p.precio_usado != null ? Number(p.precio_usado) : null
+    editForm.entrega_nuevo = condiciones.includes('nuevo') || !p.usa_condicion
+    editForm.entrega_usado = condiciones.includes('usado') || !!p.usa_condicion
+    if (!editForm.entrega_nuevo && !editForm.entrega_usado) {
+      editForm.entrega_nuevo = true
+    }
     editForm.es_uniforme = !!p.es_uniforme
     editForm.usa_talla = !!p.usa_talla
-    editForm.usa_condicion = !!p.usa_condicion
     dialogEditar.value = true
   }
 
   async function guardarEdicion () {
     if (!editForm.nombre) return
+    if (!editForm.entrega_nuevo && !editForm.entrega_usado) {
+      alert('Marca si el producto es nuevo, usado o ambos.')
+      return
+    }
     saving.value = true
     try {
       await bodegaService.updateProducto(producto.value.id, {
         nombre: editForm.nombre,
         precio_venta: editForm.precio_venta || null,
-        precio_usado: editForm.usa_condicion ? (editForm.precio_usado || null) : null,
+        precio_usado: null,
         es_uniforme: editForm.es_uniforme,
         usa_talla: editForm.usa_talla,
-        usa_condicion: editForm.usa_condicion,
+        usa_condicion: !!editForm.entrega_usado,
       })
       dialogEditar.value = false
       await cargar()
