@@ -203,6 +203,14 @@
                       <span class="font-weight-medium">{{ item.nombres }} {{ item.apellidos }}</span>
                       <br>
                       <span class="text-caption text-medium-emphasis">{{ formatDPI(item.dpi) }}</span>
+                      <br v-if="item.telefono && !/^0+$/.test(String(item.telefono).replace(/\D/g, ''))">
+                      <span
+                        v-if="item.telefono && !/^0+$/.test(String(item.telefono).replace(/\D/g, ''))"
+                        class="text-caption font-weight-medium"
+                      >
+                        <v-icon size="12">mdi-phone</v-icon>
+                        {{ item.telefono }}
+                      </span>
                     </div>
                   </template>
 

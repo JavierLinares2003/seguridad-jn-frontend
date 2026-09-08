@@ -32,7 +32,7 @@
                   clearable
                   density="compact"
                   hide-details
-                  placeholder="Buscar por nombre o DPI..."
+                  placeholder="Buscar por nombre, DPI o teléfono..."
                   prepend-inner-icon="mdi-magnify"
                   variant="outlined"
                 />
@@ -99,6 +99,17 @@
                       </div>
                       <div class="text-caption text-medium-emphasis">
                         {{ formatDPI(persona.dpi) }}
+                      </div>
+                      <div v-if="telefonoVisible(persona.telefono)" class="text-caption font-weight-medium">
+                        <v-icon color="primary" size="12">mdi-phone</v-icon>
+                        {{ persona.telefono }}
+                      </div>
+                      <div v-else-if="telefonoVisible(persona.telefono_whatsapp)" class="text-caption font-weight-medium">
+                        <v-icon color="success" size="12">mdi-whatsapp</v-icon>
+                        {{ persona.telefono_whatsapp }}
+                      </div>
+                      <div v-else-if="persona.estado === 'extrero'" class="text-caption text-warning">
+                        Sin teléfono registrado
                       </div>
                     </div>
                     <div class="text-right">
@@ -311,6 +322,13 @@
                             {{ asig.puesto_nombre || asig.configuracion_puesto?.tipo_personal?.nombre || 'Sin puesto' }}
                             · {{ asig.turno?.nombre || 'Sin turno' }}
                           </div>
+                          <div
+                            v-if="telefonoVisible(asig.personal?.telefono) || telefonoVisible(asig.personal?.telefono_whatsapp)"
+                            class="text-caption font-weight-medium"
+                          >
+                            <v-icon color="primary" size="12">mdi-phone</v-icon>
+                            {{ telefonoVisible(asig.personal?.telefono) || asig.personal?.telefono_whatsapp }}
+                          </div>
                         </div>
                         <v-chip
                           v-if="asig.estado"
@@ -392,6 +410,13 @@
                       <div class="text-caption text-medium-emphasis">
                         {{ formatDPI(selectedPersonal?.dpi) }}
                       </div>
+                      <div
+                        v-if="telefonoVisible(selectedPersonal?.telefono) || telefonoVisible(selectedPersonal?.telefono_whatsapp)"
+                        class="text-body-2 font-weight-medium mt-1"
+                      >
+                        <v-icon color="primary" size="14">mdi-phone</v-icon>
+                        {{ telefonoVisible(selectedPersonal?.telefono) || selectedPersonal?.telefono_whatsapp }}
+                      </div>
                       <v-chip
                         class="mt-1"
                         :color="selectedPersonal?.estado === 'activo' ? 'success' : 'warning'"
@@ -406,6 +431,12 @@
 
                   <!-- Datos relevantes -->
                   <div class="d-flex flex-column gap-2">
+                    <div class="d-flex justify-space-between">
+                      <span class="text-caption text-medium-emphasis">Teléfono:</span>
+                      <span class="text-body-2 font-weight-medium">
+                        {{ telefonoVisible(selectedPersonal?.telefono) || telefonoVisible(selectedPersonal?.telefono_whatsapp) || 'Sin teléfono' }}
+                      </span>
+                    </div>
                     <div class="d-flex justify-space-between">
                       <span class="text-caption text-medium-emphasis">Edad:</span>
                       <span class="text-body-2 font-weight-medium">{{ selectedPersonal?.edad }} años</span>
@@ -875,6 +906,13 @@
 
   const operacionesStore = useOperacionesStore()
   const proyectosStore = useProyectosStore()
+
+  function telefonoVisible (valor) {
+    if (!valor) return ''
+    const digits = String(valor).replace(/\D/g, '')
+    if (!digits || /^0+$/.test(digits)) return ''
+    return String(valor)
+  }
 
   // Estado de carga
   const loadingPersonal = ref(false)

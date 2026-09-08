@@ -20,9 +20,42 @@
       </v-btn>
     </div>
 
+    <v-alert
+      v-if="(meta.por_vencer || 0) > 0"
+      class="mb-4"
+      color="warning"
+      density="comfortable"
+      type="warning"
+      variant="tonal"
+    >
+      Hay {{ meta.por_vencer }} arma(s) con portación que vence en 30 días o menos.
+      <v-btn class="ml-2" color="warning" size="small" variant="text" @click="filtrarAlerta('por_vencer')">
+        Verlas
+      </v-btn>
+    </v-alert>
+    <v-alert
+      v-if="(meta.vencidas || 0) > 0"
+      class="mb-4"
+      color="error"
+      density="comfortable"
+      type="error"
+      variant="tonal"
+    >
+      Hay {{ meta.vencidas }} arma(s) con portación ya vencida.
+      <v-btn class="ml-2" color="error" size="small" variant="text" @click="filtrarAlerta('vencida')">
+        Verlas
+      </v-btn>
+    </v-alert>
+
     <v-row class="mb-4" dense>
-      <v-col v-for="card in resumenCards" :key="card.title" cols="6" md="3">
-        <v-card class="pa-4" elevation="2" rounded="xl">
+      <v-col v-for="card in resumenCards" :key="card.title" cols="6" sm="4" md>
+        <v-card
+          class="pa-4"
+          :class="{ 'card-alerta': !!card.alerta, 'card-alerta--activa': filtroAlerta === card.alerta }"
+          elevation="2"
+          rounded="xl"
+          @click="card.alerta ? filtrarAlerta(card.alerta) : null"
+        >
           <div class="text-caption text-medium-emphasis">{{ card.title }}</div>
           <div class="text-h5 font-weight-bold" :class="card.color">{{ card.value }}</div>
         </v-card>
@@ -128,10 +161,13 @@
           <v-chip :color="estadoColor(item.estado)" size="small" variant="tonal">
             {{ item.estado_label || item.estado }}
           </v-chip>
+          <div v-if="item.estado === 'robada' && item.numero_denuncia" class="text-caption text-medium-emphasis">
+            Denuncia {{ item.numero_denuncia }}
+          </div>
         </template>
         <template #item.acciones="{ item }">
           <v-btn
-            v-if="canManage && item.proyecto_id"
+            v-if="canManage && item.proyecto_id && !['robada', 'consignada', 'baja'].includes(item.estado)"
             color="warning"
             size="small"
             variant="tonal"
@@ -197,6 +233,15 @@
                 variant="outlined"
               />
             </v-col>
+            <v-col v-if="form.estado === 'robada'" cols="12">
+              <v-text-field
+                v-model="form.numero_denuncia"
+                hint="Obligatorio cuando el arma está robada"
+                label="Número de denuncia *"
+                persistent-hint
+                variant="outlined"
+              />
+            </v-col>
             <v-col cols="12" sm="6">
               <v-text-field v-model="form.tenencia" label="Tenencia" variant="outlined" />
             </v-col>
@@ -204,7 +249,14 @@
               <v-text-field v-model="form.portacion" label="Portación" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="form.vencimiento" label="Vencimiento" type="date" variant="outlined" />
+              <v-text-field
+                v-model="form.vencimiento"
+                hint="El sistema marca Portación vencida solo con esta fecha"
+                label="Vencimiento de portación"
+                persistent-hint
+                type="date"
+                variant="outlined"
+              />
             </v-col>
             <v-col cols="12" sm="6">
               <v-select
@@ -230,7 +282,7 @@
           <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
           <v-btn
             color="primary"
-            :disabled="!form.tipo || !form.serie"
+            :disabled="!puedeGuardar"
             :loading="saving"
             variant="elevated"
             @click="guardar"
@@ -273,16 +325,24 @@
     { value: 'en_bodega', title: 'En bodega' },
     { value: 'asignada', title: 'Asignada' },
     { value: 'mantenimiento', title: 'Mantenimiento' },
+    { value: 'consignada', title: 'Consignada' },
+    { value: 'robada', title: 'Robada' },
     { value: 'baja', title: 'Baja' },
   ])
   const proyectos = ref([])
   const search = ref('')
   const filtroTipo = ref(null)
   const filtroEstado = ref(null)
+  const filtroAlerta = ref(null)
   const dialog = ref(false)
   const editId = ref(null)
   const snackbar = reactive({ show: false, text: '', color: 'success' })
   const form = reactive(formVacio())
+  const puedeGuardar = computed(() => {
+    if (!form.tipo || !form.serie) return false
+    if (form.estado === 'robada' && !String(form.numero_denuncia || '').trim()) return false
+    return true
+  })
 
   const headers = [
     { title: 'Código', key: 'codigo', width: '120px' },
@@ -301,7 +361,8 @@
       { title: 'Armas', value: m.total ?? 0, color: 'text-primary' },
       { title: 'En bodega', value: m.en_bodega ?? 0, color: 'text-success' },
       { title: 'Asignadas', value: m.asignadas ?? 0, color: 'text-info' },
-      { title: 'Portación vencida', value: m.vencidas ?? 0, color: 'text-error' },
+      { title: 'Por vencer (30 días)', value: m.por_vencer ?? 0, color: 'text-warning', alerta: 'por_vencer' },
+      { title: 'Portación vencida', value: m.vencidas ?? 0, color: 'text-error', alerta: 'vencida' },
     ]
   })
 
@@ -319,6 +380,7 @@
       responsable_nombre: '',
       proyecto_id: null,
       estado: 'en_bodega',
+      numero_denuncia: '',
       observaciones: '',
     }
   }
@@ -328,6 +390,8 @@
       en_bodega: 'success',
       asignada: 'info',
       mantenimiento: 'warning',
+      consignada: 'purple',
+      robada: 'error',
       baja: 'grey',
     })[estado] || 'grey'
   }
@@ -345,12 +409,18 @@
         search: search.value || undefined,
         tipo: filtroTipo.value || undefined,
         estado: filtroEstado.value || undefined,
+        alerta: filtroAlerta.value || undefined,
       })
       items.value = res.data || []
       meta.value = res.meta || {}
     } finally {
       loading.value = false
     }
+  }
+
+  function filtrarAlerta (alerta) {
+    filtroAlerta.value = filtroAlerta.value === alerta ? null : alerta
+    cargar()
   }
 
   function abrirCrear () {
@@ -374,6 +444,7 @@
       responsable_nombre: item.responsable_nombre || '',
       proyecto_id: item.proyecto_id || null,
       estado: item.estado || 'en_bodega',
+      numero_denuncia: item.numero_denuncia || '',
       observaciones: item.observaciones || '',
     })
     dialog.value = true
@@ -408,6 +479,7 @@
         responsable_nombre: form.responsable_nombre || null,
         proyecto_id: form.proyecto_id || null,
         estado: form.estado,
+        numero_denuncia: form.numero_denuncia || null,
         observaciones: form.observaciones || null,
       }
       if (editId.value) {
@@ -444,3 +516,13 @@
     await cargar()
   })
 </script>
+
+<style scoped>
+.card-alerta {
+  cursor: pointer;
+}
+.card-alerta--activa {
+  outline: 2px solid currentColor;
+}
+</style>
+
