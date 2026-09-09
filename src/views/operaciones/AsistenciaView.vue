@@ -539,11 +539,31 @@
             <span class="font-weight-bold">{{ grupo.departamento?.nombre || 'Sin Departamento' }}</span>
             <v-spacer />
             <v-chip color="grey" size="small" variant="tonal">
-              {{ grupo.total || grupo.personalMapped?.length || 0 }} personas
+              {{ grupo.total_en_departamento || grupo.total || grupo.personalMapped?.length || 0 }} personas
             </v-chip>
           </v-card-title>
 
           <v-card-text class="pa-0">
+            <v-alert
+              v-if="grupo.hay_mas"
+              class="ma-4 mb-0"
+              density="compact"
+              type="warning"
+              variant="tonal"
+            >
+              Se muestran {{ grupo.mostrando }} de {{ grupo.total_en_departamento }} personas.
+              Filtra este departamento para ver el listado completo.
+              <v-btn
+                v-if="grupo.departamento?.id"
+                class="ml-2"
+                color="warning"
+                size="small"
+                variant="text"
+                @click="selectedDepartamento = grupo.departamento.id; onDepartamentoChange()"
+              >
+                Ver todos
+              </v-btn>
+            </v-alert>
             <v-data-table
               class="asistencia-table"
               density="comfortable"
@@ -734,14 +754,26 @@
 
               <!-- Footer con paginación personalizada -->
               <template v-if="paginationData" #bottom>
-                <div class="d-flex justify-center align-center pa-4">
+                <div class="d-flex justify-center align-center flex-wrap ga-3 pa-4">
+                  <v-select
+                    v-model="perPageProyectos"
+                    density="compact"
+                    hide-details
+                    item-title="title"
+                    item-value="value"
+                    :items="opcionesPorPagina"
+                    label="Por página"
+                    style="max-width: 140px"
+                    variant="outlined"
+                    @update:model-value="onPerPageChange"
+                  />
                   <v-pagination
                     :model-value="currentPage"
                     :length="paginationData.lastPage"
                     :total-visible="7"
                     @update:model-value="onPageChange"
                   />
-                  <span class="text-caption text-medium-emphasis ml-4">
+                  <span class="text-caption text-medium-emphasis">
                     {{ paginationData.total }} personas
                   </span>
                 </div>
@@ -1475,7 +1507,7 @@
     { title: '10', value: 10 },
     { title: '25', value: 25 },
     { title: '50', value: 50 },
-    { title: 'Todos', value: 200 },
+    { title: 'Todos', value: 500 },
   ]
 
   // Datos agrupados
@@ -1837,6 +1869,7 @@
         // Si hay departamento seleccionado, agregar paginación
         if (selectedDepartamento.value) {
           params.page = currentPage.value
+          params.per_page = perPageProyectos.value
         }
 
         const response = await operacionesStore.fetchAsistenciaPorFecha(selectedDate.value, params)

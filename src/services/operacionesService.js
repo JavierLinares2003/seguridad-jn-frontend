@@ -169,7 +169,10 @@ export const operacionesService = {
      *   - Con proyecto_id=0: retorna solo sin asignar
      */
   async getAsistenciaPorFecha (fecha, params = {}) {
-    const response = await api.get(`/operaciones/asistencia/fecha/${fecha}`, { params })
+    const response = await api.get(`/operaciones/asistencia/fecha/${fecha}`, {
+      params,
+      timeout: 30_000,
+    })
     return response.data
   },
 
