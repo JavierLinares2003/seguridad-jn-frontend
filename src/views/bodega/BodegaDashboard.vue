@@ -24,6 +24,10 @@
         <v-icon start>mdi-truck-outline</v-icon>
         Proveedores
       </v-btn>
+      <v-btn color="error" variant="tonal" :to="{ name: 'bodega-bajas' }">
+        <v-icon start>mdi-archive-remove-outline</v-icon>
+        Artículos de baja
+      </v-btn>
       <v-btn color="teal" variant="tonal" :to="{ name: 'bodega-compras' }">
         <v-icon start>mdi-file-document-plus-outline</v-icon>
         Compras
@@ -36,7 +40,12 @@
 
     <v-row class="mb-4" dense>
       <v-col v-for="card in resumenCards" :key="card.title" cols="6" sm="4" md>
-        <v-card class="pa-3" elevation="2" rounded="lg">
+        <v-card
+          class="pa-3"
+          elevation="2"
+          rounded="lg"
+          :to="card.to || undefined"
+        >
           <div class="text-caption text-medium-emphasis">{{ card.title }}</div>
           <div class="text-h6 font-weight-bold" :class="card.color">{{ card.value }}</div>
         </v-card>
@@ -307,6 +316,7 @@
       { title: 'Productos', value: t.productos ?? '—', color: 'text-primary' },
       { title: 'Existencia total', value: t.existencia ?? '—', color: 'text-success' },
       { title: 'Stock bajo', value: t.stock_bajo ?? '—', color: 'text-warning' },
+      { title: 'Artículos de baja', value: t.existencia_baja ?? '—', color: 'text-error', to: { name: 'bodega-bajas' } },
       { title: 'Movimientos hoy', value: t.movimientos_hoy ?? '—', color: 'text-info' },
     ]
   })
@@ -315,10 +325,10 @@
   const entregas = computed(() => (dashboard.value?.entregas_recientes || []).slice(0, 5))
 
   function tipoLabel (tipo) {
-    return ({ ingreso: 'Ingreso', egreso: 'Egreso', ajuste: 'Ajuste', ajuste_inicial: 'Inicial' })[tipo] || tipo
+    return ({ ingreso: 'Ingreso', egreso: 'Egreso', ajuste: 'Ajuste', ajuste_inicial: 'Inicial', baja: 'Baja', merma: 'Merma' })[tipo] || tipo
   }
   function tipoColor (tipo) {
-    return ({ ingreso: 'success', egreso: 'error', ajuste: 'warning', ajuste_inicial: 'info' })[tipo] || 'grey'
+    return ({ ingreso: 'success', egreso: 'error', ajuste: 'warning', ajuste_inicial: 'info', baja: 'error', merma: 'orange' })[tipo] || 'grey'
   }
   function formatDate (date) {
     if (!date) return '-'

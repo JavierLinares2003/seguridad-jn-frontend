@@ -586,7 +586,6 @@
           <v-btn
             class="ml-4"
             color="primary"
-            :disabled="!meta.valid"
             :loading="store.saving"
             size="large"
             type="submit"
@@ -679,49 +678,90 @@
     .transform(value => (value === '' ? null : value))
     .nullable()
 
+  const optionalPhone = (message = 'Debe tener 8 dígitos') => yup
+    .string()
+    .transform(value => {
+      const digits = String(value ?? '').replace(/\D/g, '')
+      return digits === '' ? null : digits
+    })
+    .nullable()
+    .matches(/^\d{8}$/, { excludeEmptyString: true, message })
+
+  const optionalNumber = () => yup
+    .number()
+    .transform((value, originalValue) => {
+      if (originalValue === '' || originalValue === null || originalValue === undefined) return null
+      return Number.isNaN(value) ? null : value
+    })
+    .nullable()
+
   // Validación con Yup
   const validationSchema = yup.object({
     nombres: yup.string().required('Los nombres son requeridos'),
     apellidos: yup.string().required('Los apellidos son requeridos'),
     dpi: yup
       .string()
+      .transform(value => String(value ?? '').replace(/\D/g, ''))
       .required('El DPI es requerido')
       .matches(/^\d{13}$/, 'El DPI debe tener 13 dígitos'),
-    email: yup.string().nullable().email('Email inválido'),
+    email: yup
+      .string()
+      .transform(value => {
+        const trimmed = String(value ?? '').trim()
+        return trimmed === '' ? null : trimmed
+      })
+      .nullable()
+      .email('Email inválido'),
     telefono: yup
       .string()
+      .transform(value => String(value ?? '').replace(/\D/g, ''))
       .required('El teléfono es requerido')
       .matches(/^\d{8}$/, 'El teléfono debe tener 8 dígitos'),
-    telefono_whatsapp: yup
-      .string()
-      .nullable()
-      .transform(v => v === '' ? null : v)
-      .matches(/^\d{8}$/, 'El WhatsApp debe tener 8 dígitos'),
+    telefono_whatsapp: optionalPhone('El WhatsApp debe tener 8 dígitos'),
     fecha_nacimiento: yup.string().required('La fecha de nacimiento es requerida'),
     sexo_id: optionalId(),
     estado_civil_id: optionalId(),
-    altura: yup.number().required('La altura es requerida').min(0.5, 'Altura mínima 0.5m').max(2.5, 'Altura máxima 2.5m'),
-    peso: yup.number().nullable().min(50, 'Peso mínimo 50 lb').max(400, 'Peso máximo 400 lb'),
+    altura: yup
+      .number()
+      .transform((value, originalValue) => {
+        if (originalValue === '' || originalValue === null || originalValue === undefined) return undefined
+        return value
+      })
+      .required('La altura es requerida')
+      .min(0.5, 'Altura mínima 0.5m')
+      .max(2.5, 'Altura máxima 2.5m'),
+    peso: optionalNumber().min(50, 'Peso mínimo 50 lb').max(400, 'Peso máximo 400 lb'),
     direccion_completa: optionalText(),
-    zona: yup.number().nullable().min(0, 'Mínimo zona 0').max(25, 'Máximo zona 25'),
+    zona: optionalNumber().min(0, 'Mínimo zona 0').max(25, 'Máximo zona 25'),
     departamento_id: optionalId(),
     puesto: yup.string().required('El puesto es requerido'),
     es_administrativo: yup.boolean(),
     vive_en_cuadra: yup.boolean(),
     tipo_contratacion_id: optionalId(),
     tipo_pago_id: optionalId(),
-    salario_base: yup.number().required('El salario base es requerido').min(0, 'El salario debe ser mayor a 0'),
+    salario_base: yup
+      .number()
+      .transform((value, originalValue) => {
+        if (originalValue === '' || originalValue === null || originalValue === undefined) return undefined
+        return value
+      })
+      .required('El salario base es requerido')
+      .min(0, 'El salario debe ser mayor a 0'),
     fecha_inicio: optionalText(),
-    nivel_estudio_id: yup.number().nullable(),
+    nivel_estudio_id: optionalId(),
     tiene_igss: yup.boolean(),
     tiene_prestaciones: yup.boolean(),
     tiene_bono14: yup.boolean(),
-    banco: yup.string().nullable(),
-    tipo_cuenta: yup.string().nullable(),
-    nombre_cuenta: yup.string().nullable(),
-    numero_cuenta: yup.string().nullable(),
-    confirmar_numero_cuenta: yup.string().nullable()
-      .oneOf([yup.ref('numero_cuenta'), null], 'Los números de cuenta no coinciden'),
+    banco: optionalText(),
+    tipo_cuenta: optionalText(),
+    nombre_cuenta: optionalText(),
+    numero_cuenta: optionalText(),
+    confirmar_numero_cuenta: optionalText()
+      .test('cuentas-iguales', 'Los números de cuenta no coinciden', function (value) {
+        const otra = this.parent.numero_cuenta
+        if (!value && !otra) return true
+        return value === otra
+      }),
     es_alergico: yup.boolean(),
     alergias: yup.string().when('es_alergico', {
       is: true,
@@ -730,7 +770,7 @@
     }),
   })
 
-  const { handleSubmit, errors, meta, validateField, setValues, resetForm, setFieldError } = useForm({
+  const { handleSubmit, errors, validateField, setValues, setFieldError } = useForm({
     validationSchema,
   })
 
@@ -929,7 +969,12 @@
         direccion_completa: direccionData.direccion_completa || data.direccion_completa || '',
         departamento_geografico_id: direccionData.departamento_geografico?.id || direccionData.departamento_geografico_id || direccionData.departamento_geo_id || data.departamento_geografico_id,
         municipio_id: direccionData.municipio?.id || direccionData.municipio_id || data.municipio_id,
-        zona: direccionData.zona || data.zona,
+        zona: direccionData.zona ?? data.zona ?? null,
+        dpi: cleanDPI(data.dpi),
+        telefono: cleanPhone(data.telefono),
+        telefono_whatsapp: data.telefono_whatsapp ? cleanPhone(data.telefono_whatsapp) : null,
+        email: data.email || null,
+        peso: Number(data.peso) > 0 ? Number(data.peso) : null,
       }
 
       setValues(formData)
@@ -1053,6 +1098,12 @@
         text: store.error || 'Error al guardar',
         color: 'error',
       }
+    }
+  }, () => {
+    snackbar.value = {
+      show: true,
+      text: 'Revise los campos marcados en rojo',
+      color: 'error',
     }
   })
 

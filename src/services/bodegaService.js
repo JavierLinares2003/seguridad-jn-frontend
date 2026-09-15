@@ -56,6 +56,21 @@ export const bodegaService = {
     return response.data
   },
 
+  async ingresarUsados (productoId, data) {
+    const response = await api.post(`/bodega/productos/${productoId}/ingresar-usados`, data)
+    return response.data
+  },
+
+  async darBajaProducto (productoId, data) {
+    const response = await api.post(`/bodega/productos/${productoId}/dar-baja`, data)
+    return response.data
+  },
+
+  async getBajas (params = {}) {
+    const response = await api.get('/bodega/productos/bajas', { params })
+    return response.data
+  },
+
   async createVariante (productoId, data) {
     const response = await api.post(`/bodega/productos/${productoId}/variantes`, data)
     return response.data
@@ -186,6 +201,11 @@ export const bodegaService = {
 
   async devolverArmaBodega (id) {
     const response = await api.post(`/bodega/armas/${id}/devolver-bodega`)
+    return response.data
+  },
+
+  async deleteArma (id) {
+    const response = await api.delete(`/bodega/armas/${id}`)
     return response.data
   },
 

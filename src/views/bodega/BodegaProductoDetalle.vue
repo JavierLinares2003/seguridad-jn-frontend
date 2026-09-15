@@ -12,6 +12,26 @@
       <v-spacer />
       <v-btn
         v-if="canManage"
+        color="teal"
+        variant="tonal"
+        @click="accionesRef?.abrirIngresoUsado(producto)"
+      >
+        <v-icon start>mdi-recycle</v-icon>
+        Ingresar usados
+      </v-btn>
+      <v-btn
+        v-if="canManage"
+        class="ml-2"
+        color="error"
+        variant="tonal"
+        @click="accionesRef?.abrirDarBaja(producto)"
+      >
+        <v-icon start>mdi-archive-remove-outline</v-icon>
+        Dar de baja
+      </v-btn>
+      <v-btn
+        v-if="canManage"
+        class="ml-2"
         color="warning"
         variant="tonal"
         @click="abrirEditar"
@@ -67,16 +87,31 @@
                 {{ item.existencia }}
               </span>
             </template>
+            <template #item.existencia_baja="{ item }">
+              <span v-if="item.existencia_baja" class="text-error font-weight-medium">{{ item.existencia_baja }}</span>
+              <span v-else class="text-medium-emphasis">—</span>
+            </template>
             <template #item.acciones="{ item }">
-              <v-btn
-                v-if="canManage"
-                color="error"
-                size="small"
-                variant="tonal"
-                @click="abrirSalida(item)"
-              >
-                Salida
-              </v-btn>
+              <div class="d-flex ga-1">
+                <v-btn
+                  v-if="canManage"
+                  color="error"
+                  size="small"
+                  variant="tonal"
+                  @click="accionesRef?.abrirDarBaja(producto, item)"
+                >
+                  Dar de baja
+                </v-btn>
+                <v-btn
+                  v-if="canManage"
+                  color="secondary"
+                  size="small"
+                  variant="tonal"
+                  @click="abrirSalida(item)"
+                >
+                  Salida
+                </v-btn>
+              </div>
             </template>
           </v-data-table>
         </v-card>
@@ -193,6 +228,17 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <BodegaInventarioAcciones
+      ref="accionesRef"
+      :producto="producto"
+      @done="onAccionInventario"
+      @error="onErrorInventario"
+    />
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3500">
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -203,6 +249,7 @@
   import { es } from 'date-fns/locale'
   import bodegaService from '@/services/bodegaService'
   import { useAuthStore } from '@/stores/auth'
+  import BodegaInventarioAcciones from '@/components/bodega/BodegaInventarioAcciones.vue'
 
   const route = useRoute()
   const router = useRouter()
@@ -216,6 +263,8 @@
   const dialogEliminar = ref(false)
   const saving = ref(false)
   const varianteSel = ref(null)
+  const accionesRef = ref(null)
+  const snackbar = reactive({ show: false, text: '', color: 'success' })
   const movForm = reactive({ tipo: 'egreso', cantidad: 1, observaciones: '', motivo: null })
   const editForm = reactive({
     nombre: '',
@@ -239,6 +288,7 @@
     { title: 'SKU', key: 'sku' },
     { title: 'Precio sug.', key: 'precio_sugerido' },
     { title: 'Existencia', key: 'existencia' },
+    { title: 'De baja', key: 'existencia_baja' },
     { title: 'Mínimo', key: 'stock_minimo' },
     { title: '', key: 'acciones', sortable: false },
   ]
@@ -253,7 +303,7 @@
   })
 
   function tipoLabel (tipo) {
-    return ({ ingreso: 'Ingreso', egreso: 'Egreso', ajuste: 'Ajuste', ajuste_inicial: 'Inicial' })[tipo] || tipo
+    return ({ ingreso: 'Ingreso', egreso: 'Egreso', ajuste: 'Ajuste', ajuste_inicial: 'Inicial', baja: 'Baja', merma: 'Merma' })[tipo] || tipo
   }
 
   function formatDate (date) {
@@ -267,6 +317,21 @@
     const res = await bodegaService.getProducto(route.params.id)
     producto.value = res.data?.producto || res.data
     movimientos.value = res.data?.movimientos || []
+  }
+
+  function onAccionInventario (tipo) {
+    snackbar.color = 'success'
+    snackbar.text = tipo === 'baja'
+      ? 'Artículo dado de baja. Ya no cuenta en el inventario activo.'
+      : 'Artículos usados ingresados al inventario.'
+    snackbar.show = true
+    cargar()
+  }
+
+  function onErrorInventario (mensaje) {
+    snackbar.color = 'error'
+    snackbar.text = mensaje
+    snackbar.show = true
   }
 
   function abrirSalida (variante) {

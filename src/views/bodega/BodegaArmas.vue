@@ -184,6 +184,15 @@
             variant="tonal"
             @click="abrirEditar(item)"
           />
+          <v-btn
+            v-if="canManage"
+            class="ml-1"
+            color="error"
+            icon="mdi-delete"
+            size="small"
+            variant="tonal"
+            @click="pedirBorrar(item)"
+          />
         </template>
       </v-data-table>
     </v-card>
@@ -293,6 +302,27 @@
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="dialogBorrar" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="pa-4">Borrar arma por completo</v-card-title>
+        <v-card-text>
+          ¿Eliminar <strong>{{ armaBorrar?.codigo || armaBorrar?.serie }}</strong>
+          <span v-if="armaBorrar?.serie"> (serie {{ armaBorrar.serie }})</span>?
+          Esta acción no se puede deshacer. Úsela solo para duplicados o altas por error.
+          <div v-if="armaBorrar?.proyecto" class="mt-3 text-warning">
+            Está asignada al proyecto {{ armaBorrar.proyecto.nombre_proyecto }}.
+          </div>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn :disabled="saving" variant="text" @click="dialogBorrar = false">Cancelar</v-btn>
+          <v-btn color="error" :loading="saving" variant="elevated" @click="borrarArma">
+            Borrar por completo
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3500">
       {{ snackbar.text }}
     </v-snackbar>
@@ -335,6 +365,8 @@
   const filtroEstado = ref(null)
   const filtroAlerta = ref(null)
   const dialog = ref(false)
+  const dialogBorrar = ref(false)
+  const armaBorrar = ref(null)
   const editId = ref(null)
   const snackbar = reactive({ show: false, text: '', color: 'success' })
   const form = reactive(formVacio())
@@ -352,7 +384,7 @@
     { title: 'Vencimiento', key: 'vencimiento', width: '140px' },
     { title: 'Responsable / Proyecto', key: 'responsable', sortable: false },
     { title: 'Estado', key: 'estado', width: '140px' },
-    { title: '', key: 'acciones', sortable: false, width: '160px' },
+    { title: '', key: 'acciones', sortable: false, width: '210px' },
   ]
 
   const resumenCards = computed(() => {
@@ -448,6 +480,31 @@
       observaciones: item.observaciones || '',
     })
     dialog.value = true
+  }
+
+  function pedirBorrar (item) {
+    armaBorrar.value = item
+    dialogBorrar.value = true
+  }
+
+  async function borrarArma () {
+    if (!armaBorrar.value) return
+    saving.value = true
+    try {
+      const res = await bodegaService.deleteArma(armaBorrar.value.id)
+      snackbar.color = 'success'
+      snackbar.text = res.message || 'Arma eliminada por completo.'
+      snackbar.show = true
+      dialogBorrar.value = false
+      armaBorrar.value = null
+      await cargar()
+    } catch (error) {
+      snackbar.color = 'error'
+      snackbar.text = error.apiMessage || error.response?.data?.message || 'No se pudo borrar el arma'
+      snackbar.show = true
+    } finally {
+      saving.value = false
+    }
   }
 
   async function devolver (item) {

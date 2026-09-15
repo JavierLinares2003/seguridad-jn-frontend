@@ -4,9 +4,30 @@
       <v-btn icon="mdi-arrow-left" variant="text" :to="{ name: 'bodega' }" />
       <div>
         <h1 class="text-h5 font-weight-bold mb-0">Productos de bodega</h1>
-        <p class="text-caption text-medium-emphasis mb-0">Catálogo con tallas, condición y existencia</p>
+        <p class="text-caption text-medium-emphasis mb-0">
+          Catálogo con tallas, condición y existencia.
+          <router-link class="text-decoration-none" :to="{ name: 'bodega-bajas' }">Ver artículos de baja</router-link>
+        </p>
       </div>
       <v-spacer />
+      <v-btn
+        v-if="canManage"
+        color="teal"
+        variant="tonal"
+        @click="accionesRef?.abrirIngresoUsado()"
+      >
+        <v-icon start>mdi-recycle</v-icon>
+        Ingresar usados
+      </v-btn>
+      <v-btn
+        v-if="canManage"
+        color="error"
+        variant="tonal"
+        @click="accionesRef?.abrirDarBaja()"
+      >
+        <v-icon start>mdi-archive-remove-outline</v-icon>
+        Dar de baja
+      </v-btn>
       <v-btn
         v-if="canManage"
         color="primary"
@@ -215,6 +236,12 @@
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3500">
       {{ snackbar.text }}
     </v-snackbar>
+
+    <BodegaInventarioAcciones
+      ref="accionesRef"
+      @done="onAccionInventario"
+      @error="onErrorInventario"
+    />
   </v-container>
 </template>
 
@@ -223,6 +250,7 @@
   import { useRoute } from 'vue-router'
   import bodegaService from '@/services/bodegaService'
   import { useAuthStore } from '@/stores/auth'
+  import BodegaInventarioAcciones from '@/components/bodega/BodegaInventarioAcciones.vue'
 
   const route = useRoute()
   const authStore = useAuthStore()
@@ -237,6 +265,7 @@
   const editId = ref(null)
   const editCodigo = ref('')
   const productoEliminar = ref(null)
+  const accionesRef = ref(null)
   const snackbar = reactive({ show: false, text: '', color: 'success' })
   const filtros = reactive({
     search: '',
@@ -309,6 +338,21 @@
   function confirmarEliminar (item) {
     productoEliminar.value = item
     dialogEliminar.value = true
+  }
+
+  function onAccionInventario (tipo) {
+    snackbar.color = 'success'
+    snackbar.text = tipo === 'baja'
+      ? 'Artículo dado de baja. Ya no cuenta en el inventario activo.'
+      : 'Artículos usados ingresados al inventario.'
+    snackbar.show = true
+    cargar()
+  }
+
+  function onErrorInventario (mensaje) {
+    snackbar.color = 'error'
+    snackbar.text = mensaje
+    snackbar.show = true
   }
 
   async function guardarProducto () {

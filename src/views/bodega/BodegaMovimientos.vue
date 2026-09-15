@@ -198,6 +198,8 @@
     { title: 'Egreso', value: 'egreso' },
     { title: 'Ajuste', value: 'ajuste' },
     { title: 'Inicial', value: 'ajuste_inicial' },
+    { title: 'Baja', value: 'baja' },
+    { title: 'Merma', value: 'merma' },
   ]
 
   const headers = [
@@ -236,11 +238,11 @@
   }
 
   function tipoLabel (tipo) {
-    return ({ ingreso: 'Ingreso', egreso: 'Egreso', ajuste: 'Ajuste', ajuste_inicial: 'Inicial' })[tipo] || tipo
+    return ({ ingreso: 'Ingreso', egreso: 'Egreso', ajuste: 'Ajuste', ajuste_inicial: 'Inicial', baja: 'Baja', merma: 'Merma' })[tipo] || tipo
   }
 
   function tipoColor (tipo) {
-    return ({ ingreso: 'success', egreso: 'error', ajuste: 'warning', ajuste_inicial: 'info' })[tipo] || 'grey'
+    return ({ ingreso: 'success', egreso: 'error', ajuste: 'warning', ajuste_inicial: 'info', baja: 'error', merma: 'orange' })[tipo] || 'grey'
   }
 
   function formatDate (date) {

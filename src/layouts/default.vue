@@ -189,6 +189,7 @@
     personal: 'Personal',
     proyectos: 'Proyectos',
     bodega: 'Bodega',
+    'bodega-bajas': 'Artículos de baja',
     'bodega-armas': 'Armas',
     operaciones: 'Operaciones',
     'operaciones-asistencia': 'Asistencia',
