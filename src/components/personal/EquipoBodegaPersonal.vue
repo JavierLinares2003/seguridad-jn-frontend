@@ -40,7 +40,7 @@
       </template>
       <template #item.estado="{ item }">
         <v-chip :color="item.devuelta_at ? 'success' : 'warning'" size="small" variant="flat">
-          {{ item.devuelta_at ? 'Devuelto' : 'En su poder' }}
+          {{ estadoBoleta(item) }}
         </v-chip>
       </template>
       <template #item.acciones="{ item }">
@@ -53,8 +53,7 @@
           color="primary"
           size="small"
           variant="tonal"
-          :loading="devolviendoId === item.id"
-          @click="devolver(item)"
+          @click="abrirDevolucion(item)"
         >
           Devolver
         </v-btn>
@@ -98,6 +97,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <DevolucionBoletaDialog
+      v-model="dialogDevolucion"
+      :entrega="entregaDevolucion"
+      @done="onDevolucionOk"
+      @error="onDevolucionError"
+    />
   </div>
 </template>
 
@@ -105,6 +111,7 @@
   import { computed, onMounted, onUnmounted, ref } from 'vue'
   import bodegaService from '@/services/bodegaService'
   import { useAuthStore } from '@/stores/auth'
+  import DevolucionBoletaDialog from '@/components/bodega/DevolucionBoletaDialog.vue'
 
   const props = defineProps({
     personalId: { type: Number, required: true },
@@ -120,8 +127,9 @@
 
   const loading = ref(false)
   const entregas = ref([])
-  const devolviendoId = ref(null)
   const dialogBoleta = ref(false)
+  const dialogDevolucion = ref(false)
+  const entregaDevolucion = ref(null)
   const loadingBoleta = ref(false)
   const previewUrl = ref('')
   const previewNumero = ref('')
@@ -137,6 +145,11 @@
 
   function tipoLabel (tipo) {
     return { kit: 'Kit', reposicion: 'Reposición', simple: 'Simple' }[tipo] || tipo
+  }
+
+  function estadoBoleta (item) {
+    if (item.grupo_descuento_faltante) return 'Cerrado · descuento'
+    return item.devuelta_at ? 'Devuelto' : 'En su poder'
   }
 
   function formatDate (date) {
@@ -209,18 +222,18 @@
     window.open(previewUrl.value, '_blank', 'noopener')
   }
 
-  async function devolver (item) {
-    if (!confirm(`¿Registrar devolución de la boleta ${item.numero_boleta || item.id}?`)) return
-    devolviendoId.value = item.id
-    try {
-      await bodegaService.devolverEntrega(item.id)
-      await cargar()
-      emit('updated')
-    } catch (e) {
-      emit('error', e.apiMessage || 'No se pudo registrar la devolución')
-    } finally {
-      devolviendoId.value = null
-    }
+  function abrirDevolucion (item) {
+    entregaDevolucion.value = item
+    dialogDevolucion.value = true
+  }
+
+  async function onDevolucionOk () {
+    await cargar()
+    emit('updated')
+  }
+
+  function onDevolucionError (msg) {
+    emit('error', msg)
   }
 
   onMounted(cargar)

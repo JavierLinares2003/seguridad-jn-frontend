@@ -63,10 +63,14 @@
         <template #item.monto_total="{ item }">
           <span v-if="item.cobrar">Q{{ formatMoney(item.monto_total) }}</span>
           <span v-else class="text-medium-emphasis">Sin cobro</span>
+          <div v-if="item.cuotas_totales" class="text-caption text-medium-emphasis">
+            {{ item.cuotas_totales }} cuota(s)
+            <span v-if="item.monto_cuota"> · Q{{ formatMoney(item.monto_cuota) }}</span>
+          </div>
         </template>
         <template #item.estado="{ item }">
           <v-chip :color="item.devuelta_at || !item.pendiente_devolucion ? 'success' : 'warning'" size="small" variant="tonal">
-            {{ item.devuelta_at || !item.pendiente_devolucion ? 'Devuelto' : 'En poder' }}
+            {{ estadoEntrega(item) }}
           </v-chip>
         </template>
         <template #item.acciones="{ item }">
@@ -85,8 +89,7 @@
             color="primary"
             size="small"
             variant="tonal"
-            :loading="devolviendoId === item.id"
-            @click="devolverBoleta(item)"
+            @click="abrirDevolucion(item)"
           >
             <v-icon start>mdi-package-down</v-icon>
             Devolver
@@ -171,7 +174,13 @@
             variant="outlined"
             @update:search="buscarPersonal"
           />
-          <v-text-field v-model="form.fecha_entrega" class="mb-4" label="Fecha" type="date" variant="outlined" />
+          <v-text-field
+            v-model="form.fecha_entrega"
+            class="mb-4"
+            label="Fecha de entrega del uniforme"
+            type="date"
+            variant="outlined"
+          />
 
           <div class="text-subtitle-2 font-weight-bold mb-2">Ítems del conjunto</div>
           <v-row dense class="mb-2">
@@ -285,14 +294,14 @@
 
           <template v-if="form.items.length">
             <div class="d-flex align-center flex-wrap ga-2 mb-2">
-              <div class="text-subtitle-2 font-weight-bold">Plan de cuotas</div>
+              <div class="text-subtitle-2 font-weight-bold">Control de uniformes</div>
               <v-spacer />
               <v-switch
                 v-model="form.a_cuotas"
                 color="primary"
                 density="compact"
                 hide-details
-                label="A cuotas"
+                label="Registrar cuotas"
               />
             </div>
             <v-alert
@@ -304,17 +313,62 @@
             >
               Sin cuotas: se entrega el kit y no se crea descuento en planilla.
             </v-alert>
-            <v-row v-else dense>
-              <v-col cols="12" md="4">
-                <v-text-field v-model.number="form.cuotas_totales" density="compact" label="Cuotas *" max="60" min="1" type="number" variant="outlined" />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-text-field v-model="form.fecha_inicio_descuento" density="compact" label="Inicio 1ª cuota" type="date" variant="outlined" />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-text-field v-model="form.descripcion_descuento" density="compact" label="Concepto" placeholder="Kit uniforme agente..." variant="outlined" />
-              </v-col>
-            </v-row>
+            <v-sheet v-else class="pa-4 mb-2 rounded-lg" border>
+              <v-row dense>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    density="compact"
+                    label="Monto total del uniforme"
+                    persistent-hint
+                    prefix="Q"
+                    readonly
+                    :model-value="formatMoney(montoTotal)"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model.number="form.cuotas_totales"
+                    density="compact"
+                    label="Número de cuotas *"
+                    max="60"
+                    min="1"
+                    type="number"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    density="compact"
+                    hint="Calculado automáticamente"
+                    label="Monto por cuota"
+                    persistent-hint
+                    prefix="Q"
+                    readonly
+                    :model-value="formatMoney(montoPorCuota)"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.fecha_inicio_descuento"
+                    density="compact"
+                    label="Fecha del primer pago"
+                    type="date"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.descripcion_descuento"
+                    density="compact"
+                    label="Concepto"
+                    placeholder="Kit uniforme agente..."
+                    variant="outlined"
+                  />
+                </v-col>
+              </v-row>
+            </v-sheet>
           </template>
 
           <v-textarea v-model="form.observaciones" class="mt-3" label="Observaciones" rows="2" variant="outlined" />
@@ -585,6 +639,13 @@
       </v-card>
     </v-dialog>
 
+    <DevolucionBoletaDialog
+      v-model="dialogDevolucion"
+      :entrega="entregaDevolucion"
+      @done="onDevolucionOk"
+      @error="onDevolucionError"
+    />
+
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="4000">
       {{ snackbar.text }}
     </v-snackbar>
@@ -598,6 +659,7 @@
   import bodegaService from '@/services/bodegaService'
   import personalService from '@/services/personalService'
   import { useAuthStore } from '@/stores/auth'
+  import DevolucionBoletaDialog from '@/components/bodega/DevolucionBoletaDialog.vue'
 
   const authStore = useAuthStore()
   const canManage = computed(() => authStore.hasPermission('manage-bodega'))
@@ -616,8 +678,9 @@
   const kitId = ref(null)
   const draftVariantes = ref([])
   const itemError = ref('')
-  const devolviendoId = ref(null)
   const dialogBoleta = ref(false)
+  const dialogDevolucion = ref(false)
+  const entregaDevolucion = ref(null)
   const loadingBoleta = ref(false)
   const previewUrl = ref('')
   const previewNumero = ref('')
@@ -664,6 +727,12 @@
   const montoTotal = computed(() =>
     form.items.reduce((sum, it) => sum + (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0), 0)
   )
+
+  const montoPorCuota = computed(() => {
+    const n = Number(form.cuotas_totales || 0)
+    if (!n || montoTotal.value <= 0) return 0
+    return Math.round((montoTotal.value / n) * 100) / 100
+  })
 
   const puedeGuardarKit = computed(() => {
     if (!form.personal_id || !form.items.length) return false
@@ -1098,25 +1167,27 @@
     window.open(previewUrl.value, '_blank', 'noopener')
   }
 
-  async function devolverBoleta (item) {
-    const numero = item.numero_boleta || item.id
-    if (!confirm(`¿Registrar devolución de la boleta ${numero}? El equipo vuelve a bodega y la boleta queda como guía de entrada.`)) {
-      return
-    }
-    devolviendoId.value = item.id
-    try {
-      const res = await bodegaService.devolverEntrega(item.id)
-      snackbar.color = 'success'
-      snackbar.text = res.message || 'Devolución registrada.'
-      snackbar.show = true
-      await cargar()
-    } catch (e) {
-      snackbar.color = 'error'
-      snackbar.text = e.apiMessage || 'No se pudo registrar la devolución'
-      snackbar.show = true
-    } finally {
-      devolviendoId.value = null
-    }
+  function estadoEntrega (item) {
+    if (item.grupo_descuento_faltante) return 'Cerrado · descuento'
+    return item.devuelta_at || !item.pendiente_devolucion ? 'Devuelto' : 'En poder'
+  }
+
+  function abrirDevolucion (item) {
+    entregaDevolucion.value = item
+    dialogDevolucion.value = true
+  }
+
+  async function onDevolucionOk (res) {
+    snackbar.color = 'success'
+    snackbar.text = res?.message || 'Devolución registrada.'
+    snackbar.show = true
+    await cargar()
+  }
+
+  function onDevolucionError (msg) {
+    snackbar.color = 'error'
+    snackbar.text = msg
+    snackbar.show = true
   }
 
   onMounted(cargar)

@@ -17,9 +17,25 @@
           <v-col cols="12" md="6">
             <v-list density="compact">
               <v-list-item>
+                <v-list-item-subtitle class="text-caption">Capital</v-list-item-subtitle>
+                <v-list-item-title class="text-h6 font-weight-bold">
+                  Q{{ formatNumber(prestamoActivo.monto_total) }}
+                </v-list-item-title>
+              </v-list-item>
+              <v-divider class="my-2" />
+              <v-list-item>
+                <v-list-item-subtitle class="text-caption">
+                  Interés ({{ formatNumber(prestamoActivo.tasa_interes || 0) }}%)
+                </v-list-item-subtitle>
+                <v-list-item-title class="text-subtitle-1 font-weight-medium">
+                  Q{{ formatNumber(interesPrestamo(prestamoActivo)) }}
+                </v-list-item-title>
+              </v-list-item>
+              <v-divider class="my-2" />
+              <v-list-item>
                 <v-list-item-subtitle class="text-caption">Monto Total</v-list-item-subtitle>
                 <v-list-item-title class="text-h5 font-weight-bold text-primary">
-                  Q{{ formatNumber(prestamoActivo.monto_total) }}
+                  Q{{ formatNumber(totalConInteresPrestamo(prestamoActivo)) }}
                 </v-list-item-title>
               </v-list-item>
               <v-divider class="my-2" />
@@ -116,7 +132,7 @@
                 v-model.number="formPrestamo.monto_total"
                 density="comfortable"
                 :error-messages="errorsPrestamo.monto_total"
-                label="Monto Total *"
+                label="Monto del préstamo (capital) *"
                 min="1"
                 prefix="Q"
                 prepend-inner-icon="mdi-currency-usd"
@@ -151,6 +167,20 @@
                 step="0.01"
                 suffix="%"
                 type="number"
+                variant="outlined"
+              />
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                density="comfortable"
+                hint="Capital + interés. Este es el monto total a pagar."
+                label="Total a pagar"
+                persistent-hint
+                prefix="Q"
+                prepend-inner-icon="mdi-cash-check"
+                readonly
+                :model-value="totalPagarPrestamo"
                 variant="outlined"
               />
             </v-col>
@@ -314,7 +344,10 @@
         >
           <!-- Monto Total -->
           <template #item.monto_total="{ item }">
-            <span class="font-weight-bold">Q{{ formatNumber(item.monto_total) }}</span>
+            <div class="font-weight-bold">Q{{ formatNumber(totalConInteresPrestamo(item)) }}</div>
+            <div v-if="Number(item.tasa_interes) > 0" class="text-caption text-medium-emphasis">
+              Capital Q{{ formatNumber(item.monto_total) }} + {{ formatNumber(item.tasa_interes) }}%
+            </div>
           </template>
 
           <!-- Saldo Pendiente -->
@@ -522,7 +555,11 @@
             <v-row>
               <v-col cols="6">
                 <div class="text-caption text-medium-emphasis">Monto Total</div>
-                <div class="text-h6 font-weight-bold">Q{{ formatNumber(prestamoSeleccionado.monto_total) }}</div>
+                <div class="text-h6 font-weight-bold">Q{{ formatNumber(totalConInteresPrestamo(prestamoSeleccionado)) }}</div>
+                <div v-if="Number(prestamoSeleccionado.tasa_interes) > 0" class="text-caption text-medium-emphasis">
+                  Capital Q{{ formatNumber(prestamoSeleccionado.monto_total) }}
+                  + interés Q{{ formatNumber(interesPrestamo(prestamoSeleccionado)) }}
+                </div>
               </v-col>
               <v-col cols="6">
                 <div class="text-caption text-medium-emphasis">Saldo Pendiente</div>
@@ -1000,10 +1037,25 @@
     errorMessageAbono.value = null
   }
 
+  function totalConInteresPrestamo (prestamo) {
+    if (!prestamo) return 0
+    if (prestamo.monto_con_interes != null) return Number(prestamo.monto_con_interes)
+    const capital = Number(prestamo.monto_total || 0)
+    const tasa = Number(prestamo.tasa_interes || 0)
+    return Math.round(capital * (1 + tasa / 100) * 100) / 100
+  }
+
+  function interesPrestamo (prestamo) {
+    if (!prestamo) return 0
+    if (prestamo.monto_interes != null) return Number(prestamo.monto_interes)
+    return Math.round((totalConInteresPrestamo(prestamo) - Number(prestamo.monto_total || 0)) * 100) / 100
+  }
+
   function calcularPorcentajePagado (prestamo) {
-    if (!prestamo.monto_total || prestamo.monto_total === 0) return 0
-    const pagado = prestamo.monto_total - prestamo.saldo_pendiente
-    return Math.round((pagado / prestamo.monto_total) * 100)
+    const total = totalConInteresPrestamo(prestamo)
+    if (!total) return 0
+    const pagado = total - Number(prestamo.saldo_pendiente || 0)
+    return Math.max(0, Math.min(100, Math.round((pagado / total) * 100)))
   }
 
   function getEstadoPrestamoLabel (estado) {

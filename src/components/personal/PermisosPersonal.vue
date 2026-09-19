@@ -23,6 +23,22 @@
               />
             </v-col>
 
+            <v-col cols="12" sm="6" md="9">
+              <v-radio-group
+                v-model="form.compensa_con"
+                class="mt-0"
+                density="compact"
+                hide-details
+                inline
+              >
+                <template #label>
+                  <span class="text-body-2">¿Cómo se cubre?</span>
+                </template>
+                <v-radio label="Se recupera trabajando" value="reposicion" />
+                <v-radio label="Se toma como día de vacaciones" value="vacaciones" />
+              </v-radio-group>
+            </v-col>
+
             <!-- Cantidad aprobada -->
             <v-col cols="12" sm="6" md="3">
               <v-text-field
@@ -224,12 +240,65 @@
         <!-- Saldo pendiente -->
         <template #item.saldo_pendiente="{ item }">
           <v-chip
+            v-if="item.es_vacaciones"
+            color="deep-purple"
+            size="small"
+            variant="flat"
+          >
+            Vacaciones
+          </v-chip>
+          <v-chip
+            v-else
             :color="item.saldo_pendiente <= 0 ? 'success' : 'warning'"
             size="small"
             variant="flat"
           >
             {{ item.saldo_pendiente }} {{ item.tipo === 'dias' ? 'd' : 'h' }}
           </v-chip>
+        </template>
+
+        <!-- Recuperación -->
+        <template #item.recuperacion="{ item }">
+          <div>
+            <v-chip
+              v-if="item.es_vacaciones"
+              color="deep-purple"
+              size="small"
+              variant="tonal"
+            >
+              Día de vacaciones
+            </v-chip>
+            <v-chip
+              v-else-if="item.recuperado"
+              color="success"
+              size="small"
+              variant="tonal"
+            >
+              Recuperó
+            </v-chip>
+            <v-chip
+              v-else
+              color="warning"
+              size="small"
+              variant="tonal"
+            >
+              Pendiente
+            </v-chip>
+            <div v-if="fechasRecuperacion(item).length" class="text-caption text-medium-emphasis mt-1">
+              {{ fechasRecuperacion(item).map(formatDate).join(', ') }}
+            </div>
+            <v-btn
+              v-if="!readonly && !item.recuperado && !item.es_vacaciones"
+              class="mt-1"
+              color="primary"
+              density="compact"
+              size="x-small"
+              variant="text"
+              @click="abrirMarcarRecuperado(item)"
+            >
+              Marcar
+            </v-btn>
+          </div>
         </template>
 
         <!-- Descripción -->
@@ -328,6 +397,22 @@
                 </div>
               </v-col>
               <v-col cols="12">
+                <div class="text-caption text-medium-emphasis">Recuperación</div>
+                <div v-if="detallePermiso.es_vacaciones" class="text-body-2">
+                  Día de vacaciones
+                  <span v-if="detallePermiso.fecha_recuperacion || detallePermiso.fecha_inicio">
+                    · {{ formatDate(detallePermiso.fecha_recuperacion || detallePermiso.fecha_inicio) }}
+                  </span>
+                </div>
+                <div v-else-if="detallePermiso.recuperado" class="text-body-2">
+                  Recuperó
+                  <span v-if="(detallePermiso.fechas_recuperacion || []).length">
+                    · {{ detallePermiso.fechas_recuperacion.map(formatDate).join(', ') }}
+                  </span>
+                </div>
+                <div v-else class="text-body-2 text-warning">Pendiente de recuperar</div>
+              </v-col>
+              <v-col cols="12">
                 <div class="text-caption text-medium-emphasis">Período</div>
                 <div class="text-body-2">
                   {{ formatDate(detallePermiso.fecha_inicio) }} — {{ formatDate(detallePermiso.fecha_fin) }}
@@ -378,7 +463,34 @@
       </v-card>
     </v-dialog>
 
-    <!-- Dialog confirmar eliminación -->
+    <!-- Dialog marcar recuperado -->
+    <v-dialog v-model="dialogRecuperado" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="py-4 px-6">
+          ¿Cómo se cubrió este permiso?
+        </v-card-title>
+        <v-card-text class="px-6">
+          <v-radio-group v-model="formRecuperado.compensa_con" density="compact">
+            <v-radio label="Ya lo recuperó trabajando" value="reposicion" />
+            <v-radio label="Se tomó como día de vacaciones" value="vacaciones" />
+          </v-radio-group>
+          <v-text-field
+            v-model="formRecuperado.fecha_recuperacion"
+            class="mt-2"
+            :label="formRecuperado.compensa_con === 'vacaciones' ? 'Fecha del día de vacaciones' : 'Fecha en que lo recuperó'"
+            type="date"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions class="px-6 pb-4">
+          <v-spacer />
+          <v-btn :disabled="savingRecuperado" variant="text" @click="dialogRecuperado = false">Cancelar</v-btn>
+          <v-btn color="primary" :loading="savingRecuperado" variant="elevated" @click="guardarRecuperado">
+            Guardar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
     <v-dialog v-model="deleteDialog" max-width="400" persistent>
       <v-card rounded="xl">
         <v-card-title class="py-4 px-6">
@@ -439,6 +551,13 @@
 
   const deleteDialog = ref(false)
   const dialogDetalle = ref(false)
+  const dialogRecuperado = ref(false)
+  const savingRecuperado = ref(false)
+  const itemRecuperado = ref(null)
+  const formRecuperado = reactive({
+    compensa_con: 'reposicion',
+    fecha_recuperacion: '',
+  })
   const itemToDelete = ref(null)
   const detallePermiso = ref(null)
 
@@ -456,6 +575,7 @@
     fecha_fin: '',
     descripcion: '',
     observaciones: '',
+    compensa_con: 'reposicion',
   })
   const errors = reactive({})
 
@@ -471,6 +591,7 @@
     { title: 'Período', key: 'periodo', sortable: false },
     { title: 'Aprobado', key: 'cantidad_aprobada', sortable: true, align: 'center' },
     { title: 'Saldo', key: 'saldo_pendiente', sortable: true, align: 'center' },
+    { title: 'Recuperación', key: 'recuperacion', sortable: false },
     { title: 'Descripción', key: 'descripcion', sortable: false },
     { title: 'Documento', key: 'documento', sortable: false, align: 'center', width: '90px' },
     { title: 'Reposiciones', key: 'reposiciones', sortable: false, align: 'center', width: '100px' },
@@ -510,6 +631,7 @@
       formData.append('fecha_fin', form.fecha_fin)
       if (form.descripcion) formData.append('descripcion', form.descripcion)
       if (form.observaciones) formData.append('observaciones', form.observaciones)
+      formData.append('compensa_con', form.compensa_con || 'reposicion')
       if (selectedFile.value) formData.append('documento', selectedFile.value)
 
       await permisosService.registrarPermiso(props.personalId, formData)
@@ -660,6 +782,48 @@
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  function fechasRecuperacion (item) {
+    if (item.es_vacaciones) {
+      return item.fecha_recuperacion ? [item.fecha_recuperacion] : (item.fecha_inicio ? [item.fecha_inicio] : [])
+    }
+    const fechas = [...(item.fechas_recuperacion || [])]
+    if (item.fecha_recuperacion && !fechas.includes(item.fecha_recuperacion)) {
+      fechas.push(item.fecha_recuperacion)
+    }
+    return fechas
+  }
+
+  function abrirMarcarRecuperado (item) {
+    itemRecuperado.value = item
+    formRecuperado.compensa_con = 'reposicion'
+    formRecuperado.fecha_recuperacion = new Date().toISOString().split('T')[0]
+    dialogRecuperado.value = true
+  }
+
+  async function guardarRecuperado () {
+    if (!itemRecuperado.value || !formRecuperado.fecha_recuperacion) {
+      showError('Indique la fecha.')
+      return
+    }
+    savingRecuperado.value = true
+    try {
+      await permisosService.actualizarPermiso(props.personalId, itemRecuperado.value.id, {
+        compensa_con: formRecuperado.compensa_con,
+        fecha_recuperacion: formRecuperado.fecha_recuperacion,
+      })
+      showSuccess(formRecuperado.compensa_con === 'vacaciones'
+        ? 'Permiso marcado como día de vacaciones.'
+        : 'Se registró la fecha de recuperación.')
+      dialogRecuperado.value = false
+      await loadPermisos()
+      emit('updated')
+    } catch (error) {
+      showError(error.apiMessage || 'No se pudo actualizar el permiso.')
+    } finally {
+      savingRecuperado.value = false
+    }
+  }
+
   function resetForm () {
     form.tipo = 'horas'
     form.cantidad_aprobada = null
@@ -667,6 +831,7 @@
     form.fecha_fin = ''
     form.descripcion = ''
     form.observaciones = ''
+    form.compensa_con = 'reposicion'
     Object.keys(errors).forEach(k => delete errors[k])
     clearFile()
     formRef.value?.reset()

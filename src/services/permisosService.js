@@ -18,6 +18,11 @@ export const permisosService = {
     return response.data
   },
 
+  async actualizarPermiso(personalId, permisoId, data) {
+    const response = await api.put(`/personal/${personalId}/permisos/${permisoId}`, data)
+    return response.data
+  },
+
   async deletePermiso(personalId, permisoId) {
     const response = await api.delete(`/personal/${personalId}/permisos/${permisoId}`)
     return response.data

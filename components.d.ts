@@ -12,7 +12,9 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppFooter: typeof import('./src/components/AppFooter.vue')['default']
+    BodegaInventarioAcciones: typeof import('./src/components/bodega/BodegaInventarioAcciones.vue')['default']
     CatalogosExample: typeof import('./src/components/examples/CatalogosExample.vue')['default']
+    DevolucionBoletaDialog: typeof import('./src/components/bodega/DevolucionBoletaDialog.vue')['default']
     DireccionForm: typeof import('./src/components/forms/DireccionForm.vue')['default']
     DocumentosPersonal: typeof import('./src/components/personal/DocumentosPersonal.vue')['default']
     DocumentosProyecto: typeof import('./src/components/proyectos/DocumentosProyecto.vue')['default']
