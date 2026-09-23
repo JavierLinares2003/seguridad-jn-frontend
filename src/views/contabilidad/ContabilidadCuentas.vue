@@ -14,18 +14,6 @@
           </div>
         </div>
       </v-col>
-      <v-col cols="auto">
-        <v-btn
-          class="text-none"
-          color="primary"
-          :loading="exportando"
-          prepend-icon="mdi-download"
-          variant="tonal"
-          @click="descargarCsv"
-        >
-          Descargar CSV
-        </v-btn>
-      </v-col>
     </v-row>
 
     <v-row class="mb-2">
@@ -175,7 +163,6 @@
   const items = ref([])
   const resumen = ref({})
   const cargando = ref(false)
-  const exportando = ref(false)
   const buscar = ref('')
   const estado = ref('activo')
   const forma = ref('')
@@ -231,51 +218,6 @@
       }
     } finally {
       cargando.value = false
-    }
-  }
-
-  function filaCsv (valor) {
-    const texto = String(valor ?? '')
-    return `"${texto.replaceAll('"', '""')}"`
-  }
-
-  async function descargarCsv () {
-    exportando.value = true
-    try {
-      const res = await personalService.resumenCuentas({
-        buscar: buscar.value || undefined,
-        estado: estado.value,
-        forma: forma.value || undefined,
-        page: 1,
-        per_page: 2000,
-      })
-      const filas = Array.isArray(res?.data) ? res.data : []
-      const encabezado = ['Nombre', 'Puesto', 'Departamento', 'Estado', 'Forma de pago', 'Banco', 'Tipo de cuenta', 'Número de cuenta', 'A nombre de']
-      const lineas = [
-        encabezado.join(','),
-        ...filas.map(item => [
-          item.nombre_completo,
-          item.puesto,
-          item.departamento,
-          item.estado,
-          etiquetaForma(item),
-          item.forma === 'efectivo' ? '' : item.banco,
-          item.forma === 'efectivo' ? '' : item.tipo_cuenta,
-          item.forma === 'efectivo' ? '' : item.numero_cuenta,
-          item.forma === 'efectivo' ? '' : item.nombre_cuenta,
-        ].map(filaCsv).join(',')),
-      ]
-      const blob = new Blob([`\uFEFF${lineas.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'cuentas-contabilidad.csv'
-      link.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      snackbar.value = { show: true, text: 'No se pudo descargar el archivo', color: 'error' }
-    } finally {
-      exportando.value = false
     }
   }
 
