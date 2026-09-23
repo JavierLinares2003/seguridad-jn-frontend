@@ -9,6 +9,11 @@ export const personalService = {
     return response.data
   },
 
+  async resumenCuentas(params = {}) {
+    const response = await api.get('/personal/resumen-cuentas', { params })
+    return response.data
+  },
+
   /**
    * Obtener detalle de un personal
    */

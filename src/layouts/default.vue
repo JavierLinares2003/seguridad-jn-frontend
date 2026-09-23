@@ -80,6 +80,13 @@
           title="Planillas"
           :to="{ name: 'operaciones-planillas' }"
         />
+        <v-list-item
+          v-if="authStore.hasPermission('view-personal-sensible')"
+          prepend-icon="mdi-bank-outline"
+          rounded="0"
+          title="Contabilidad"
+          :to="{ name: 'contabilidad' }"
+        />
 
         <v-divider v-if="authStore.hasPermission('view-users') || authStore.hasPermission('manage-roles')" class="my-3 mx-3" color="#F5C400" opacity="0.28" />
 
@@ -195,6 +202,7 @@
     'operaciones-asistencia': 'Asistencia',
     'asistencia-administrativa': 'Asistencia administrativa',
     'operaciones-planillas': 'Planillas',
+    contabilidad: 'Contabilidad',
     'configuracion-usuarios': 'Usuarios',
     'configuracion-roles': 'Roles y vistas',
     'configuracion-bitacora': 'Bitácora',

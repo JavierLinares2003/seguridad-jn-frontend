@@ -214,6 +214,12 @@ const manualRoutes = [
     component: () => import('@/views/planillas/PlanillaDetalle.vue'),
     meta: { requiresAuth: true, permissions: ['view-planillas'] },
   },
+  {
+    path: '/contabilidad',
+    name: 'contabilidad',
+    component: () => import('@/views/contabilidad/ContabilidadCuentas.vue'),
+    meta: { requiresAuth: true, permissions: ['view-personal-sensible'] },
+  },
   // Configuracion
   {
     path: '/configuracion/usuarios',
