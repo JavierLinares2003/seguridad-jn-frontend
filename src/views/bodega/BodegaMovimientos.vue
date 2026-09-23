@@ -334,6 +334,7 @@
         tipo: 'ajuste',
         variante_id: form.variante_id,
         cantidad: Number(form.cantidad),
+        existencia_nueva: Number(form.cantidad),
         fecha_movimiento: form.fecha_movimiento,
         observaciones: form.observaciones.trim(),
       })

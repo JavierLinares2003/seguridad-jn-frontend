@@ -60,6 +60,17 @@
             <v-spacer />
             <v-btn
               v-if="canManage"
+              class="mr-2"
+              color="warning"
+              size="small"
+              variant="tonal"
+              @click="abrirAjuste()"
+            >
+              <v-icon start>mdi-tune</v-icon>
+              Ajustar existencias
+            </v-btn>
+            <v-btn
+              v-if="canManage"
               color="primary"
               size="small"
               variant="tonal"
@@ -258,6 +269,77 @@
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="dialogAjuste" max-width="760" scrollable>
+      <v-card rounded="xl">
+        <v-card-title class="pa-4">Ajustar existencias</v-card-title>
+        <v-card-text>
+          <p class="text-body-2 text-medium-emphasis mb-3">
+            Corrige las unidades al conteo físico. La categoría y los productos se quedan; solo cambia la existencia.
+          </p>
+          <v-select
+            v-model="ajusteCategoriaId"
+            class="mb-3"
+            item-title="nombre"
+            item-value="id"
+            :items="dashboard?.categorias || []"
+            label="Categoría *"
+            variant="outlined"
+            @update:model-value="cargarAjuste"
+          />
+          <v-textarea
+            v-model="ajusteMotivo"
+            class="mb-3"
+            label="Motivo *"
+            rows="2"
+            variant="outlined"
+          />
+          <v-progress-linear v-if="cargandoAjuste" class="mb-3" indeterminate />
+          <v-table v-else-if="filasAjuste.length" density="compact">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="text-right">Actual</th>
+                <th style="width: 140px">Cantidad real</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="fila in filasAjuste" :key="fila.variante_id">
+                <td>
+                  <div class="font-weight-medium">{{ fila.producto }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ fila.etiqueta }}</div>
+                </td>
+                <td class="text-right">{{ fila.actual }}</td>
+                <td>
+                  <v-text-field
+                    v-model.number="fila.nueva"
+                    density="compact"
+                    hide-details
+                    min="0"
+                    type="number"
+                    variant="outlined"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+          <p v-else-if="ajusteCategoriaId" class="text-medium-emphasis">Esta categoría no tiene productos.</p>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogAjuste = false">Cancelar</v-btn>
+          <v-btn
+            color="warning"
+            :disabled="!ajusteMotivo.trim() || !cambiosAjuste.length"
+            :loading="guardandoAjuste"
+            variant="elevated"
+            @click="guardarAjuste"
+          >
+            Guardar ajuste
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3500">
       {{ snackbar.text }}
     </v-snackbar>
@@ -285,6 +367,13 @@
   const eliminandoCategoria = ref(false)
   const categoriaAEliminar = ref(null)
   const snackbar = reactive({ show: false, text: '', color: 'success' })
+  const dialogAjuste = ref(false)
+  const ajusteCategoriaId = ref(null)
+  const ajusteMotivo = ref('')
+  const filasAjuste = ref([])
+  const cargandoAjuste = ref(false)
+  const guardandoAjuste = ref(false)
+  const cambiosAjuste = computed(() => filasAjuste.value.filter(fila => Number(fila.nueva) !== Number(fila.actual)))
   const catForm = reactive({
     nombre: '',
     icono: 'mdi-warehouse',
@@ -384,6 +473,71 @@
       snackbar.show = true
     } finally {
       savingCategoria.value = false
+    }
+  }
+
+  function abrirAjuste (categoriaId = null) {
+    ajusteCategoriaId.value = categoriaId
+    ajusteMotivo.value = ''
+    filasAjuste.value = []
+    dialogAjuste.value = true
+    if (categoriaId) cargarAjuste(categoriaId)
+  }
+
+  async function cargarAjuste (categoriaId) {
+    filasAjuste.value = []
+    if (!categoriaId) return
+    cargandoAjuste.value = true
+    try {
+      const res = await bodegaService.getProductos({ categoria_id: categoriaId, per_page: 500 })
+      const pagina = res.data
+      const productos = Array.isArray(pagina) ? pagina : (pagina?.data || [])
+      filasAjuste.value = productos.flatMap(producto => (producto.variantes || []).map(variante => ({
+        variante_id: variante.id,
+        producto: producto.nombre,
+        etiqueta: variante.etiqueta || 'Única',
+        actual: Number(variante.existencia ?? 0),
+        nueva: Number(variante.existencia ?? 0),
+      })))
+    } catch (error) {
+      snackbar.color = 'error'
+      snackbar.text = error.apiMessage || 'No se pudo cargar la categoría'
+      snackbar.show = true
+    } finally {
+      cargandoAjuste.value = false
+    }
+  }
+
+  async function guardarAjuste () {
+    const motivo = ajusteMotivo.value.trim()
+    if (!motivo || !cambiosAjuste.value.length) return
+    guardandoAjuste.value = true
+    try {
+      for (const fila of cambiosAjuste.value) {
+        const nueva = Number(fila.nueva)
+        if (nueva < 0 || Number.isNaN(nueva)) {
+          throw new Error(`La cantidad de ${fila.producto} no puede ser negativa.`)
+        }
+        await bodegaService.createMovimiento({
+          tipo: 'ajuste',
+          variante_id: fila.variante_id,
+          cantidad: nueva,
+          existencia_nueva: nueva,
+          observaciones: motivo,
+        })
+      }
+      dialogAjuste.value = false
+      snackbar.color = 'success'
+      snackbar.text = 'Existencias actualizadas'
+      snackbar.show = true
+      const dash = await bodegaService.getDashboard()
+      dashboard.value = dash.data
+    } catch (error) {
+      snackbar.color = 'error'
+      snackbar.text = error.apiMessage || error.message || 'No se pudo guardar el ajuste'
+      snackbar.show = true
+    } finally {
+      guardandoAjuste.value = false
     }
   }
 

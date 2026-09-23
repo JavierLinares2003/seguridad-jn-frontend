@@ -377,8 +377,8 @@
   })
 
   const headers = [
-    { title: 'Código', key: 'codigo', width: '120px' },
-    { title: 'Tipo', key: 'tipo', width: '120px' },
+    { title: 'Código', key: 'codigo', sortable: false, width: '120px' },
+    { title: 'Tipo', key: 'tipo', sortable: false, width: '120px' },
     { title: 'Arma', key: 'arma', sortable: false },
     { title: 'Documentos', key: 'documentos', sortable: false },
     { title: 'Vencimiento', key: 'vencimiento', width: '140px' },
