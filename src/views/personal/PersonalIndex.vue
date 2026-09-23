@@ -232,6 +232,7 @@
         <!-- Acciones -->
         <template #item.actions="{ item }">
           <div class="d-flex justify-center ga-1">
+            <template v-if="store.filters.estado !== 'eliminados'">
             <v-tooltip location="top" text="Ver detalle">
               <template #activator="{ props }">
                 <v-btn
@@ -274,7 +275,22 @@
                 />
               </template>
             </v-tooltip>
-            <v-tooltip location="top" text="Eliminar">
+            </template>
+            <v-tooltip v-if="store.filters.estado === 'eliminados'" location="top" text="Restaurar">
+              <template #activator="{ props }">
+                <v-btn
+                  v-can="'delete-personal'"
+                  v-bind="props"
+                  color="success"
+                  icon="mdi-restore"
+                  rounded="lg"
+                  size="small"
+                  variant="tonal"
+                  @click="restaurarItem(item)"
+                />
+              </template>
+            </v-tooltip>
+            <v-tooltip v-else location="top" text="Eliminar">
               <template #activator="{ props }">
                 <v-btn
                   v-can="'delete-personal'"
@@ -328,7 +344,7 @@
             type="info"
             variant="tonal"
           >
-            <span class="text-caption">Esta accion se puede revertir desde el panel de administracion.</span>
+            <span class="text-caption">No se borra el expediente. Se puede recuperar en el filtro Estado: Eliminados.</span>
           </v-alert>
         </v-card-text>
         <v-divider />
@@ -427,6 +443,7 @@
     { text: 'No Contratar', value: 'no_contratar' },
     { text: 'Extrero', value: 'extrero' },
     { text: 'Pre-alta', value: 'pre_alta' },
+    { text: 'Eliminados', value: 'eliminados' },
   ]
 
   // Headers de la tabla
@@ -558,6 +575,16 @@
       pre_alta: 'mdi-account-clock-outline',
     }
     return icons[estado] || 'mdi-help-circle-outline'
+  }
+
+  async function restaurarItem (item) {
+    try {
+      await store.restore(item.id)
+      showSnackbar('Personal restaurado. Ya aparece en el listado normal.')
+      await store.fetchAll(true)
+    } catch {
+      showSnackbar(store.error || 'No se pudo restaurar', 'error')
+    }
   }
 
   // Confirmar eliminación
