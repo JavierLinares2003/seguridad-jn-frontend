@@ -1061,7 +1061,9 @@
           </v-list>
 
           <v-alert v-else density="compact" type="info" variant="tonal">
-            No hay cubridores: alguien sin puesto, o de descanso en otro proyecto.
+            {{ filtroReemplazo
+              ? 'Ese nombre no está entre los que pueden cubrir hoy.'
+              : 'No hay cubridores: alguien sin puesto, o de descanso en otro proyecto.' }}
           </v-alert>
         </v-card-text>
 
@@ -1628,14 +1630,18 @@
     )
   })
 
+  function sinAcento (texto) {
+    return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  }
+
   const reemplazosDisponiblesFiltrados = computed(() => {
     let resultado = operacionesStore.reemplazosDisponibles || []
 
     if (filtroReemplazo.value) {
-      const busqueda = filtroReemplazo.value.toLowerCase()
+      const busqueda = sinAcento(filtroReemplazo.value)
       resultado = resultado.filter(p =>
-        `${p.nombres} ${p.apellidos}`.toLowerCase().includes(busqueda)
-        || p.dpi?.includes(busqueda),
+        sinAcento(`${p.nombres} ${p.apellidos}`).includes(busqueda)
+        || String(p.dpi || '').includes(busqueda),
       )
     }
 

@@ -4,7 +4,7 @@
       <div>
         <h1 class="text-h5 font-weight-bold mb-0">Asistencia administrativa</h1>
         <p class="text-caption text-medium-emphasis mb-0">
-          Solo gerencia y recursos humanos. No aparece en asistencia de campo.
+          Horario de cada persona, hora de entrada y salida. El retraso y la salida temprano se calculan con 5 minutos de tolerancia.
         </p>
       </div>
       <v-spacer />
@@ -38,6 +38,68 @@
         :items-per-page="50"
         :loading="loading"
       >
+        <template #item.horario="{ item }">
+          <div class="d-flex ga-1">
+            <v-text-field
+              v-model="item.horarioEntradaLocal"
+              density="compact"
+              hide-details
+              label="Entra"
+              style="max-width: 120px"
+              type="time"
+              variant="outlined"
+              :disabled="!canManage"
+              @update:model-value="item.horarioChanged = true"
+            />
+            <v-text-field
+              v-model="item.horarioSalidaLocal"
+              density="compact"
+              hide-details
+              label="Sale"
+              style="max-width: 120px"
+              type="time"
+              variant="outlined"
+              :disabled="!canManage"
+              @update:model-value="item.horarioChanged = true"
+            />
+          </div>
+        </template>
+        <template #item.horas="{ item }">
+          <div class="d-flex flex-column ga-1">
+            <div class="d-flex ga-1">
+              <v-text-field
+                v-model="item.horaEntradaLocal"
+                density="compact"
+                hide-details
+                label="Entrada"
+                style="max-width: 120px"
+                type="time"
+                variant="outlined"
+                :disabled="!canManage"
+                @update:model-value="marcarHoras(item)"
+              />
+              <v-text-field
+                v-model="item.horaSalidaLocal"
+                density="compact"
+                hide-details
+                label="Salida"
+                style="max-width: 120px"
+                type="time"
+                variant="outlined"
+                :disabled="!canManage"
+                @update:model-value="marcarHoras(item)"
+              />
+            </div>
+            <div class="text-caption">
+              <span v-if="item.asistencia?.minutos_retraso" class="text-warning">
+                {{ item.asistencia.minutos_retraso }} min tarde
+              </span>
+              <span v-if="item.asistencia?.minutos_salida_temprana" class="text-error ml-2">
+                {{ item.asistencia.minutos_salida_temprana }} min antes
+              </span>
+            </div>
+          </div>
+        </template>
         <template #item.estado="{ item }">
           <v-chip :color="colorEstado(item.estadoLocal || item.asistencia?.estado)" size="small" variant="tonal">
             {{ etiquetaEstado(item.estadoLocal || item.asistencia?.estado) }}
@@ -175,6 +237,8 @@
     const cols = [
       { title: 'Nombre', key: 'nombre_completo' },
       { title: 'Puesto', key: 'puesto' },
+      { title: 'Horario', key: 'horario', sortable: false },
+      { title: 'Horas del día', key: 'horas', sortable: false },
       { title: 'Estado', key: 'estado' },
       { title: '', key: 'calendario', sortable: false, width: '56px' },
     ]
@@ -184,7 +248,7 @@
     return cols
   })
 
-  const hayCambios = computed(() => items.value.some(i => i.estadoLocal))
+  const hayCambios = computed(() => items.value.some(i => i.estadoLocal || i.horarioChanged || i.horasChanged))
 
   const calendarioDiasSemana = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
   const calendarioCeldas = computed(() => {
@@ -278,6 +342,10 @@
 
   function marcar (item, estado) {
     item.estadoLocal = estado
+    if (estado !== 'presente') {
+      item.horaEntradaLocal = ''
+      item.horaSalidaLocal = ''
+    }
   }
 
   function abrirCalendario (item) {
@@ -328,7 +396,16 @@
     loading.value = true
     try {
       const res = await operacionesService.getAsistenciaAdministrativa(fecha.value)
-      items.value = (res.data || []).map(p => ({ ...p, estadoLocal: null }))
+      items.value = (res.data || []).map(p => ({
+        ...p,
+        estadoLocal: null,
+        horarioChanged: false,
+        horasChanged: false,
+        horarioEntradaLocal: p.horario_entrada || '',
+        horarioSalidaLocal: p.horario_salida || '',
+        horaEntradaLocal: p.asistencia?.hora_entrada || '',
+        horaSalidaLocal: p.asistencia?.hora_salida || '',
+      }))
     } catch (error) {
       snackbar.color = 'error'
       snackbar.text = error.apiMessage || error.response?.data?.message || 'No se pudo cargar la asistencia'
@@ -338,26 +415,43 @@
     }
   }
 
+  function marcarHoras (item) {
+    item.horasChanged = true
+    if (!item.estadoLocal) item.estadoLocal = 'presente'
+  }
+
   async function guardar () {
-    const pendientes = items.value.filter(i => i.estadoLocal)
-    if (!pendientes.length) return
+    const conHorario = items.value.filter(i => i.horarioChanged)
+    const pendientes = items.value.filter(i => i.estadoLocal || i.horasChanged)
+    if (!conHorario.length && !pendientes.length) return
     saving.value = true
     try {
-      const asistencias = pendientes.map(item => {
-        const registro = {
-          personal_id: item.id,
-          fecha_asistencia: fecha.value,
-        }
-        if (item.estadoLocal === 'ausente') {
-          registro.es_ausente = true
-          registro.tipo_ausencia = 'injustificada'
-          registro.tipo_inasistencia = '24_horas'
-        } else if (item.estadoLocal === 'descanso') {
-          registro.es_descanso = true
-        }
-        return registro
-      })
-      await operacionesService.registrarAsistencia(asistencias)
+      for (const item of conHorario) {
+        await operacionesService.guardarHorarioAdministrativo(item.id, {
+          horario_entrada: item.horarioEntradaLocal || null,
+          horario_salida: item.horarioSalidaLocal || null,
+        })
+      }
+      if (pendientes.length) {
+        const asistencias = pendientes.map(item => {
+          const registro = {
+            personal_id: item.id,
+            fecha_asistencia: fecha.value,
+          }
+          if (item.estadoLocal === 'ausente') {
+            registro.es_ausente = true
+            registro.tipo_ausencia = 'injustificada'
+            registro.tipo_inasistencia = '24_horas'
+          } else if (item.estadoLocal === 'descanso') {
+            registro.es_descanso = true
+          } else {
+            if (item.horaEntradaLocal) registro.hora_entrada = item.horaEntradaLocal
+            if (item.horaSalidaLocal) registro.hora_salida = item.horaSalidaLocal
+          }
+          return registro
+        })
+        await operacionesService.registrarAsistencia(asistencias)
+      }
       snackbar.color = 'success'
       snackbar.text = 'Asistencia administrativa guardada'
       snackbar.show = true

@@ -123,6 +123,11 @@ export const operacionesService = {
     return response.data
   },
 
+  async guardarHorarioAdministrativo (personalId, data) {
+    const response = await api.put(`/operaciones/asistencia/administrativa/horario/${personalId}`, data)
+    return response.data
+  },
+
   async getAsistenciaAdministrativa (fecha, params = {}) {
     const response = await api.get(`/operaciones/asistencia/administrativa/${fecha}`, { params })
     return response.data

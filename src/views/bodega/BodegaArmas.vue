@@ -161,6 +161,9 @@
           <v-chip :color="estadoColor(item.estado)" size="small" variant="tonal">
             {{ item.estado_label || item.estado }}
           </v-chip>
+          <div v-if="item.status_proceso === 'en_proceso'" class="text-caption text-warning">
+            En proceso
+          </div>
           <div v-if="item.estado === 'robada' && item.numero_denuncia" class="text-caption text-medium-emphasis">
             Denuncia {{ item.numero_denuncia }}
           </div>
@@ -239,6 +242,18 @@
                 item-value="value"
                 :items="estados"
                 label="Estado"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="form.status_proceso"
+                item-title="title"
+                item-value="value"
+                :items="statusProceso"
+                label="Status"
+                hint="Aparte del estado. Marca si el arma tiene un proceso"
+                persistent-hint
                 variant="outlined"
               />
             </v-col>
@@ -351,6 +366,11 @@
     { value: '9mm', title: '9mm' },
     { value: 'escopeta', title: 'Escopeta' },
   ])
+  const statusProceso = [
+    { value: 'sin_proceso', title: 'Sin proceso' },
+    { value: 'en_proceso', title: 'En proceso' },
+  ]
+
   const estados = ref([
     { value: 'en_bodega', title: 'En bodega' },
     { value: 'asignada', title: 'Asignada' },
@@ -412,6 +432,7 @@
       responsable_nombre: '',
       proyecto_id: null,
       estado: 'en_bodega',
+      status_proceso: 'sin_proceso',
       numero_denuncia: '',
       observaciones: '',
     }
@@ -476,6 +497,7 @@
       responsable_nombre: item.responsable_nombre || '',
       proyecto_id: item.proyecto_id || null,
       estado: item.estado || 'en_bodega',
+      status_proceso: item.status_proceso || 'sin_proceso',
       numero_denuncia: item.numero_denuncia || '',
       observaciones: item.observaciones || '',
     })
@@ -536,6 +558,7 @@
         responsable_nombre: form.responsable_nombre || null,
         proyecto_id: form.proyecto_id || null,
         estado: form.estado,
+        status_proceso: form.status_proceso || 'sin_proceso',
         numero_denuncia: form.numero_denuncia || null,
         observaciones: form.observaciones || null,
       }
