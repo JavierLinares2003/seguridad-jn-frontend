@@ -239,14 +239,24 @@
               <!-- Personal -->
               <template #item.personal="{ item }">
                 <div class="d-flex align-center py-2">
-                  <v-avatar class="mr-3" color="primary" size="36">
+                  <v-avatar class="mr-3" :color="esExtrero(item) ? '#C2410C' : 'primary'" size="36">
                     <span class="text-white text-caption font-weight-bold">
                       {{ getInitials(item._personal) }}
                     </span>
                   </v-avatar>
                   <div>
-                    <div class="font-weight-medium">
-                      {{ item._personal?.nombres }} {{ item._personal?.apellidos }}
+                    <div class="d-flex align-center flex-wrap ga-2">
+                      <span class="font-weight-medium">
+                        {{ item._personal?.nombres }} {{ item._personal?.apellidos }}
+                      </span>
+                      <v-chip
+                        v-if="esExtrero(item)"
+                        class="chip-extrero"
+                        size="x-small"
+                        variant="flat"
+                      >
+                        Extrero
+                      </v-chip>
                     </div>
                     <div class="text-caption text-medium-emphasis">
                       {{ formatDPI(item._personal?.dpi) }}
@@ -538,8 +548,16 @@
             <v-icon class="mr-2" color="primary">mdi-domain</v-icon>
             <span class="font-weight-bold">{{ grupo.departamento?.nombre || 'Sin Departamento' }}</span>
             <v-spacer />
-            <v-chip color="grey" size="small" variant="tonal">
-              {{ grupo.total_en_departamento || grupo.total || grupo.personalMapped?.length || 0 }} personas
+            <v-chip
+              v-for="seccion in seccionesSinAsignar(grupo)"
+              :key="`conteo-${seccion.key}`"
+              class="ml-2"
+              :class="{ 'chip-extrero': seccion.key === 'extreros' }"
+              :color="seccion.key === 'extreros' ? '#C2410C' : 'grey'"
+              size="small"
+              :variant="seccion.key === 'extreros' ? 'flat' : 'tonal'"
+            >
+              {{ seccion.items.length }} {{ seccion.key === 'extreros' ? 'extreros' : 'sin asignar' }}
             </v-chip>
           </v-card-title>
 
@@ -564,25 +582,53 @@
                 Ver todos
               </v-btn>
             </v-alert>
+            <template
+              v-for="(seccion, seccionIdx) in seccionesSinAsignar(grupo)"
+              :key="`${grupo.departamento?.id ?? 'sin'}-${seccion.key}`"
+            >
+              <div
+                class="d-flex align-center flex-wrap ga-2 px-4"
+                :class="seccionIdx === 0 ? 'pt-3 pb-1' : 'pt-4 pb-1'"
+              >
+                <v-chip
+                  :class="{ 'chip-extrero': seccion.key === 'extreros' }"
+                  :color="seccion.key === 'extreros' ? '#C2410C' : 'blue-grey'"
+                  size="small"
+                  variant="flat"
+                >
+                  <span class="text-white">{{ seccion.titulo }}</span>
+                </v-chip>
+                <span class="text-caption text-medium-emphasis">{{ seccion.ayuda }}</span>
+              </div>
             <v-data-table
               class="asistencia-table"
               density="comfortable"
               :headers="headersSinAsignar"
-              :hide-default-footer="!paginationData"
-              :items="grupo.personalMapped"
+              hide-default-footer
+              :items="seccion.items"
               :items-per-page="-1"
             >
               <!-- Personal -->
               <template #item.personal="{ item }">
                 <div class="d-flex align-center py-2">
-                  <v-avatar class="mr-3" color="primary" size="36">
+                  <v-avatar class="mr-3" :color="esExtrero(item) ? '#C2410C' : 'primary'" size="36">
                     <span class="text-white text-caption font-weight-bold">
                       {{ getInitials(item._personal) }}
                     </span>
                   </v-avatar>
                   <div>
-                    <div class="font-weight-medium">
-                      {{ item._personal?.nombre_completo || `${item._personal?.nombres || ''} ${item._personal?.apellidos || ''}` }}
+                    <div class="d-flex align-center flex-wrap ga-2">
+                      <span class="font-weight-medium">
+                        {{ item._personal?.nombre_completo || `${item._personal?.nombres || ''} ${item._personal?.apellidos || ''}` }}
+                      </span>
+                      <v-chip
+                        v-if="esExtrero(item)"
+                        class="chip-extrero"
+                        size="x-small"
+                        variant="flat"
+                      >
+                        Extrero
+                      </v-chip>
                     </div>
                     <div class="text-caption text-medium-emphasis">
                       {{ formatDPI(item._personal?.dpi) }}
@@ -752,33 +798,32 @@
                 </v-menu>
               </template>
 
-              <!-- Footer con paginación personalizada -->
-              <template v-if="paginationData" #bottom>
-                <div class="d-flex justify-center align-center flex-wrap ga-3 pa-4">
-                  <v-select
-                    v-model="perPageProyectos"
-                    density="compact"
-                    hide-details
-                    item-title="title"
-                    item-value="value"
-                    :items="opcionesPorPagina"
-                    label="Por página"
-                    style="max-width: 140px"
-                    variant="outlined"
-                    @update:model-value="onPerPageChange"
-                  />
-                  <v-pagination
-                    :model-value="currentPage"
-                    :length="paginationData.lastPage"
-                    :total-visible="7"
-                    @update:model-value="onPageChange"
-                  />
-                  <span class="text-caption text-medium-emphasis">
-                    {{ paginationData.total }} personas
-                  </span>
-                </div>
-              </template>
             </v-data-table>
+            </template>
+
+            <div v-if="paginationData" class="d-flex justify-center align-center flex-wrap ga-3 pa-4">
+              <v-select
+                v-model="perPageProyectos"
+                density="compact"
+                hide-details
+                item-title="title"
+                item-value="value"
+                :items="opcionesPorPagina"
+                label="Por página"
+                style="max-width: 140px"
+                variant="outlined"
+                @update:model-value="onPerPageChange"
+              />
+              <v-pagination
+                :model-value="currentPage"
+                :length="paginationData.lastPage"
+                :total-visible="7"
+                @update:model-value="onPageChange"
+              />
+              <span class="text-caption text-medium-emphasis">
+                {{ paginationData.total }} personas
+              </span>
+            </div>
           </v-card-text>
         </v-card>
       </template>
@@ -1755,6 +1800,45 @@
     cargarAsistencia()
   }
 
+  function estadoPersonalItem (item) {
+    return item?.personal?.estado
+      || item?._personal?.estado
+      || item?.asignacion?.personal?.estado
+      || item?.estado
+      || null
+  }
+
+  function esExtrero (item) {
+    return estadoPersonalItem(item) === 'extrero'
+  }
+
+  function seccionesSinAsignar (grupo) {
+    const items = grupo?.personalMapped || []
+    const extreros = items.filter(esExtrero)
+    const agentes = items.filter(item => !esExtrero(item))
+    const secciones = []
+
+    if (extreros.length) {
+      secciones.push({
+        key: 'extreros',
+        titulo: 'Extreros',
+        ayuda: 'Personal externo. No son agentes sin puesto.',
+        items: extreros,
+      })
+    }
+
+    if (agentes.length) {
+      secciones.push({
+        key: 'agentes',
+        titulo: 'Agentes sin asignar',
+        ayuda: 'Agentes activos sin proyecto en esta fecha.',
+        items: agentes,
+      })
+    }
+
+    return secciones
+  }
+
   // Mapea un item de personal del API a la estructura editable de la tabla
   function mapPersonalItem (item) {
     const asistencia = item.asistencia || null
@@ -2684,6 +2768,11 @@
 .asistencia-table :deep(th) {
   background-color: rgb(var(--v-theme-surface)) !important;
   font-weight: 600 !important;
+}
+
+.chip-extrero {
+  background-color: #c2410c !important;
+  color: #fff !important;
 }
 
 .calendario-head {
