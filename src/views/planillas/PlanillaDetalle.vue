@@ -257,6 +257,24 @@
               </div>
             </template>
 
+            <!-- Minutos saldo administrativo del período -->
+            <template #item.minutos_saldo="{ item }">
+              <div class="text-caption text-center">
+                <div v-if="item.minutos_debe_empleado" class="text-error">
+                  Debe {{ item.minutos_debe_empleado }} min
+                </div>
+                <div v-if="item.minutos_debe_empresa" class="text-success">
+                  Se le deben {{ item.minutos_debe_empresa }} min
+                </div>
+                <div
+                  v-if="!item.minutos_debe_empleado && !item.minutos_debe_empresa"
+                  class="text-medium-emphasis"
+                >
+                  —
+                </div>
+              </div>
+            </template>
+
             <!-- Devengado -->
             <template #item.salario_devengado="{ item }">
               <span class="text-success font-weight-bold">
@@ -637,6 +655,7 @@
     { title: 'Personal', key: 'personal', sortable: true },
     { title: 'Proyecto', key: 'proyecto', sortable: true },
     { title: 'Días', key: 'dias_resumen', sortable: false, align: 'center' },
+    { title: 'Minutos', key: 'minutos_saldo', sortable: false, align: 'center' },
     { title: 'Devengado', key: 'salario_devengado', sortable: true, align: 'end' },
     { title: 'Descuentos', key: 'descuentos', sortable: false, align: 'center' },
     { title: 'Neto', key: 'salario_neto', sortable: true, align: 'end' },

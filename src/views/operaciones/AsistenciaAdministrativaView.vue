@@ -4,7 +4,8 @@
       <div>
         <h1 class="text-h5 font-weight-bold mb-0">Asistencia administrativa</h1>
         <p class="text-caption text-medium-emphasis mb-0">
-          Horario de cada persona, hora de entrada y salida. El retraso y la salida temprano se calculan con 5 minutos de tolerancia.
+          Horario de cada persona, hora de entrada y salida. Retraso, salida temprana y minutos a favor
+          (entrada anticipada / salida tarde) usan 5 minutos de tolerancia.
         </p>
       </div>
       <v-spacer />
@@ -65,38 +66,44 @@
           </div>
         </template>
         <template #item.horas="{ item }">
-          <div class="d-flex flex-column ga-1">
-            <div class="d-flex ga-1">
-              <v-text-field
-                v-model="item.horaEntradaLocal"
-                density="compact"
-                hide-details
-                label="Entrada"
-                style="max-width: 120px"
-                type="time"
-                variant="outlined"
-                :disabled="!canManage"
-                @update:model-value="marcarHoras(item)"
-              />
-              <v-text-field
-                v-model="item.horaSalidaLocal"
-                density="compact"
-                hide-details
-                label="Salida"
-                style="max-width: 120px"
-                type="time"
-                variant="outlined"
-                :disabled="!canManage"
-                @update:model-value="marcarHoras(item)"
-              />
+          <div class="d-flex ga-1">
+            <v-text-field
+              v-model="item.horaEntradaLocal"
+              density="compact"
+              hide-details
+              label="Entrada"
+              style="max-width: 120px"
+              type="time"
+              variant="outlined"
+              :disabled="!canManage"
+              @update:model-value="marcarHoras(item)"
+            />
+            <v-text-field
+              v-model="item.horaSalidaLocal"
+              density="compact"
+              hide-details
+              label="Salida"
+              style="max-width: 120px"
+              type="time"
+              variant="outlined"
+              :disabled="!canManage"
+              @update:model-value="marcarHoras(item)"
+            />
+          </div>
+        </template>
+        <template #item.saldo="{ item }">
+          <div class="text-caption">
+            <div v-if="item.asistencia?.minutos_debe_empleado" class="text-error">
+              Debe {{ item.asistencia.minutos_debe_empleado }} min
             </div>
-            <div class="text-caption">
-              <span v-if="item.asistencia?.minutos_retraso" class="text-warning">
-                {{ item.asistencia.minutos_retraso }} min tarde
-              </span>
-              <span v-if="item.asistencia?.minutos_salida_temprana" class="text-error ml-2">
-                {{ item.asistencia.minutos_salida_temprana }} min antes
-              </span>
+            <div v-if="item.asistencia?.minutos_debe_empresa" class="text-success">
+              Se le deben {{ item.asistencia.minutos_debe_empresa }} min
+            </div>
+            <div
+              v-if="!item.asistencia?.minutos_debe_empleado && !item.asistencia?.minutos_debe_empresa"
+              class="text-medium-emphasis"
+            >
+              —
             </div>
           </div>
         </template>
@@ -239,6 +246,7 @@
       { title: 'Puesto', key: 'puesto' },
       { title: 'Horario', key: 'horario', sortable: false },
       { title: 'Horas del día', key: 'horas', sortable: false },
+      { title: 'Saldo min', key: 'saldo', sortable: false },
       { title: 'Estado', key: 'estado' },
       { title: '', key: 'calendario', sortable: false, width: '56px' },
     ]

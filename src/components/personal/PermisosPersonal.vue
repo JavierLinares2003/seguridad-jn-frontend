@@ -36,6 +36,7 @@
                 </template>
                 <v-radio label="Se recupera trabajando" value="reposicion" />
                 <v-radio label="Se toma como día de vacaciones" value="vacaciones" />
+                <v-radio label="Presentó constancia" value="constancia" />
               </v-radio-group>
             </v-col>
 
@@ -78,6 +79,82 @@
                 type="date"
                 variant="outlined"
               />
+            </v-col>
+
+            <!-- Fechas en que repone (solo si recupera trabajando) -->
+            <v-col v-if="form.compensa_con === 'reposicion'" cols="12">
+              <div class="d-flex align-center flex-wrap ga-2 mb-2">
+                <div class="text-subtitle-2">
+                  <v-icon class="mr-1" size="18">mdi-calendar-refresh</v-icon>
+                  Fechas en que repone el permiso *
+                </div>
+                <v-spacer />
+                <v-btn
+                  color="primary"
+                  density="comfortable"
+                  prepend-icon="mdi-plus"
+                  size="small"
+                  variant="tonal"
+                  @click="agregarFilaReposicion"
+                >
+                  Agregar fecha
+                </v-btn>
+              </div>
+              <div class="text-caption text-medium-emphasis mb-3">
+                Puede repartir la reposición en varios días (ej. 4 horas en 4 días, 1 hora cada día).
+              </div>
+              <v-alert
+                v-if="errors.fechas_reposicion"
+                class="mb-3"
+                density="compact"
+                type="error"
+                variant="tonal"
+              >
+                {{ Array.isArray(errors.fechas_reposicion) ? errors.fechas_reposicion[0] : errors.fechas_reposicion }}
+              </v-alert>
+              <v-row
+                v-for="(fila, index) in form.fechas_reposicion"
+                :key="`repo-${index}`"
+                align="center"
+                class="mb-1"
+                dense
+              >
+                <v-col cols="12" sm="5" md="4">
+                  <v-text-field
+                    v-model="fila.fecha"
+                    density="comfortable"
+                    :error-messages="errors[`fechas_reposicion.${index}.fecha`]"
+                    label="Fecha de reposición *"
+                    prepend-inner-icon="mdi-calendar"
+                    type="date"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="10" sm="5" md="3">
+                  <v-text-field
+                    v-model.number="fila.horas"
+                    density="comfortable"
+                    :error-messages="errors[`fechas_reposicion.${index}.horas`]"
+                    :label="form.tipo === 'dias' ? 'Días que repone *' : 'Horas que repone *'"
+                    min="0.25"
+                    step="0.25"
+                    :prepend-inner-icon="form.tipo === 'dias' ? 'mdi-calendar-check' : 'mdi-clock-outline'"
+                    type="number"
+                    variant="outlined"
+                  />
+                </v-col>
+                <v-col cols="2" sm="2" md="1">
+                  <v-btn
+                    color="error"
+                    :disabled="form.fechas_reposicion.length <= 1"
+                    icon
+                    variant="text"
+                    @click="quitarFilaReposicion(index)"
+                  >
+                    <v-icon>mdi-delete-outline</v-icon>
+                  </v-btn>
+                </v-col>
+              </v-row>
             </v-col>
 
             <!-- Descripción -->
@@ -248,6 +325,14 @@
             Vacaciones
           </v-chip>
           <v-chip
+            v-else-if="item.es_constancia"
+            color="blue-grey"
+            size="small"
+            variant="flat"
+          >
+            Constancia
+          </v-chip>
+          <v-chip
             v-else
             :color="item.saldo_pendiente <= 0 ? 'success' : 'warning'"
             size="small"
@@ -269,6 +354,14 @@
               Día de vacaciones
             </v-chip>
             <v-chip
+              v-else-if="item.es_constancia"
+              color="blue-grey"
+              size="small"
+              variant="tonal"
+            >
+              Presentó constancia
+            </v-chip>
+            <v-chip
               v-else-if="item.recuperado"
               color="success"
               size="small"
@@ -284,11 +377,22 @@
             >
               Pendiente
             </v-chip>
-            <div v-if="fechasRecuperacion(item).length" class="text-caption text-medium-emphasis mt-1">
+            <div
+              v-if="!item.es_vacaciones && !item.es_constancia && (item.fechas_reposicion || []).length"
+              class="text-caption text-medium-emphasis mt-1"
+            >
+              <div v-for="(fila, idx) in item.fechas_reposicion" :key="`fr-${item.id}-${idx}`">
+                {{ formatDate(fila.fecha) }} · {{ fila.horas }}{{ item.tipo === 'dias' ? 'd' : 'h' }}
+              </div>
+            </div>
+            <div
+              v-else-if="fechasRecuperacion(item).length"
+              class="text-caption text-medium-emphasis mt-1"
+            >
               {{ fechasRecuperacion(item).map(formatDate).join(', ') }}
             </div>
             <v-btn
-              v-if="!readonly && !item.recuperado && !item.es_vacaciones"
+              v-if="!readonly && !item.recuperado && !item.es_vacaciones && !item.es_constancia"
               class="mt-1"
               color="primary"
               density="compact"
@@ -397,20 +501,45 @@
                 </div>
               </v-col>
               <v-col cols="12">
-                <div class="text-caption text-medium-emphasis">Recuperación</div>
+                <div class="text-caption text-medium-emphasis">¿Cómo se cubre?</div>
                 <div v-if="detallePermiso.es_vacaciones" class="text-body-2">
-                  Día de vacaciones
+                  Se toma como día de vacaciones
                   <span v-if="detallePermiso.fecha_recuperacion || detallePermiso.fecha_inicio">
                     · {{ formatDate(detallePermiso.fecha_recuperacion || detallePermiso.fecha_inicio) }}
                   </span>
                 </div>
-                <div v-else-if="detallePermiso.recuperado" class="text-body-2">
-                  Recuperó
-                  <span v-if="(detallePermiso.fechas_recuperacion || []).length">
-                    · {{ detallePermiso.fechas_recuperacion.map(formatDate).join(', ') }}
-                  </span>
+                <div v-else-if="detallePermiso.es_constancia" class="text-body-2">
+                  Presentó constancia (no recupera el día)
                 </div>
-                <div v-else class="text-body-2 text-warning">Pendiente de recuperar</div>
+                <div v-else-if="detallePermiso.recuperado" class="text-body-2">
+                  Se recupera trabajando · Recuperó
+                </div>
+                <div v-else class="text-body-2 text-warning">
+                  Se recupera trabajando · Pendiente de recuperar
+                </div>
+              </v-col>
+              <v-col
+                v-if="!detallePermiso.es_vacaciones && !detallePermiso.es_constancia && (detallePermiso.fechas_reposicion || []).length"
+                cols="12"
+              >
+                <div class="text-caption text-medium-emphasis mb-1">Fechas en que repone</div>
+                <v-list density="compact" lines="one">
+                  <v-list-item
+                    v-for="(fila, idx) in detallePermiso.fechas_reposicion"
+                    :key="`det-repo-${idx}`"
+                    rounded="lg"
+                  >
+                    <template #prepend>
+                      <v-icon color="primary" size="18">mdi-calendar-clock</v-icon>
+                    </template>
+                    <v-list-item-title>{{ formatDate(fila.fecha) }}</v-list-item-title>
+                    <template #append>
+                      <v-chip color="primary" size="x-small" variant="tonal">
+                        {{ fila.horas }}{{ detallePermiso.tipo === 'dias' ? 'd' : 'h' }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
               </v-col>
               <v-col cols="12">
                 <div class="text-caption text-medium-emphasis">Período</div>
@@ -576,6 +705,7 @@
     descripcion: '',
     observaciones: '',
     compensa_con: 'reposicion',
+    fechas_reposicion: [{ fecha: '', horas: null }],
   })
   const errors = reactive({})
 
@@ -622,6 +752,24 @@
     if (!form.fecha_inicio) { errors.fecha_inicio = ['Requerido']; return }
     if (!form.fecha_fin) { errors.fecha_fin = ['Requerido']; return }
 
+    if (form.compensa_con === 'reposicion') {
+      const filasValidas = (form.fechas_reposicion || []).filter(f => f.fecha && f.horas > 0)
+      if (!filasValidas.length) {
+        errors.fechas_reposicion = ['Agregue al menos una fecha y horas de reposición.']
+        return
+      }
+      for (const [index, fila] of (form.fechas_reposicion || []).entries()) {
+        if (!fila.fecha) {
+          errors[`fechas_reposicion.${index}.fecha`] = ['Requerido']
+          return
+        }
+        if (!fila.horas || fila.horas < 0.25) {
+          errors[`fechas_reposicion.${index}.horas`] = ['Mínimo 0.25']
+          return
+        }
+      }
+    }
+
     saving.value = true
     try {
       const formData = new FormData()
@@ -632,6 +780,14 @@
       if (form.descripcion) formData.append('descripcion', form.descripcion)
       if (form.observaciones) formData.append('observaciones', form.observaciones)
       formData.append('compensa_con', form.compensa_con || 'reposicion')
+
+      if (form.compensa_con === 'reposicion') {
+        form.fechas_reposicion.forEach((fila, index) => {
+          formData.append(`fechas_reposicion[${index}][fecha]`, fila.fecha)
+          formData.append(`fechas_reposicion[${index}][horas]`, String(fila.horas))
+        })
+      }
+
       if (selectedFile.value) formData.append('documento', selectedFile.value)
 
       await permisosService.registrarPermiso(props.personalId, formData)
@@ -783,14 +939,26 @@
   }
 
   function fechasRecuperacion (item) {
-    if (item.es_vacaciones) {
+    if (item.es_vacaciones || item.es_constancia) {
       return item.fecha_recuperacion ? [item.fecha_recuperacion] : (item.fecha_inicio ? [item.fecha_inicio] : [])
+    }
+    if ((item.fechas_reposicion || []).length) {
+      return item.fechas_reposicion.map(f => f.fecha).filter(Boolean)
     }
     const fechas = [...(item.fechas_recuperacion || [])]
     if (item.fecha_recuperacion && !fechas.includes(item.fecha_recuperacion)) {
       fechas.push(item.fecha_recuperacion)
     }
     return fechas
+  }
+
+  function agregarFilaReposicion () {
+    form.fechas_reposicion.push({ fecha: '', horas: null })
+  }
+
+  function quitarFilaReposicion (index) {
+    if (form.fechas_reposicion.length <= 1) return
+    form.fechas_reposicion.splice(index, 1)
   }
 
   function abrirMarcarRecuperado (item) {
@@ -825,6 +993,9 @@
   }
 
   function resetForm () {
+    Object.keys(errors).forEach(k => delete errors[k])
+    clearFile()
+    formRef.value?.reset()
     form.tipo = 'horas'
     form.cantidad_aprobada = null
     form.fecha_inicio = ''
@@ -832,9 +1003,7 @@
     form.descripcion = ''
     form.observaciones = ''
     form.compensa_con = 'reposicion'
-    Object.keys(errors).forEach(k => delete errors[k])
-    clearFile()
-    formRef.value?.reset()
+    form.fechas_reposicion = [{ fecha: '', horas: null }]
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────

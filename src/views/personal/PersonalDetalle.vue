@@ -154,6 +154,17 @@
               <v-icon start>mdi-calendar-month-outline</v-icon>
               Ver calendario
             </v-btn>
+            <v-btn
+              v-if="expedienteCompleto"
+              class="text-none font-weight-bold"
+              color="primary"
+              rounded="lg"
+              variant="tonal"
+              @click="abrirTabPuestos"
+            >
+              <v-icon start>mdi-briefcase-outline</v-icon>
+              Ver puestos
+            </v-btn>
           </div>
         </div>
       </v-card-text>
@@ -217,8 +228,8 @@
             Documentos
           </v-tab>
           <v-tab class="text-none" value="proyectos">
-            <v-icon size="20" start>mdi-clipboard-list-outline</v-icon>
-            Proyectos
+            <v-icon size="20" start>mdi-briefcase-outline</v-icon>
+            Puestos
           </v-tab>
           <v-tab class="text-none" value="asistencia">
             <v-icon size="20" start>mdi-calendar-check-outline</v-icon>
@@ -264,6 +275,55 @@
               >
                 Vista de nómina: salario y datos de pago. El expediente completo solo lo ven gerencia y RRHH.
               </v-alert>
+
+              <v-card class="mb-4" rounded="lg" variant="outlined">
+                <v-card-title class="d-flex align-center bg-grey-lighten-5 py-3 px-4">
+                  <v-icon class="mr-2" color="primary" icon="mdi-account-clock-outline" />
+                  <span class="text-subtitle-1 font-weight-bold">Alta, baja y puestos</span>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pa-4">
+                  <v-row dense>
+                    <v-col cols="12" md="4">
+                      <div class="text-caption text-medium-emphasis">Alta / ingreso</div>
+                      <div class="text-body-1 font-weight-medium">
+                        {{ formatDate(personal.fecha_ingreso_original || personal.fecha_inicio) || 'Sin fecha registrada' }}
+                      </div>
+                      <div v-if="personal.fecha_reingreso" class="text-caption mt-1">
+                        Reingreso: {{ formatDate(personal.fecha_reingreso) }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" md="4">
+                      <div class="text-caption text-medium-emphasis">Estado actual (alta / baja)</div>
+                      <v-chip
+                        class="mt-1 font-weight-medium"
+                        :color="getEstadoColor(personal.estado)"
+                        label
+                        size="small"
+                        variant="flat"
+                      >
+                        <v-icon size="14" start>{{ getEstadoIcon(personal.estado) }}</v-icon>
+                        {{ etiquetaEstadoLaboral }}
+                      </v-chip>
+                      <div class="text-caption text-medium-emphasis mt-1">
+                        No hay historial de fechas de baja en el sistema; se muestra el estado vigente.
+                      </div>
+                    </v-col>
+                    <v-col cols="12" md="4" class="d-flex align-center">
+                      <v-btn
+                        v-if="expedienteCompleto"
+                        color="primary"
+                        variant="tonal"
+                        @click="abrirTabPuestos"
+                      >
+                        <v-icon start>mdi-briefcase-outline</v-icon>
+                        Ver historial de puestos
+                      </v-btn>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
+
               <v-row>
                 <v-col cols="12" md="6">
                   <v-card class="h-100" rounded="lg" variant="outlined">
@@ -758,9 +818,12 @@
             </v-card-text>
           </v-tabs-window-item>
 
-          <!-- Tab: Historial de Proyectos -->
+          <!-- Tab: Historial de puestos / asignaciones -->
           <v-tabs-window-item value="proyectos">
             <v-card-text class="pa-6">
+              <v-alert class="mb-4" density="compact" type="info" variant="tonal">
+                Historial de asignaciones (activas y finalizadas): proyecto, puesto/turno, fechas y estado.
+              </v-alert>
               <v-timeline
                 density="comfortable"
                 line-color="grey-lighten-2"
@@ -774,9 +837,10 @@
                   size="small"
                 >
                   <template #opposite>
-                    <v-chip label size="small" variant="tonal">
-                      {{ formatDate(proyecto.fecha_inicio) }}
-                    </v-chip>
+                    <div class="text-caption text-medium-emphasis">
+                      <div>{{ formatDate(proyecto.fecha_inicio) || '—' }}</div>
+                      <div>→ {{ formatDate(proyecto.fecha_fin) || 'Vigente' }}</div>
+                    </div>
                   </template>
                   <v-card hover rounded="lg" variant="outlined">
                     <v-card-text class="pa-4">
@@ -788,25 +852,33 @@
                         <v-icon v-if="proyecto.turno" class="mr-1" icon="mdi-clock-outline" size="14" />
                         {{ proyecto.turno }}
                       </p>
-                      <v-chip
-                        class="font-weight-medium"
-                        :color="getAsignacionColor(proyecto.estado_asignacion)"
-                        label
-                        size="small"
-                        variant="flat"
-                      >
-                        <v-icon size="14" start>{{ getAsignacionIcon(proyecto.estado_asignacion) }}</v-icon>
-                        {{ getAsignacionLabel(proyecto.estado_asignacion) }}
-                      </v-chip>
+                      <div class="d-flex flex-wrap ga-2 align-center">
+                        <v-chip
+                          class="font-weight-medium"
+                          :color="getAsignacionColor(proyecto.estado_asignacion)"
+                          label
+                          size="small"
+                          variant="flat"
+                        >
+                          <v-icon size="14" start>{{ getAsignacionIcon(proyecto.estado_asignacion) }}</v-icon>
+                          {{ getAsignacionLabel(proyecto.estado_asignacion) }}
+                        </v-chip>
+                        <span class="text-caption text-medium-emphasis">
+                          {{ formatDate(proyecto.fecha_inicio) || '—' }}
+                          —
+                          {{ formatDate(proyecto.fecha_fin) || 'Sin fecha fin' }}
+                        </span>
+                      </div>
+                      <p v-if="proyecto.notas" class="text-caption mt-2 mb-0">{{ proyecto.notas }}</p>
                     </v-card-text>
                   </v-card>
                 </v-timeline-item>
               </v-timeline>
               <div v-if="proyectos.length === 0" class="text-center py-10">
                 <v-avatar class="mb-3" color="grey-lighten-3" size="64">
-                  <v-icon color="grey-lighten-1" size="36">mdi-clipboard-list-outline</v-icon>
+                  <v-icon color="grey-lighten-1" size="36">mdi-briefcase-outline</v-icon>
                 </v-avatar>
-                <p class="text-body-1 text-medium-emphasis mb-0">No hay proyectos registrados</p>
+                <p class="text-body-1 text-medium-emphasis mb-0">No hay puestos / asignaciones registradas</p>
               </div>
             </v-card-text>
           </v-tabs-window-item>
@@ -1392,6 +1464,22 @@
     tab.value = 'asistencia'
     if (!asistenciaHistorial.value) loadAsistenciaHistorial()
   }
+
+  function abrirTabPuestos () {
+    tab.value = 'proyectos'
+    if (!proyectos.value?.length) loadProyectos()
+  }
+
+  const etiquetaEstadoLaboral = computed(() => {
+    const map = {
+      activo: 'Activo (alta)',
+      extrero: 'Extrero (activo operativo)',
+      suspendido: 'Suspendido (baja temporal)',
+      no_contratar: 'No contratar (baja)',
+      inactivo: 'Inactivo (baja)',
+    }
+    return map[personal.value?.estado] || personal.value?.estado || '—'
+  })
 
   const calendarioDiasSemana = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
   const calendarioCeldas = computed(() => {

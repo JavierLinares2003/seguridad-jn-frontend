@@ -51,7 +51,7 @@
         <template #item.personal="{ item }">
           <div>{{ item.personal?.nombres }} {{ item.personal?.apellidos }}</div>
           <div v-if="item.personal_operaciones" class="text-caption text-medium-emphasis">
-            Vía ops: {{ item.personal_operaciones.nombres }} {{ item.personal_operaciones.apellidos }}
+            Entregado por: {{ item.personal_operaciones.nombres }} {{ item.personal_operaciones.apellidos }}
           </div>
         </template>
         <template #item.items="{ item }">
@@ -145,12 +145,13 @@
             v-model="form.personal_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             item-title="nombre_completo"
             item-value="id"
             :items="personalOpts"
             :loading="loadingPersonal"
-            label="Usuario final (guardia) *"
-            placeholder="Buscar por nombre..."
+            label="Usuario final (agente) *"
+            placeholder="Buscar agente / operativo..."
             variant="outlined"
             @update:search="buscarPersonal"
           />
@@ -160,27 +161,101 @@
             color="primary"
             density="compact"
             hide-details
-            label="Lo lleva operaciones (el guardia ya está en el punto)"
+            label="Lo entrega un administrativo (el agente ya está en el punto)"
           />
           <v-autocomplete
             v-if="form.via_operaciones"
             v-model="form.personal_operaciones_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             item-title="nombre_completo"
             item-value="id"
-            :items="personalOpts"
-            label="Quién de operaciones recibe en bodega *"
+            :items="adminOpts"
+            :loading="loadingAdmin"
+            label="Entregado por (administrativo) *"
+            placeholder="Buscar administrativo..."
             variant="outlined"
-            @update:search="buscarPersonal"
+            @update:search="buscarEntregadoPor"
           />
-          <v-text-field
-            v-model="form.fecha_entrega"
-            class="mb-4"
-            label="Fecha de entrega del uniforme"
-            type="date"
-            variant="outlined"
-          />
+          <v-sheet class="pa-4 mb-4 rounded-lg" border>
+            <div class="text-subtitle-2 font-weight-bold mb-3">Control de uniformes</div>
+            <v-row dense>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  density="compact"
+                  hint="Se llena al agregar las prendas"
+                  label="Monto total del uniforme"
+                  persistent-hint
+                  prefix="Q"
+                  readonly
+                  :model-value="formatMoney(montoTotal)"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model.number="form.cuotas_totales"
+                  density="compact"
+                  :disabled="!form.a_cuotas"
+                  label="Número de cuotas *"
+                  max="60"
+                  min="1"
+                  type="number"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  density="compact"
+                  hint="Calculado automáticamente"
+                  label="Monto por cuota"
+                  persistent-hint
+                  prefix="Q"
+                  readonly
+                  :model-value="formatMoney(montoPorCuota)"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.fecha_entrega"
+                  density="compact"
+                  label="Fecha de entrega del uniforme"
+                  type="date"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.fecha_inicio_descuento"
+                  density="compact"
+                  :disabled="!form.a_cuotas"
+                  label="Fecha del primer pago"
+                  type="date"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.descripcion_descuento"
+                  density="compact"
+                  :disabled="!form.a_cuotas"
+                  label="Concepto"
+                  placeholder="Kit uniforme agente..."
+                  variant="outlined"
+                />
+              </v-col>
+            </v-row>
+            <v-switch
+              v-model="form.a_cuotas"
+              class="mt-1"
+              color="primary"
+              density="compact"
+              hide-details
+              label="Registrar cuotas en planilla"
+            />
+          </v-sheet>
 
           <div class="text-subtitle-2 font-weight-bold mb-2">Ítems del conjunto</div>
           <v-row dense class="mb-2">
@@ -189,13 +264,14 @@
                 v-model="draft.producto_id"
                 clearable
                 density="compact"
+                :custom-filter="() => true"
                 :item-title="productoLabel"
                 item-value="id"
                 :items="productosOpts"
                 :loading="loadingProductos"
                 label="Producto de uniforme"
                 no-data-text="Sin ítems de uniforme"
-                placeholder="Buscar uniforme / accesorio..."
+                placeholder="Buscar camisa, pantalón, chaleco..."
                 variant="outlined"
                 @update:model-value="onDraftProducto"
                 @update:search="buscarProducto"
@@ -281,95 +357,8 @@
             </tbody>
           </v-table>
           <v-alert v-else class="mb-4" density="compact" type="info" variant="tonal">
-            Agrega camisa, pantalón, gorra, etc. para armar el conjunto.
+            Agrega camisa, pantalón, gorra, etc. para armar el conjunto. El monto total se calcula con esas prendas.
           </v-alert>
-
-          <div v-if="form.items.length" class="d-flex align-center mb-4">
-            <span class="text-subtitle-1 font-weight-bold">
-              {{ form.a_cuotas ? 'Total a descontar:' : 'Total del kit:' }}
-            </span>
-            <v-spacer />
-            <span class="text-h6 text-info">Q{{ formatMoney(montoTotal) }}</span>
-          </div>
-
-          <template v-if="form.items.length">
-            <div class="d-flex align-center flex-wrap ga-2 mb-2">
-              <div class="text-subtitle-2 font-weight-bold">Control de uniformes</div>
-              <v-spacer />
-              <v-switch
-                v-model="form.a_cuotas"
-                color="primary"
-                density="compact"
-                hide-details
-                label="Registrar cuotas"
-              />
-            </div>
-            <v-alert
-              v-if="!form.a_cuotas"
-              class="mb-3"
-              density="compact"
-              type="warning"
-              variant="tonal"
-            >
-              Sin cuotas: se entrega el kit y no se crea descuento en planilla.
-            </v-alert>
-            <v-sheet v-else class="pa-4 mb-2 rounded-lg" border>
-              <v-row dense>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    density="compact"
-                    label="Monto total del uniforme"
-                    persistent-hint
-                    prefix="Q"
-                    readonly
-                    :model-value="formatMoney(montoTotal)"
-                    variant="outlined"
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model.number="form.cuotas_totales"
-                    density="compact"
-                    label="Número de cuotas *"
-                    max="60"
-                    min="1"
-                    type="number"
-                    variant="outlined"
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    density="compact"
-                    hint="Calculado automáticamente"
-                    label="Monto por cuota"
-                    persistent-hint
-                    prefix="Q"
-                    readonly
-                    :model-value="formatMoney(montoPorCuota)"
-                    variant="outlined"
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="form.fecha_inicio_descuento"
-                    density="compact"
-                    label="Fecha del primer pago"
-                    type="date"
-                    variant="outlined"
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="form.descripcion_descuento"
-                    density="compact"
-                    label="Concepto"
-                    placeholder="Kit uniforme agente..."
-                    variant="outlined"
-                  />
-                </v-col>
-              </v-row>
-            </v-sheet>
-          </template>
 
           <v-textarea v-model="form.observaciones" class="mt-3" label="Observaciones" rows="2" variant="outlined" />
         </v-card-text>
@@ -398,12 +387,13 @@
             v-model="form.personal_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             item-title="nombre_completo"
             item-value="id"
             :items="personalOpts"
             :loading="loadingPersonal"
-            label="Usuario final (guardia) *"
-            placeholder="Buscar por nombre..."
+            label="Usuario final (agente) *"
+            placeholder="Buscar agente / operativo..."
             variant="outlined"
             @update:search="buscarPersonal"
           />
@@ -413,19 +403,22 @@
             color="primary"
             density="compact"
             hide-details
-            label="Lo lleva operaciones (el guardia ya está en el punto)"
+            label="Lo entrega un administrativo (el agente ya está en el punto)"
           />
           <v-autocomplete
             v-if="form.via_operaciones"
             v-model="form.personal_operaciones_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             item-title="nombre_completo"
             item-value="id"
-            :items="personalOpts"
-            label="Quién de operaciones recibe en bodega *"
+            :items="adminOpts"
+            :loading="loadingAdmin"
+            label="Entregado por (administrativo) *"
+            placeholder="Buscar administrativo..."
             variant="outlined"
-            @update:search="buscarPersonal"
+            @update:search="buscarEntregadoPor"
           />
           <v-select
             v-model="form.motivo_reposicion"
@@ -448,6 +441,7 @@
             v-model="draft.producto_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             :item-title="productoLabel"
             item-value="id"
             :items="productosOpts"
@@ -526,12 +520,13 @@
             v-model="form.personal_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             item-title="nombre_completo"
             item-value="id"
             :items="personalOpts"
             :loading="loadingPersonal"
-            label="Usuario final (guardia) *"
-            placeholder="Buscar por nombre..."
+            label="Usuario final (agente) *"
+            placeholder="Buscar agente / operativo..."
             variant="outlined"
             @update:search="buscarPersonal"
           />
@@ -541,25 +536,29 @@
             color="primary"
             density="compact"
             hide-details
-            label="Lo lleva operaciones (el guardia ya está en el punto)"
+            label="Lo entrega un administrativo (el agente ya está en el punto)"
           />
           <v-autocomplete
             v-if="form.via_operaciones"
             v-model="form.personal_operaciones_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             item-title="nombre_completo"
             item-value="id"
-            :items="personalOpts"
-            label="Quién de operaciones recibe en bodega *"
+            :items="adminOpts"
+            :loading="loadingAdmin"
+            label="Entregado por (administrativo) *"
+            placeholder="Buscar administrativo..."
             variant="outlined"
-            @update:search="buscarPersonal"
+            @update:search="buscarEntregadoPor"
           />
           <v-text-field v-model="form.fecha_entrega" class="mb-2" label="Fecha" type="date" variant="outlined" />
           <v-autocomplete
             v-model="draft.producto_id"
             class="mb-2"
             clearable
+            :custom-filter="() => true"
             :item-title="productoLabel"
             item-value="id"
             :items="productosOpts"
@@ -667,12 +666,14 @@
   const loading = ref(false)
   const saving = ref(false)
   const loadingPersonal = ref(false)
+  const loadingAdmin = ref(false)
   const loadingProductos = ref(false)
   const items = ref([])
   const dialogKit = ref(false)
   const dialogReposicion = ref(false)
   const dialogSimple = ref(false)
   const personalOpts = ref([])
+  const adminOpts = ref([])
   const productosOpts = ref([])
   const kits = ref([])
   const kitId = ref(null)
@@ -736,6 +737,7 @@
 
   const puedeGuardarKit = computed(() => {
     if (!form.personal_id || !form.items.length) return false
+    if (form.via_operaciones && !form.personal_operaciones_id) return false
     if (form.items.some(it => !it.variante_id)) return false
     if (form.a_cuotas) {
       if (montoTotal.value <= 0) return false
@@ -747,6 +749,7 @@
 
   const puedeGuardarReposicion = computed(() => {
     if (!form.personal_id || !form.motivo_reposicion) return false
+    if (form.via_operaciones && !form.personal_operaciones_id) return false
     if (!draft.variante_id || !draft.cantidad) return false
     if (form.cobrar) {
       if (Number(draft.precio_unitario) <= 0) return false
@@ -756,7 +759,8 @@
   })
 
   const puedeGuardarSimple = computed(() =>
-    !!(form.personal_id && draft.variante_id && draft.cantidad >= 1)
+    !!(form.personal_id && draft.variante_id && draft.cantidad >= 1
+      && (!form.via_operaciones || form.personal_operaciones_id))
   )
 
   function localDate () {
@@ -837,12 +841,44 @@
       if (term.length > 0 && term.length < 2) return
       loadingPersonal.value = true
       try {
-        const params = { per_page: 25, estado: 'activo', sort_by: 'apellidos', sort_order: 'asc', directorio: 1 }
+        const params = {
+          per_page: 25,
+          estado: 'activo',
+          sort_by: 'apellidos',
+          sort_order: 'asc',
+          directorio: 1,
+          es_administrativo: 0,
+        }
         if (term) params.buscar = term
         const res = await personalService.getAll(params)
         personalOpts.value = mapPersonal(res?.data || [])
       } finally {
         loadingPersonal.value = false
+      }
+    }, 300)
+  }
+
+  let searchAdminTimer = null
+  function buscarEntregadoPor (q) {
+    clearTimeout(searchAdminTimer)
+    searchAdminTimer = setTimeout(async () => {
+      const term = (q || '').trim()
+      if (term.length > 0 && term.length < 2) return
+      loadingAdmin.value = true
+      try {
+        const params = {
+          per_page: 25,
+          estado: 'activo',
+          sort_by: 'apellidos',
+          sort_order: 'asc',
+          directorio: 1,
+          es_administrativo: 1,
+        }
+        if (term) params.buscar = term
+        const res = await personalService.getAll(params)
+        adminOpts.value = mapPersonal(res?.data || [])
+      } finally {
+        loadingAdmin.value = false
       }
     }, 300)
   }
@@ -1022,16 +1058,34 @@
     dialogSimple.value = tipo === 'simple'
 
     loadingPersonal.value = true
+    loadingAdmin.value = true
     try {
-      const [pers, kitsRes] = await Promise.all([
-        personalService.getAll({ per_page: 30, estado: 'activo', sort_by: 'apellidos', sort_order: 'asc', directorio: 1 }),
+      const [pers, admins, kitsRes] = await Promise.all([
+        personalService.getAll({
+          per_page: 30,
+          estado: 'activo',
+          sort_by: 'apellidos',
+          sort_order: 'asc',
+          directorio: 1,
+          es_administrativo: 0,
+        }),
+        personalService.getAll({
+          per_page: 30,
+          estado: 'activo',
+          sort_by: 'apellidos',
+          sort_order: 'asc',
+          directorio: 1,
+          es_administrativo: 1,
+        }),
         bodegaService.getKits(),
         cargarProductosOpts(),
       ])
       personalOpts.value = mapPersonal(pers?.data || [])
+      adminOpts.value = mapPersonal(admins?.data || [])
       kits.value = kitsRes?.data || []
     } finally {
       loadingPersonal.value = false
+      loadingAdmin.value = false
     }
   }
 
