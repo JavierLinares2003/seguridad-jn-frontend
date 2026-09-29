@@ -231,10 +231,14 @@
     </v-dialog>
 
     <!-- Dialogo Confirmar Eliminar -->
-    <v-dialog v-model="dialogDelete" max-width="400px">
+    <v-dialog v-model="dialogDelete" max-width="440px">
       <v-card rounded="xl">
         <v-card-title class="text-h6">¿Eliminar puesto?</v-card-title>
-        <v-card-text>Esta acción eliminará el puesto y podría afectar asignaciones existentes.</v-card-text>
+        <v-card-text>
+          Se eliminará esta plaza de la configuración del proyecto.
+          Si hay personal asignado a ese puesto, su asignación se finalizará automáticamente.
+          No se borra al agente del sistema.
+        </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="closeDelete">Cancelar</v-btn>
@@ -242,6 +246,10 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="4000">
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-card>
 </template>
 
@@ -315,6 +323,7 @@
   }
   const editedItem = ref({ ...defaultItem })
   const itemToDelete = ref(null)
+  const snackbar = ref({ show: false, text: '', color: 'success' })
 
   // Computed for Margin Display in Form
   const calculatedMargin = computed(() => {
@@ -419,9 +428,19 @@
       await store.deleteConfiguracionPersonal(props.proyectoId, itemToDelete.value.id)
       await loadItems()
       emit('configuracion-changed')
+      snackbar.value = {
+        show: true,
+        text: 'Puesto eliminado. Las asignaciones de esa plaza se finalizaron si estaban activas.',
+        color: 'success',
+      }
       closeDelete()
     } catch (error) {
       console.error(error)
+      snackbar.value = {
+        show: true,
+        text: error.response?.data?.message || error.apiMessage || 'No se pudo eliminar el puesto',
+        color: 'error',
+      }
     } finally {
       deleting.value = false
     }

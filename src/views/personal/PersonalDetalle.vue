@@ -285,16 +285,19 @@
                 <v-card-text class="pa-4">
                   <v-row dense>
                     <v-col cols="12" md="4">
-                      <div class="text-caption text-medium-emphasis">Alta / ingreso</div>
+                      <div class="text-caption text-medium-emphasis">Fecha de alta</div>
                       <div class="text-body-1 font-weight-medium">
-                        {{ formatDate(personal.fecha_ingreso_original || personal.fecha_inicio) || 'Sin fecha registrada' }}
+                        {{ fechaAltaTexto }}
                       </div>
                       <div v-if="personal.fecha_reingreso" class="text-caption mt-1">
                         Reingreso: {{ formatDate(personal.fecha_reingreso) }}
                       </div>
                     </v-col>
                     <v-col cols="12" md="4">
-                      <div class="text-caption text-medium-emphasis">Estado actual (alta / baja)</div>
+                      <div class="text-caption text-medium-emphasis">Fecha de baja</div>
+                      <div class="text-body-1 font-weight-medium">
+                        {{ fechaBajaTexto }}
+                      </div>
                       <v-chip
                         class="mt-1 font-weight-medium"
                         :color="getEstadoColor(personal.estado)"
@@ -305,9 +308,6 @@
                         <v-icon size="14" start>{{ getEstadoIcon(personal.estado) }}</v-icon>
                         {{ etiquetaEstadoLaboral }}
                       </v-chip>
-                      <div class="text-caption text-medium-emphasis mt-1">
-                        No hay historial de fechas de baja en el sistema; se muestra el estado vigente.
-                      </div>
                     </v-col>
                     <v-col cols="12" md="4" class="d-flex align-center">
                       <v-btn
@@ -821,6 +821,36 @@
           <!-- Tab: Historial de puestos / asignaciones -->
           <v-tabs-window-item value="proyectos">
             <v-card-text class="pa-6">
+              <v-card class="mb-4" rounded="lg" variant="outlined">
+                <v-card-title class="d-flex align-center bg-grey-lighten-5 py-3 px-4">
+                  <v-icon class="mr-2" color="primary" icon="mdi-calendar-account" />
+                  <span class="text-subtitle-1 font-weight-bold">Alta y baja del personal</span>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pa-4">
+                  <v-row dense>
+                    <v-col cols="12" sm="6" md="4">
+                      <div class="text-caption text-medium-emphasis">Fecha de alta</div>
+                      <div class="text-body-1 font-weight-medium">
+                        {{ fechaAltaTexto }}
+                      </div>
+                      <div v-if="personal.fecha_reingreso" class="text-caption mt-1">
+                        Reingreso: {{ formatDate(personal.fecha_reingreso) }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6" md="4">
+                      <div class="text-caption text-medium-emphasis">Fecha de baja</div>
+                      <div class="text-body-1 font-weight-medium">
+                        {{ fechaBajaTexto }}
+                      </div>
+                      <div class="text-caption text-medium-emphasis mt-1">
+                        Estado: {{ etiquetaEstadoLaboral }}
+                      </div>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
+
               <v-alert class="mb-4" density="compact" type="info" variant="tonal">
                 Historial de asignaciones (activas y finalizadas): proyecto, puesto/turno, fechas y estado.
               </v-alert>
@@ -1479,6 +1509,25 @@
       inactivo: 'Inactivo (baja)',
     }
     return map[personal.value?.estado] || personal.value?.estado || '—'
+  })
+
+  const fechaAltaTexto = computed(() => {
+    const raw = personal.value?.fecha_ingreso_original || personal.value?.fecha_inicio
+    if (!raw) return 'Sin fecha'
+    const formatted = formatDate(raw)
+    return (!formatted || formatted === '-') ? 'Sin fecha' : formatted
+  })
+
+  const fechaBajaTexto = computed(() => {
+    const estadosBaja = ['suspendido', 'no_contratar', 'inactivo']
+    const esBaja = estadosBaja.includes(personal.value?.estado)
+    const raw = personal.value?.fecha_baja
+    if (raw) {
+      const formatted = formatDate(raw)
+      return (!formatted || formatted === '-') ? 'Sin fecha registrada' : formatted
+    }
+    if (esBaja) return 'Sin fecha registrada'
+    return '—'
   })
 
   const calendarioDiasSemana = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
