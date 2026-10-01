@@ -35,7 +35,7 @@
               v-model="buscarTexto"
               clearable
               density="comfortable"
-              label="Buscar en el día"
+              label="Buscar por nombre, DPI o puesto"
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
               @click:clear="buscarTexto = ''; cargarAsistencia()"

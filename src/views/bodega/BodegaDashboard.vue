@@ -52,6 +52,20 @@
       </v-col>
     </v-row>
 
+    <v-card class="mb-4" elevation="2" rounded="lg">
+      <v-card-title class="px-4 py-3 text-subtitle-1 font-weight-bold">
+        Precios de uniforme
+      </v-card-title>
+      <v-card-text class="pt-0">
+        <v-img
+          alt="Tabla de precios de uniforme"
+          cover
+          max-height="520"
+          :src="preciosUniforme"
+        />
+      </v-card-text>
+    </v-card>
+
     <v-row dense>
       <v-col cols="12" lg="8">
         <v-card elevation="2" rounded="xl">
@@ -348,6 +362,7 @@
 
 <script setup>
   import { computed, onMounted, reactive, ref } from 'vue'
+  import preciosUniforme from '@/assets/precios-uniforme.jpg'
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
   import bodegaService from '@/services/bodegaService'

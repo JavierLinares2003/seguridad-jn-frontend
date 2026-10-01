@@ -256,7 +256,11 @@
     return cols
   })
 
-  const hayCambios = computed(() => items.value.some(i => i.estadoLocal || i.horarioChanged || i.horasChanged))
+  // Incluye horas precargadas del horario para poder Guardar sin editar cada fila,
+  // sin marcar estadoLocal en todas (evita que toda la tabla se vea "sucia").
+  const hayCambios = computed(() =>
+    items.value.some(i => i.estadoLocal || i.horarioChanged || i.horasChanged || i.horasPrecargadas)
+  )
 
   const calendarioDiasSemana = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
   const calendarioCeldas = computed(() => {
@@ -348,11 +352,35 @@
     return map[dia?.tipo] || 'bg-grey'
   }
 
+  function esAusenteODescanso (estado) {
+    return ['ausente', 'ausente_injustificado', 'ausente_justificado', 'ausente_con_permiso', 'descanso'].includes(estado)
+  }
+
   function marcar (item, estado) {
     item.estadoLocal = estado
     if (estado !== 'presente') {
       item.horaEntradaLocal = ''
       item.horaSalidaLocal = ''
+      item.horasPrecargadas = false
+      item.horasChanged = true
+    } else if (!item.horaEntradaLocal && !item.horaSalidaLocal) {
+      const desdeHorario = precargarHorasDesdeHorario(item)
+      item.horaEntradaLocal = desdeHorario.horaEntradaLocal
+      item.horaSalidaLocal = desdeHorario.horaSalidaLocal
+      item.horasPrecargadas = desdeHorario.horasPrecargadas
+    }
+  }
+
+  function precargarHorasDesdeHorario (item) {
+    const horEnt = item.horarioEntradaLocal || item.horario_entrada || ''
+    const horSal = item.horarioSalidaLocal || item.horario_salida || ''
+    if (!horEnt && !horSal) {
+      return { horaEntradaLocal: '', horaSalidaLocal: '', horasPrecargadas: false }
+    }
+    return {
+      horaEntradaLocal: horEnt || '',
+      horaSalidaLocal: horSal || '',
+      horasPrecargadas: true,
     }
   }
 
@@ -404,16 +432,42 @@
     loading.value = true
     try {
       const res = await operacionesService.getAsistenciaAdministrativa(fecha.value)
-      items.value = (res.data || []).map(p => ({
-        ...p,
-        estadoLocal: null,
-        horarioChanged: false,
-        horasChanged: false,
-        horarioEntradaLocal: p.horario_entrada || '',
-        horarioSalidaLocal: p.horario_salida || '',
-        horaEntradaLocal: p.asistencia?.hora_entrada || '',
-        horaSalidaLocal: p.asistencia?.hora_salida || '',
-      }))
+      items.value = (res.data || []).map(p => {
+        const horarioEntradaLocal = p.horario_entrada || ''
+        const horarioSalidaLocal = p.horario_salida || ''
+        const horaGuardadaEntrada = p.asistencia?.hora_entrada || ''
+        const horaGuardadaSalida = p.asistencia?.hora_salida || ''
+        const tieneHorasGuardadas = !!(horaGuardadaEntrada || horaGuardadaSalida)
+        const estadoActual = p.asistencia?.estado
+        let horaEntradaLocal = horaGuardadaEntrada
+        let horaSalidaLocal = horaGuardadaSalida
+        let horasPrecargadas = false
+
+        // Sin horas guardadas y no ausente/descanso → sugerir el horario para editar solo excepciones.
+        if (!tieneHorasGuardadas && !esAusenteODescanso(estadoActual)) {
+          const precarga = precargarHorasDesdeHorario({
+            horarioEntradaLocal,
+            horarioSalidaLocal,
+            horario_entrada: p.horario_entrada,
+            horario_salida: p.horario_salida,
+          })
+          horaEntradaLocal = precarga.horaEntradaLocal
+          horaSalidaLocal = precarga.horaSalidaLocal
+          horasPrecargadas = precarga.horasPrecargadas
+        }
+
+        return {
+          ...p,
+          estadoLocal: null,
+          horarioChanged: false,
+          horasChanged: false,
+          horasPrecargadas,
+          horarioEntradaLocal,
+          horarioSalidaLocal,
+          horaEntradaLocal,
+          horaSalidaLocal,
+        }
+      })
     } catch (error) {
       snackbar.color = 'error'
       snackbar.text = error.apiMessage || error.response?.data?.message || 'No se pudo cargar la asistencia'
@@ -425,12 +479,13 @@
 
   function marcarHoras (item) {
     item.horasChanged = true
+    item.horasPrecargadas = false
     if (!item.estadoLocal) item.estadoLocal = 'presente'
   }
 
   async function guardar () {
     const conHorario = items.value.filter(i => i.horarioChanged)
-    const pendientes = items.value.filter(i => i.estadoLocal || i.horasChanged)
+    const pendientes = items.value.filter(i => i.estadoLocal || i.horasChanged || i.horasPrecargadas)
     if (!conHorario.length && !pendientes.length) return
     saving.value = true
     try {
@@ -453,6 +508,7 @@
           } else if (item.estadoLocal === 'descanso') {
             registro.es_descanso = true
           } else {
+            // Presente (explícito, editado o precargado del horario sin tocar).
             if (item.horaEntradaLocal) registro.hora_entrada = item.horaEntradaLocal
             if (item.horaSalidaLocal) registro.hora_salida = item.horaSalidaLocal
           }

@@ -65,7 +65,7 @@
         clearable
         density="compact"
         hide-details
-        label="Buscar por nombre o DPI..."
+        label="Buscar por nombre, DPI o puesto..."
         prepend-inner-icon="mdi-magnify"
         variant="outlined"
       />
@@ -114,6 +114,17 @@
               </v-list-item-title>
               <v-list-item-subtitle class="d-flex align-center flex-wrap ga-1 mt-1">
                 <span v-if="person.dpi" class="text-caption mr-1">DPI: {{ person.dpi }}</span>
+                <v-chip
+                  v-for="puesto in (person.puestos_titular || [])"
+                  :key="`${person.id}-${puesto}`"
+                  color="primary"
+                  density="compact"
+                  size="x-small"
+                  variant="tonal"
+                >
+                  {{ puesto }}
+                </v-chip>
+                <span v-if="!(person.puestos_titular || []).length && person.puesto" class="text-caption">{{ person.puesto }}</span>
                 <v-chip
                   :color="person.tiene_igss ? 'success' : 'grey'"
                   :variant="person.tiene_igss ? 'tonal' : 'outlined'"

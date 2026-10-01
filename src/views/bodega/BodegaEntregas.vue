@@ -151,10 +151,17 @@
             :items="personalOpts"
             :loading="loadingPersonal"
             label="Usuario final (agente) *"
-            placeholder="Buscar agente / operativo..."
+            no-data-text="No está de alta. Usa Aspirante para crear la ficha y entregar el uniforme."
+            placeholder="Buscar agente, operativo o aspirante..."
             variant="outlined"
             @update:search="buscarPersonal"
           />
+          <div class="d-flex justify-end mb-2">
+            <v-btn color="info" size="small" variant="tonal" @click="abrirAspirante">
+              <v-icon start>mdi-account-plus</v-icon>
+              Aspirante
+            </v-btn>
+          </div>
           <v-switch
             v-model="form.via_operaciones"
             class="mb-2"
@@ -174,7 +181,8 @@
             :items="adminOpts"
             :loading="loadingAdmin"
             label="Entregado por (administrativo) *"
-            placeholder="Buscar administrativo..."
+            no-data-text="No hay administrativos ni gerencia con ese nombre"
+            placeholder="Buscar administrativo o gerencia..."
             variant="outlined"
             @update:search="buscarEntregadoPor"
           />
@@ -360,6 +368,19 @@
             Agrega camisa, pantalón, gorra, etc. para armar el conjunto. El monto total se calcula con esas prendas.
           </v-alert>
 
+          <v-text-field
+            v-model="form.precio_boleta"
+            class="mt-3"
+            clearable
+            hint="Vacío para anotarlo a mano en la boleta. Si lo escribes, ese es el total (incluye la ganancia). No salen los precios de cada prenda."
+            label="Precio total en la boleta"
+            persistent-hint
+            prefix="Q"
+            type="number"
+            min="0"
+            step="0.01"
+            variant="outlined"
+          />
           <v-textarea v-model="form.observaciones" class="mt-3" label="Observaciones" rows="2" variant="outlined" />
         </v-card-text>
         <v-card-actions class="pa-4">
@@ -393,10 +414,17 @@
             :items="personalOpts"
             :loading="loadingPersonal"
             label="Usuario final (agente) *"
-            placeholder="Buscar agente / operativo..."
+            no-data-text="No está de alta. Usa Aspirante para crear la ficha y entregar el uniforme."
+            placeholder="Buscar agente, operativo o aspirante..."
             variant="outlined"
             @update:search="buscarPersonal"
           />
+          <div class="d-flex justify-end mb-2">
+            <v-btn color="info" size="small" variant="tonal" @click="abrirAspirante">
+              <v-icon start>mdi-account-plus</v-icon>
+              Aspirante
+            </v-btn>
+          </div>
           <v-switch
             v-model="form.via_operaciones"
             class="mb-2"
@@ -416,7 +444,8 @@
             :items="adminOpts"
             :loading="loadingAdmin"
             label="Entregado por (administrativo) *"
-            placeholder="Buscar administrativo..."
+            no-data-text="No hay administrativos ni gerencia con ese nombre"
+            placeholder="Buscar administrativo o gerencia..."
             variant="outlined"
             @update:search="buscarEntregadoPor"
           />
@@ -492,6 +521,19 @@
             </template>
           </v-card>
 
+          <v-text-field
+            v-model="form.precio_boleta"
+            class="mb-3"
+            clearable
+            hint="Vacío para anotarlo a mano. Si lo escribes, ese es el total de la boleta."
+            label="Precio total en la boleta"
+            persistent-hint
+            prefix="Q"
+            type="number"
+            min="0"
+            step="0.01"
+            variant="outlined"
+          />
           <v-alert v-if="itemError" class="mb-3" density="compact" type="warning" variant="tonal">{{ itemError }}</v-alert>
           <v-textarea v-model="form.observaciones" label="Observaciones" rows="2" variant="outlined" />
         </v-card-text>
@@ -526,10 +568,17 @@
             :items="personalOpts"
             :loading="loadingPersonal"
             label="Usuario final (agente) *"
-            placeholder="Buscar agente / operativo..."
+            no-data-text="No está de alta. Usa Aspirante para crear la ficha y entregar el uniforme."
+            placeholder="Buscar agente, operativo o aspirante..."
             variant="outlined"
             @update:search="buscarPersonal"
           />
+          <div class="d-flex justify-end mb-2">
+            <v-btn color="info" size="small" variant="tonal" @click="abrirAspirante">
+              <v-icon start>mdi-account-plus</v-icon>
+              Aspirante
+            </v-btn>
+          </div>
           <v-switch
             v-model="form.via_operaciones"
             class="mb-2"
@@ -549,7 +598,8 @@
             :items="adminOpts"
             :loading="loadingAdmin"
             label="Entregado por (administrativo) *"
-            placeholder="Buscar administrativo..."
+            no-data-text="No hay administrativos ni gerencia con ese nombre"
+            placeholder="Buscar administrativo o gerencia..."
             variant="outlined"
             @update:search="buscarEntregadoPor"
           />
@@ -580,6 +630,19 @@
             variant="outlined"
           />
           <v-text-field v-model.number="draft.cantidad" class="mb-2" label="Cantidad *" min="1" type="number" variant="outlined" />
+          <v-text-field
+            v-model="form.precio_boleta"
+            class="mb-2"
+            clearable
+            hint="Vacío para anotarlo a mano. Si lo escribes, ese es el total de la boleta."
+            label="Precio total en la boleta"
+            persistent-hint
+            prefix="Q"
+            type="number"
+            min="0"
+            step="0.01"
+            variant="outlined"
+          />
           <v-textarea v-model="form.observaciones" label="Observaciones" rows="2" variant="outlined" />
           <v-alert v-if="itemError" class="mt-3" density="compact" type="warning" variant="tonal">{{ itemError }}</v-alert>
         </v-card-text>
@@ -588,6 +651,51 @@
           <v-btn variant="text" @click="dialogSimple = false">Cancelar</v-btn>
           <v-btn color="secondary" :disabled="!puedeGuardarSimple" :loading="saving" variant="elevated" @click="guardar">
             Entregar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="dialogAspirante" max-width="520" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="bg-info pa-4 text-white">
+          Aspirante
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <p class="text-body-2 text-medium-emphasis mb-4">
+            Aún no es alta. Se crea una pre-alta para poder entregarle el uniforme. Recursos Humanos completa el expediente cuando lo contraten.
+          </p>
+          <v-text-field v-model="aspirante.nombres" class="mb-2" label="Nombres *" variant="outlined" />
+          <v-text-field v-model="aspirante.apellidos" class="mb-2" label="Apellidos *" variant="outlined" />
+          <v-text-field v-model="aspirante.dpi" class="mb-2" label="DPI (13 dígitos) *" maxlength="13" variant="outlined" />
+          <v-text-field v-model="aspirante.telefono" class="mb-3" label="Teléfono" variant="outlined" />
+          <div class="text-caption text-medium-emphasis mb-2">Tallas</div>
+          <v-row dense>
+            <v-col cols="6">
+              <v-text-field v-model="aspirante.tallas.talla_camisa" density="compact" label="Camisa" variant="outlined" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model="aspirante.tallas.talla_pantalon" density="compact" label="Pantalón" variant="outlined" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model="aspirante.tallas.talla_zapato" density="compact" label="Calzado" variant="outlined" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model="aspirante.tallas.talla_chaleco" density="compact" label="Chaleco" variant="outlined" />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field v-model="aspirante.tallas.talla_gorra" density="compact" label="Gorra" variant="outlined" />
+            </v-col>
+          </v-row>
+          <v-alert v-if="aspiranteError" class="mt-2" density="compact" type="warning" variant="tonal">
+            {{ aspiranteError }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogAspirante = false">Cancelar</v-btn>
+          <v-btn color="info" :loading="guardandoAspirante" variant="elevated" @click="guardarAspirante">
+            Guardar y usar en la entrega
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -670,6 +778,22 @@
   const loadingProductos = ref(false)
   const items = ref([])
   const dialogKit = ref(false)
+  const dialogAspirante = ref(false)
+  const guardandoAspirante = ref(false)
+  const aspiranteError = ref('')
+  const aspirante = reactive({
+    nombres: '',
+    apellidos: '',
+    dpi: '',
+    telefono: '',
+    tallas: {
+      talla_camisa: '',
+      talla_pantalon: '',
+      talla_zapato: '',
+      talla_chaleco: '',
+      talla_gorra: '',
+    },
+  })
   const dialogReposicion = ref(false)
   const dialogSimple = ref(false)
   const personalOpts = ref([])
@@ -698,6 +822,7 @@
     cobrar: true,
     a_cuotas: true,
     observaciones: '',
+    precio_boleta: '',
     items: [],
     cuotas_totales: 10,
     fecha_inicio_descuento: localDate(),
@@ -816,11 +941,72 @@
     }
   }
 
+  function mapEntregadores (list) {
+    return mapPersonal(list).map(p => ({
+      ...p,
+      nombre_completo: p.puesto ? `${p.nombre_completo} — ${p.puesto}` : p.nombre_completo,
+    }))
+  }
+
   function mapPersonal (list) {
     return (list || []).map(p => ({
       ...p,
-      nombre_completo: p.nombre_completo || `${p.nombres || ''} ${p.apellidos || ''}`.trim(),
+      nombre_completo: `${p.nombre_completo || `${p.nombres || ''} ${p.apellidos || ''}`.trim()}${p.estado === 'pre_alta' ? ' — Aspirante' : ''}`,
     }))
+  }
+
+  function abrirAspirante () {
+    aspiranteError.value = ''
+    aspirante.nombres = ''
+    aspirante.apellidos = ''
+    aspirante.dpi = ''
+    aspirante.telefono = ''
+    aspirante.tallas.talla_camisa = ''
+    aspirante.tallas.talla_pantalon = ''
+    aspirante.tallas.talla_zapato = ''
+    aspirante.tallas.talla_chaleco = ''
+    aspirante.tallas.talla_gorra = ''
+    dialogAspirante.value = true
+  }
+
+  async function guardarAspirante () {
+    aspiranteError.value = ''
+    const dpi = String(aspirante.dpi || '').replace(/\D/g, '')
+    if (!aspirante.nombres.trim() || !aspirante.apellidos.trim()) {
+      aspiranteError.value = 'Escribe nombres y apellidos.'
+      return
+    }
+    if (dpi.length !== 13) {
+      aspiranteError.value = 'El DPI debe tener 13 dígitos.'
+      return
+    }
+
+    guardandoAspirante.value = true
+    try {
+      const res = await personalService.preAlta({
+        nombres: aspirante.nombres.trim(),
+        apellidos: aspirante.apellidos.trim(),
+        dpi,
+        telefono: aspirante.telefono.trim(),
+        tallas: { ...aspirante.tallas },
+      })
+      const creado = res?.data || res
+      const opcion = mapPersonal([{ ...creado, estado: 'pre_alta' }])[0]
+      personalOpts.value = [opcion, ...personalOpts.value.filter(p => p.id !== opcion.id)]
+      form.personal_id = opcion.id
+      dialogAspirante.value = false
+      snackbar.color = 'success'
+      snackbar.text = 'Aspirante creado. Ya quedó como usuario final para la entrega.'
+      snackbar.show = true
+    } catch (error) {
+      const errores = error.response?.data?.errors
+      const dpiMsg = errores?.dpi?.[0]
+      aspiranteError.value = dpiMsg
+        ? 'Ese DPI ya está registrado. Búscalo en usuario final; si es pre-alta, sale como Aspirante.'
+        : (error.response?.data?.message || 'No se pudo crear el aspirante.')
+    } finally {
+      guardandoAspirante.value = false
+    }
   }
 
   async function cargar () {
@@ -843,11 +1029,11 @@
       try {
         const params = {
           per_page: 25,
-          estado: 'activo',
           sort_by: 'apellidos',
           sort_order: 'asc',
           directorio: 1,
           es_administrativo: 0,
+          incluye_pre_alta: 1,
         }
         if (term) params.buscar = term
         const res = await personalService.getAll(params)
@@ -867,16 +1053,16 @@
       loadingAdmin.value = true
       try {
         const params = {
-          per_page: 25,
+          per_page: 200,
           estado: 'activo',
           sort_by: 'apellidos',
           sort_order: 'asc',
           directorio: 1,
-          es_administrativo: 1,
+          entregado_por: 1,
         }
         if (term) params.buscar = term
         const res = await personalService.getAll(params)
-        adminOpts.value = mapPersonal(res?.data || [])
+        adminOpts.value = mapEntregadores(res?.data || [])
       } finally {
         loadingAdmin.value = false
       }
@@ -1040,6 +1226,7 @@
     form.cobrar = tipo === 'kit'
     form.a_cuotas = true
     form.observaciones = ''
+    form.precio_boleta = ''
     form.items = []
     form.cuotas_totales = tipo === 'reposicion' ? 2 : 10
     form.fecha_inicio_descuento = localDate()
@@ -1063,25 +1250,25 @@
       const [pers, admins, kitsRes] = await Promise.all([
         personalService.getAll({
           per_page: 30,
-          estado: 'activo',
           sort_by: 'apellidos',
           sort_order: 'asc',
           directorio: 1,
           es_administrativo: 0,
+          incluye_pre_alta: 1,
         }),
         personalService.getAll({
-          per_page: 30,
+          per_page: 200,
           estado: 'activo',
           sort_by: 'apellidos',
           sort_order: 'asc',
           directorio: 1,
-          es_administrativo: 1,
+          entregado_por: 1,
         }),
         bodegaService.getKits(),
         cargarProductosOpts(),
       ])
       personalOpts.value = mapPersonal(pers?.data || [])
-      adminOpts.value = mapPersonal(admins?.data || [])
+      adminOpts.value = mapEntregadores(admins?.data || [])
       kits.value = kitsRes?.data || []
     } finally {
       loadingPersonal.value = false
@@ -1131,6 +1318,7 @@
           : null,
         cantidad_entrada_dano: 1,
         observaciones: form.observaciones || null,
+        precio_boleta: form.precio_boleta === '' || form.precio_boleta === null ? null : Number(form.precio_boleta),
         fecha_entrega: form.fecha_entrega,
         items: form.items.map(it => ({
           variante_id: it.variante_id,
