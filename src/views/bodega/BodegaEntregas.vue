@@ -125,7 +125,7 @@
         </v-card-title>
         <v-card-text class="pa-6">
           <v-alert class="mb-4" density="compact" type="info" variant="tonal">
-            Puedes cargar un combo prearmado y solo elegir talla/condición, o armar prenda por prenda. Si activas cuotas, el total se descuenta en planilla.
+            Puedes cargar un combo, marcar las prendas frecuentes o armar prenda por prenda. El monto total va en la boleta y, si dejas las cuotas activas, se registra en planilla al entregar (también si es aspirante: al contratarlo ya está el descuento).
           </v-alert>
 
           <v-select
@@ -191,13 +191,16 @@
             <v-row dense>
               <v-col cols="12" md="6">
                 <v-text-field
+                  v-model="form.precio_boleta"
                   density="compact"
-                  hint="Se llena al agregar las prendas"
-                  label="Monto total del uniforme"
+                  :disabled="!form.a_cuotas"
+                  hint="Este monto va en la boleta y se divide en las cuotas de planilla."
+                  label="Monto total del uniforme *"
                   persistent-hint
                   prefix="Q"
-                  readonly
-                  :model-value="formatMoney(montoTotal)"
+                  min="0"
+                  step="0.01"
+                  type="number"
                   variant="outlined"
                 />
               </v-col>
@@ -265,6 +268,19 @@
             />
           </v-sheet>
 
+          <div class="text-subtitle-2 font-weight-bold mb-1">Prendas frecuentes</div>
+          <div class="d-flex flex-wrap ga-x-4 mb-3">
+            <v-checkbox
+              v-for="prenda in prendasRapidas"
+              :key="prenda.key"
+              density="compact"
+              hide-details
+              :label="prenda.label"
+              :model-value="prendasMarcadas.includes(prenda.key)"
+              @update:model-value="(marcado) => togglePrenda(prenda, marcado)"
+            />
+          </div>
+
           <div class="text-subtitle-2 font-weight-bold mb-2">Ítems del conjunto</div>
           <v-row dense class="mb-2">
             <v-col cols="12" md="5">
@@ -281,6 +297,7 @@
                 no-data-text="Sin ítems de uniforme"
                 placeholder="Buscar camisa, pantalón, chaleco..."
                 variant="outlined"
+                @click:clear="limpiarBusquedaProducto"
                 @update:model-value="onDraftProducto"
                 @update:search="buscarProducto"
               />
@@ -368,19 +385,6 @@
             Agrega camisa, pantalón, gorra, etc. para armar el conjunto. El monto total se calcula con esas prendas.
           </v-alert>
 
-          <v-text-field
-            v-model="form.precio_boleta"
-            class="mt-3"
-            clearable
-            hint="Vacío para anotarlo a mano en la boleta. Si lo escribes, ese es el total (incluye la ganancia). No salen los precios de cada prenda."
-            label="Precio total en la boleta"
-            persistent-hint
-            prefix="Q"
-            type="number"
-            min="0"
-            step="0.01"
-            variant="outlined"
-          />
           <v-textarea v-model="form.observaciones" class="mt-3" label="Observaciones" rows="2" variant="outlined" />
         </v-card-text>
         <v-card-actions class="pa-4">
@@ -663,7 +667,7 @@
         </v-card-title>
         <v-card-text class="pa-6">
           <p class="text-body-2 text-medium-emphasis mb-4">
-            Aún no es alta. Se crea una pre-alta para poder entregarle el uniforme. Recursos Humanos completa el expediente cuando lo contraten.
+            Aún no es alta. Se crea una pre-alta para entregarle el uniforme. Luego marca gorgorito, playera negra, gafete y botas, escribe el monto total y las cuotas: la boleta sale sola y el descuento queda en planilla para cuando lo contraten.
           </p>
           <v-text-field v-model="aspirante.nombres" class="mb-2" label="Nombres *" variant="outlined" />
           <v-text-field v-model="aspirante.apellidos" class="mb-2" label="Apellidos *" variant="outlined" />
@@ -803,6 +807,13 @@
   const kitId = ref(null)
   const draftVariantes = ref([])
   const itemError = ref('')
+  const prendasMarcadas = ref([])
+  const prendasRapidas = [
+    { key: 'gorgorito', label: 'Gorgorito', buscar: 'gorgor' },
+    { key: 'playera', label: 'Playera negra', buscar: 'playera', prefer: /negr/i },
+    { key: 'gafete', label: 'Gafete', buscar: 'gafete' },
+    { key: 'botas', label: 'Botas militares', buscar: 'bota', prefer: /militar/i },
+  ]
   const dialogBoleta = ref(false)
   const dialogDevolucion = ref(false)
   const entregaDevolucion = ref(null)
@@ -854,10 +865,16 @@
     form.items.reduce((sum, it) => sum + (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0), 0)
   )
 
+  const montoCobro = computed(() => {
+    const manual = Number(form.precio_boleta)
+    if (manual > 0) return manual
+    return montoTotal.value
+  })
+
   const montoPorCuota = computed(() => {
     const n = Number(form.cuotas_totales || 0)
-    if (!n || montoTotal.value <= 0) return 0
-    return Math.round((montoTotal.value / n) * 100) / 100
+    if (!n || montoCobro.value <= 0) return 0
+    return Math.round((montoCobro.value / n) * 100) / 100
   })
 
   const puedeGuardarKit = computed(() => {
@@ -865,9 +882,9 @@
     if (form.via_operaciones && !form.personal_operaciones_id) return false
     if (form.items.some(it => !it.variante_id)) return false
     if (form.a_cuotas) {
-      if (montoTotal.value <= 0) return false
+      if (montoCobro.value <= 0) return false
       if (!form.cuotas_totales || form.cuotas_totales < 1) return false
-      if (form.items.some(it => Number(it.precio_unitario) <= 0)) return false
+      if (!(Number(form.precio_boleta) > 0) && form.items.some(it => Number(it.precio_unitario) <= 0)) return false
     }
     return true
   })
@@ -1070,17 +1087,29 @@
   }
 
   function paramsProductos (search = '') {
-    const params = { per_page: 50 }
+    const params = { per_page: 80 }
     if (search) params.search = search
     if (form.tipo === 'kit') params.para_kit = 1
     return params
+  }
+
+  function listaDeProductos (res) {
+    const payload = res?.data
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.data)) return payload.data
+    return []
   }
 
   async function cargarProductosOpts (search = '') {
     loadingProductos.value = true
     try {
       const res = await bodegaService.getProductos(paramsProductos(search))
-      productosOpts.value = res.data?.data || res.data || []
+      let lista = listaDeProductos(res)
+      if (draft.producto_id && !lista.some(p => p.id === draft.producto_id)) {
+        const actual = productosOpts.value.find(p => p.id === draft.producto_id)
+        if (actual) lista = [actual, ...lista]
+      }
+      productosOpts.value = lista
     } finally {
       loadingProductos.value = false
     }
@@ -1088,10 +1117,24 @@
 
   let searchProductoTimer = null
   function buscarProducto (q) {
+    const term = (q || '').trim()
+    if (draft.producto_id) {
+      const selected = productosOpts.value.find(p => p.id === draft.producto_id)
+      const label = selected ? productoLabel(selected) : ''
+      if (!term || term === label || term === (selected?.nombre || '')) return
+    }
     clearTimeout(searchProductoTimer)
     searchProductoTimer = setTimeout(() => {
-      cargarProductosOpts((q || '').trim())
+      cargarProductosOpts(term)
     }, 300)
+  }
+
+  function limpiarBusquedaProducto () {
+    draft.producto_id = null
+    draft.variante_id = null
+    draft.nombre = ''
+    draftVariantes.value = []
+    cargarProductosOpts('')
   }
 
   async function onDraftProducto (id) {
@@ -1193,8 +1236,65 @@
     }
   }
 
+  async function togglePrenda (prenda, marcado) {
+    if (!marcado) {
+      prendasMarcadas.value = prendasMarcadas.value.filter(k => k !== prenda.key)
+      form.items = form.items.filter(i => i.prendaKey !== prenda.key)
+      return
+    }
+    if (prendasMarcadas.value.includes(prenda.key)) return
+    try {
+      let res = await bodegaService.getProductos({ search: prenda.buscar, para_kit: 1, per_page: 20 })
+      let lista = listaDeProductos(res)
+      if (!lista.length) {
+        res = await bodegaService.getProductos({ search: prenda.buscar, per_page: 20 })
+        lista = listaDeProductos(res)
+      }
+      const conStock = (p) => (p.variantes || []).some(v => Number(v.existencia) > 0)
+      const prod = (prenda.prefer && lista.find(p => prenda.prefer.test(p.nombre || '') && conStock(p)))
+        || lista.find(conStock)
+        || lista[0]
+      if (!prod) {
+        snackbar.color = 'warning'
+        snackbar.text = `No hay "${prenda.label}" en el catálogo. Búscalo abajo o dalo de alta en productos.`
+        snackbar.show = true
+        return
+      }
+      const fullRes = await bodegaService.getProducto(prod.id)
+      const full = fullRes.data?.producto || fullRes.data
+      const variantes = (full?.variantes || prod.variantes || []).map(v => ({
+        ...v,
+        etiqueta: `${v.etiqueta} (stock ${v.existencia})`,
+      }))
+      const variante = variantes.find(v => Number(v.existencia) > 0)
+      if (!variante) {
+        snackbar.color = 'warning'
+        snackbar.text = `${prenda.label} no tiene stock.`
+        snackbar.show = true
+        return
+      }
+      form.items.push({
+        prendaKey: prenda.key,
+        producto_id: prod.id,
+        variante_id: variante.id,
+        cantidad: 1,
+        precio_unitario: Number(form.precio_boleta) > 0 ? 0 : precioSugerido(variante),
+        nombre: full?.nombre || prod.nombre,
+        etiqueta: String(variante.etiqueta || '').replace(/\s*\(stock.*\)$/, ''),
+        existencia: variante.existencia,
+        variantes,
+      })
+      prendasMarcadas.value = [...prendasMarcadas.value, prenda.key]
+    } catch {
+      snackbar.color = 'error'
+      snackbar.text = 'No se pudo agregar la prenda.'
+      snackbar.show = true
+    }
+  }
+
   function agregarItemKit () {
-    const item = buildItemFromDraft(!!form.a_cuotas)
+    const exigePrecio = !!form.a_cuotas && !(Number(form.precio_boleta) > 0)
+    const item = buildItemFromDraft(exigePrecio)
     if (!item) return
     const ya = form.items.findIndex(i => i.variante_id === item.variante_id)
     if (ya >= 0) {
@@ -1207,12 +1307,17 @@
     } else {
       form.items.push(item)
     }
-    draft.variante_id = null
+    limpiarBusquedaProducto()
     draft.cantidad = 1
+    draft.precio_unitario = 0
   }
 
   function quitarItem (idx) {
+    const quitado = form.items[idx]
     form.items.splice(idx, 1)
+    if (quitado?.prendaKey) {
+      prendasMarcadas.value = prendasMarcadas.value.filter(k => k !== quitado.prendaKey)
+    }
   }
 
   async function abrirDialog (tipo) {
@@ -1238,6 +1343,7 @@
     draft.nombre = ''
     draftVariantes.value = []
     kitId.value = null
+    prendasMarcadas.value = []
     itemError.value = ''
 
     dialogKit.value = tipo === 'kit'
@@ -1318,7 +1424,12 @@
           : null,
         cantidad_entrada_dano: 1,
         observaciones: form.observaciones || null,
-        precio_boleta: form.precio_boleta === '' || form.precio_boleta === null ? null : Number(form.precio_boleta),
+        precio_boleta: (() => {
+          const manual = form.precio_boleta === '' || form.precio_boleta === null ? null : Number(form.precio_boleta)
+          if (manual > 0) return manual
+          if (form.tipo === 'kit' && montoTotal.value > 0) return montoTotal.value
+          return null
+        })(),
         fecha_entrega: form.fecha_entrega,
         items: form.items.map(it => ({
           variante_id: it.variante_id,
@@ -1424,6 +1535,8 @@
     snackbar.text = res?.message || 'Devolución registrada.'
     snackbar.show = true
     await cargar()
+    const entrega = res?.data
+    if (entrega?.id) await abrirVistaPreviaBoleta(entrega)
   }
 
   function onDevolucionError (msg) {

@@ -4,8 +4,8 @@
       <div>
         <h1 class="text-h5 font-weight-bold mb-0">Asistencia administrativa</h1>
         <p class="text-caption text-medium-emphasis mb-0">
-          Horario de cada persona, hora de entrada y salida. Retraso, salida temprana y minutos a favor
-          (entrada anticipada / salida tarde) usan 5 minutos de tolerancia.
+          Horario de cada persona, hora de entrada y salida. De lunes a viernes se usa su horario habitual.
+          Los sábados salen de 07:00 a 11:00. Retraso y minutos a favor usan 5 minutos de tolerancia.
         </p>
       </div>
       <v-spacer />
@@ -31,6 +31,10 @@
         Guardar
       </v-btn>
     </div>
+
+    <v-alert v-if="esSabado" class="mb-3" density="compact" type="info" variant="tonal">
+      Hoy es sábado: el horario y las horas precargadas son de 07:00 a 11:00. Si lo cambias aquí, solo se guarda el sábado; el de lunes a viernes se conserva.
+    </v-alert>
 
     <v-card elevation="2" rounded="xl">
       <v-data-table
@@ -215,6 +219,11 @@
   const canManage = computed(() => authStore.hasPermission('manage-asistencia-administrativa'))
 
   const fecha = ref(todayLocalISODate())
+  const esSabado = computed(() => {
+    const partes = String(fecha.value || '').split('-').map(Number)
+    if (partes.length !== 3 || partes.some(n => !n)) return false
+    return new Date(partes[0], partes[1] - 1, partes[2]).getDay() === 6
+  })
   const loading = ref(false)
   const saving = ref(false)
   const items = ref([])
@@ -490,10 +499,11 @@
     saving.value = true
     try {
       for (const item of conHorario) {
-        await operacionesService.guardarHorarioAdministrativo(item.id, {
-          horario_entrada: item.horarioEntradaLocal || null,
-          horario_salida: item.horarioSalidaLocal || null,
-        })
+        const entrada = item.horarioEntradaLocal || null
+        const salida = item.horarioSalidaLocal || null
+        await operacionesService.guardarHorarioAdministrativo(item.id, esSabado.value
+          ? { horario_sabado_entrada: entrada, horario_sabado_salida: salida }
+          : { horario_entrada: entrada, horario_salida: salida })
       }
       if (pendientes.length) {
         const asistencias = pendientes.map(item => {
