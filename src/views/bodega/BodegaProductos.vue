@@ -88,8 +88,9 @@
       <v-data-table
         :headers="headers"
         :items="productos"
+        :items-per-page="50"
         :loading="loading"
-        :items-per-page="20"
+        :sort-by="[]"
       >
         <template #item.codigo="{ item }">
           <span class="font-weight-medium">{{ item.codigo || '—' }}</span>
@@ -301,7 +302,7 @@
       if (filtros.search) params.search = filtros.search
       if (filtros.categoria_id) params.categoria_id = filtros.categoria_id
       if (filtros.stock_bajo) params.stock_bajo = 1
-      const res = await bodegaService.getProductos(params)
+      const res = await bodegaService.getProductos({ ...params, per_page: 500 })
       productos.value = res.data?.data || res.data || []
     } finally {
       loading.value = false

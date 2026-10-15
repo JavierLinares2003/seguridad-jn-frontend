@@ -26,6 +26,18 @@ export const bodegaService = {
     return response.data
   },
 
+  async getRequerimientosProyecto (proyectoId = null) {
+    const response = await api.get('/bodega/requerimientos-proyecto', {
+      params: proyectoId ? { proyecto_id: proyectoId } : {},
+    })
+    return response.data
+  },
+
+  async guardarRequerimientosProyecto (payload) {
+    const response = await api.put('/bodega/requerimientos-proyecto', payload)
+    return response.data
+  },
+
   async getStockBajo () {
     const response = await api.get('/bodega/stock-bajo')
     return response.data

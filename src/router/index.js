@@ -106,6 +106,12 @@ const manualRoutes = [
     meta: { requiresAuth: true, permissions: ['view-bodega'] },
   },
   {
+    path: '/bodega/requerimientos',
+    name: 'bodega-requerimientos',
+    component: () => import('@/views/bodega/BodegaRequerimientos.vue'),
+    meta: { requiresAuth: true, permissions: ['view-bodega'] },
+  },
+  {
     path: '/bodega/productos',
     name: 'bodega-productos',
     component: () => import('@/views/bodega/BodegaProductos.vue'),

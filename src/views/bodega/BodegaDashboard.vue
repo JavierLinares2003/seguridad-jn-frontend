@@ -8,6 +8,10 @@
         </p>
       </div>
       <v-spacer />
+      <v-btn color="primary" variant="tonal" :to="{ name: 'bodega-requerimientos' }">
+        <v-icon start>mdi-clipboard-list-outline</v-icon>
+        Requerimientos
+      </v-btn>
       <v-btn color="primary" variant="tonal" :to="{ name: 'bodega-productos' }">
         <v-icon start>mdi-package-variant</v-icon>
         Productos
