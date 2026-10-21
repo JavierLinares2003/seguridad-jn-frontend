@@ -1717,6 +1717,26 @@
     }, 300)
   }
 
+  async function abrirBoletaDevolucionUniforme (registro) {
+    if (!registro?.id) return
+    previewNumero.value = 'D' + String(registro.id).padStart(6, '0')
+    dialogBoleta.value = true
+    loadingBoleta.value = true
+    revocarPreview()
+    try {
+      const response = await bodegaService.downloadBoletaDevolucionUniforme(registro.id)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      previewUrl.value = URL.createObjectURL(blob)
+    } catch (e) {
+      dialogBoleta.value = false
+      snackbar.color = 'error'
+      snackbar.text = e.apiMessage || 'No se pudo generar la boleta'
+      snackbar.show = true
+    } finally {
+      loadingBoleta.value = false
+    }
+  }
+
   function abrirDevolucionUniforme () {
     devolucionLibre.persona = null
     devolucionLibre.fecha = localDate()
@@ -1745,7 +1765,7 @@
     }
     guardandoDevolucionLibre.value = true
     try {
-      await bodegaService.registrarDevolucionUniforme({
+      const res = await bodegaService.registrarDevolucionUniforme({
         personal_id: typeof persona === 'object' ? persona?.id || null : null,
         nombre,
         fecha: devolucionLibre.fecha,
@@ -1759,8 +1779,10 @@
       })
       dialogDevolucionLibre.value = false
       snackbar.color = 'success'
-      snackbar.text = 'Devolución registrada.'
+      snackbar.text = 'Devolución registrada. Se abre la boleta.'
       snackbar.show = true
+      const registro = res?.data
+      if (registro?.id) await abrirBoletaDevolucionUniforme(registro)
     } catch (error) {
       snackbar.color = 'error'
       snackbar.text = error.apiMessage || error.response?.data?.message || 'No se pudo registrar la devolución'

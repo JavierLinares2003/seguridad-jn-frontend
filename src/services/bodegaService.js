@@ -48,6 +48,13 @@ export const bodegaService = {
     return response.data
   },
 
+  async downloadBoletaDevolucionUniforme (id) {
+    const response = await api.get(`/bodega/devoluciones-uniforme/${id}/boleta`, {
+      responseType: 'blob',
+    })
+    return response
+  },
+
   async getStockBajo () {
     const response = await api.get('/bodega/stock-bajo')
     return response.data
