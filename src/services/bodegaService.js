@@ -38,6 +38,16 @@ export const bodegaService = {
     return response.data
   },
 
+  async registrarDevolucionRequerimientos (payload) {
+    const response = await api.post('/bodega/requerimientos-proyecto/devolucion', payload)
+    return response.data
+  },
+
+  async registrarDevolucionUniforme (payload) {
+    const response = await api.post('/bodega/devoluciones-uniforme', payload)
+    return response.data
+  },
+
   async getStockBajo () {
     const response = await api.get('/bodega/stock-bajo')
     return response.data

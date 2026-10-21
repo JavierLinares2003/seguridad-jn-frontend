@@ -36,6 +36,15 @@
         <v-icon start>mdi-package-variant-closed</v-icon>
         Entrega simple
       </v-btn>
+      <v-btn
+        v-if="canManage"
+        color="primary"
+        variant="tonal"
+        @click="abrirDevolucionUniforme"
+      >
+        <v-icon start>mdi-package-down</v-icon>
+        Devolución
+      </v-btn>
     </div>
 
     <v-card elevation="2" rounded="xl">
@@ -162,6 +171,9 @@
               Aspirante
             </v-btn>
           </div>
+          <v-alert v-if="tallasPersona" class="mb-3" density="compact" type="info" variant="tonal">
+            Tallas en su ficha: {{ tallasPersona }}. Bodega las ve aquí; la entrega usa la talla del producto.
+          </v-alert>
           <v-switch
             v-model="form.via_operaciones"
             class="mb-2"
@@ -181,7 +193,7 @@
             :items="adminOpts"
             :loading="loadingAdmin"
             label="Entregado por (administrativo) *"
-            no-data-text="No hay administrativos ni gerencia con ese nombre"
+            no-data-text="No aparece. Debe estar activo y marcado como administrativo, o su puesto o departamento debe decir gerencia, jefatura o administración."
             placeholder="Buscar administrativo o gerencia..."
             variant="outlined"
             @update:search="buscarEntregadoPor"
@@ -429,6 +441,9 @@
               Aspirante
             </v-btn>
           </div>
+          <v-alert v-if="tallasPersona" class="mb-3" density="compact" type="info" variant="tonal">
+            Tallas en su ficha: {{ tallasPersona }}. Bodega las ve aquí; la entrega usa la talla del producto.
+          </v-alert>
           <v-switch
             v-model="form.via_operaciones"
             class="mb-2"
@@ -448,7 +463,7 @@
             :items="adminOpts"
             :loading="loadingAdmin"
             label="Entregado por (administrativo) *"
-            no-data-text="No hay administrativos ni gerencia con ese nombre"
+            no-data-text="No aparece. Debe estar activo y marcado como administrativo, o su puesto o departamento debe decir gerencia, jefatura o administración."
             placeholder="Buscar administrativo o gerencia..."
             variant="outlined"
             @update:search="buscarEntregadoPor"
@@ -559,7 +574,7 @@
         </v-card-title>
         <v-card-text class="pa-6">
           <v-alert class="mb-4" density="compact" type="info" variant="tonal">
-            Entrega rápida de <strong>un solo producto</strong>. Baja stock y queda registrado a quién se le dio. Sin armar kit ni precios.
+            Entrega de uno o varios productos. Baja stock y queda registrado a quién se le dio. Si es para un administrativo, búscalo en usuario final.
           </v-alert>
 
           <v-autocomplete
@@ -583,6 +598,9 @@
               Aspirante
             </v-btn>
           </div>
+          <v-alert v-if="tallasPersona" class="mb-3" density="compact" type="info" variant="tonal">
+            Tallas en su ficha: {{ tallasPersona }}. Bodega las ve aquí; la entrega usa la talla del producto.
+          </v-alert>
           <v-switch
             v-model="form.via_operaciones"
             class="mb-2"
@@ -602,7 +620,7 @@
             :items="adminOpts"
             :loading="loadingAdmin"
             label="Entregado por (administrativo) *"
-            no-data-text="No hay administrativos ni gerencia con ese nombre"
+            no-data-text="No aparece. Debe estar activo y marcado como administrativo, o su puesto o departamento debe decir gerencia, jefatura o administración."
             placeholder="Buscar administrativo o gerencia..."
             variant="outlined"
             @update:search="buscarEntregadoPor"
@@ -634,6 +652,31 @@
             variant="outlined"
           />
           <v-text-field v-model.number="draft.cantidad" class="mb-2" label="Cantidad *" min="1" type="number" variant="outlined" />
+          <div class="d-flex mb-3">
+            <v-spacer />
+            <v-btn color="secondary" variant="tonal" @click="agregarItemSimple">
+              <v-icon start>mdi-plus</v-icon>
+              Agregar producto
+            </v-btn>
+          </div>
+          <v-table v-if="form.items.length" class="mb-3" density="compact">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(it, idx) in form.items" :key="idx">
+                <td>{{ it.nombre }} <span class="text-caption">{{ it.etiqueta }}</span></td>
+                <td>{{ it.cantidad }}</td>
+                <td>
+                  <v-btn color="error" icon="mdi-delete" size="small" variant="text" @click="quitarItem(idx)" />
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
           <v-text-field
             v-model="form.precio_boleta"
             class="mb-2"
@@ -757,6 +800,56 @@
       @error="onDevolucionError"
     />
 
+    <v-dialog v-model="dialogDevolucionLibre" max-width="640" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="pa-4 text-h6">Devolución de uniforme</v-card-title>
+        <v-card-text>
+          <p class="text-body-2 text-medium-emphasis mb-3">
+            Para quien no tiene boleta de entrega (por antigüedad). Escribe el nombre o búscalo, y marca qué prendas devuelve.
+          </p>
+          <v-combobox
+            v-model="devolucionLibre.persona"
+            class="mb-2"
+            clearable
+            item-title="nombre_completo"
+            :items="devolucionPersonalOpts"
+            label="Nombre de la persona *"
+            :loading="loadingDevolucionPersonal"
+            placeholder="Nombre, aunque no esté en el sistema"
+            variant="outlined"
+            @update:search="buscarPersonaDevolucion"
+          />
+          <v-text-field v-model="devolucionLibre.fecha" class="mb-4" label="Fecha" type="date" variant="outlined" />
+          <div v-for="prenda in devolucionLibre.prendas" :key="prenda.clave" class="d-flex align-center ga-3 mb-2">
+            <v-checkbox
+              v-model="prenda.devuelve"
+              class="flex-grow-1"
+              density="compact"
+              hide-details
+              :label="prenda.nombre"
+            />
+            <v-text-field
+              v-if="prenda.usaTalla"
+              v-model="prenda.talla"
+              density="compact"
+              hide-details
+              label="Talla"
+              style="max-width: 120px"
+              variant="outlined"
+            />
+          </div>
+          <v-textarea v-model="devolucionLibre.observaciones" class="mt-3" label="Observaciones" rows="2" variant="outlined" />
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="dialogDevolucionLibre = false">Cancelar</v-btn>
+          <v-btn color="primary" :loading="guardandoDevolucionLibre" variant="elevated" @click="guardarDevolucionUniforme">
+            Registrar devolución
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="4000">
       {{ snackbar.text }}
     </v-snackbar>
@@ -816,6 +909,25 @@
   ]
   const dialogBoleta = ref(false)
   const dialogDevolucion = ref(false)
+  const dialogDevolucionLibre = ref(false)
+  const guardandoDevolucionLibre = ref(false)
+  const loadingDevolucionPersonal = ref(false)
+  const devolucionPersonalOpts = ref([])
+  const prendasDevolucionBase = () => ([
+    { clave: 'camisa', nombre: 'Camisa', usaTalla: true, devuelve: false, talla: '' },
+    { clave: 'pantalon', nombre: 'Pantalón', usaTalla: true, devuelve: false, talla: '' },
+    { clave: 'chaleco', nombre: 'Chaleco', usaTalla: true, devuelve: false, talla: '' },
+    { clave: 'gorra', nombre: 'Gorra', usaTalla: true, devuelve: false, talla: '' },
+    { clave: 'gorgorito', nombre: 'Gorgorito', usaTalla: false, devuelve: false, talla: '' },
+    { clave: 'gafete', nombre: 'Gafete', usaTalla: false, devuelve: false, talla: '' },
+    { clave: 'botas', nombre: 'Botas', usaTalla: true, devuelve: false, talla: '' },
+  ])
+  const devolucionLibre = reactive({
+    persona: null,
+    fecha: localDate(),
+    observaciones: '',
+    prendas: prendasDevolucionBase(),
+  })
   const entregaDevolucion = ref(null)
   const loadingBoleta = ref(false)
   const previewUrl = ref('')
@@ -901,9 +1013,22 @@
   })
 
   const puedeGuardarSimple = computed(() =>
-    !!(form.personal_id && draft.variante_id && draft.cantidad >= 1
+    !!(form.personal_id && (form.items.length || draft.variante_id)
       && (!form.via_operaciones || form.personal_operaciones_id))
   )
+
+  const tallasPersona = computed(() => {
+    const persona = personalOpts.value.find(p => p.id === form.personal_id)
+    const tallas = persona?.tallas
+    if (!tallas) return ''
+    return [
+      tallas.talla_camisa && `Camisa ${tallas.talla_camisa}`,
+      tallas.talla_pantalon && `Pantalón ${tallas.talla_pantalon}`,
+      tallas.talla_zapato && `Calzado ${tallas.talla_zapato}`,
+      tallas.talla_chaleco && `Chaleco ${tallas.talla_chaleco}`,
+      tallas.talla_gorra && `Gorra ${tallas.talla_gorra}`,
+    ].filter(Boolean).join(' · ')
+  })
 
   function localDate () {
     const d = new Date()
@@ -1049,9 +1174,9 @@
           sort_by: 'apellidos',
           sort_order: 'asc',
           directorio: 1,
-          es_administrativo: 0,
           incluye_pre_alta: 1,
         }
+        if (form.tipo !== 'simple') params.es_administrativo = 0
         if (term) params.buscar = term
         const res = await personalService.getAll(params)
         personalOpts.value = mapPersonal(res?.data || [])
@@ -1292,6 +1417,24 @@
     }
   }
 
+  function agregarItemSimple () {
+    const item = buildItemFromDraft(false)
+    if (!item) return
+    const ya = form.items.findIndex(i => i.variante_id === item.variante_id)
+    if (ya >= 0) {
+      const nuevaCant = form.items[ya].cantidad + item.cantidad
+      if (nuevaCant > item.existencia) {
+        itemError.value = `Stock insuficiente al acumular. Disponible: ${item.existencia}.`
+        return
+      }
+      form.items[ya].cantidad = nuevaCant
+    } else {
+      form.items.push(item)
+    }
+    limpiarBusquedaProducto()
+    draft.cantidad = 1
+  }
+
   function agregarItemKit () {
     const exigePrecio = !!form.a_cuotas && !(Number(form.precio_boleta) > 0)
     const item = buildItemFromDraft(exigePrecio)
@@ -1359,8 +1502,8 @@
           sort_by: 'apellidos',
           sort_order: 'asc',
           directorio: 1,
-          es_administrativo: 0,
           incluye_pre_alta: 1,
+          ...(tipo === 'simple' ? {} : { es_administrativo: 0 }),
         }),
         personalService.getAll({
           per_page: 200,
@@ -1396,9 +1539,14 @@
     } else {
       if (!puedeGuardarSimple.value) return
       form.cobrar = false
-      const item = buildItemFromDraft(false)
-      if (!item) return
-      form.items = [item]
+      if (draft.variante_id) {
+        const item = buildItemFromDraft(false)
+        if (!item) return
+        const ya = form.items.findIndex(i => i.variante_id === item.variante_id)
+        if (ya >= 0) form.items[ya].cantidad += item.cantidad
+        else form.items.push(item)
+      }
+      if (!form.items.length) return
     }
 
     for (const it of form.items) {
@@ -1543,6 +1691,83 @@
     snackbar.color = 'error'
     snackbar.text = msg
     snackbar.show = true
+  }
+
+  let searchDevolucionTimer = null
+  function buscarPersonaDevolucion (q) {
+    clearTimeout(searchDevolucionTimer)
+    searchDevolucionTimer = setTimeout(async () => {
+      const term = (q || '').trim()
+      if (term.length > 0 && term.length < 2) return
+      loadingDevolucionPersonal.value = true
+      try {
+        const params = {
+          per_page: 25,
+          sort_by: 'apellidos',
+          sort_order: 'asc',
+          directorio: 1,
+          incluye_pre_alta: 1,
+        }
+        if (term) params.buscar = term
+        const res = await personalService.getAll(params)
+        devolucionPersonalOpts.value = mapPersonal(res?.data || [])
+      } finally {
+        loadingDevolucionPersonal.value = false
+      }
+    }, 300)
+  }
+
+  function abrirDevolucionUniforme () {
+    devolucionLibre.persona = null
+    devolucionLibre.fecha = localDate()
+    devolucionLibre.observaciones = ''
+    devolucionLibre.prendas = prendasDevolucionBase()
+    dialogDevolucionLibre.value = true
+    buscarPersonaDevolucion('')
+  }
+
+  async function guardarDevolucionUniforme () {
+    const persona = devolucionLibre.persona
+    const nombre = typeof persona === 'string'
+      ? persona.trim()
+      : (persona?.nombre_completo || '').replace(/ — Aspirante$/, '').trim()
+    if (!nombre) {
+      snackbar.color = 'warning'
+      snackbar.text = 'Escribe el nombre de quien devuelve.'
+      snackbar.show = true
+      return
+    }
+    if (!devolucionLibre.prendas.some(p => p.devuelve)) {
+      snackbar.color = 'warning'
+      snackbar.text = 'Marca al menos una prenda que sí devuelve.'
+      snackbar.show = true
+      return
+    }
+    guardandoDevolucionLibre.value = true
+    try {
+      await bodegaService.registrarDevolucionUniforme({
+        personal_id: typeof persona === 'object' ? persona?.id || null : null,
+        nombre,
+        fecha: devolucionLibre.fecha,
+        observaciones: devolucionLibre.observaciones || null,
+        prendas: devolucionLibre.prendas.map(p => ({
+          clave: p.clave,
+          nombre: p.nombre,
+          devuelve: !!p.devuelve,
+          talla: p.usaTalla ? (p.talla || null) : null,
+        })),
+      })
+      dialogDevolucionLibre.value = false
+      snackbar.color = 'success'
+      snackbar.text = 'Devolución registrada.'
+      snackbar.show = true
+    } catch (error) {
+      snackbar.color = 'error'
+      snackbar.text = error.apiMessage || error.response?.data?.message || 'No se pudo registrar la devolución'
+      snackbar.show = true
+    } finally {
+      guardandoDevolucionLibre.value = false
+    }
   }
 
   onMounted(cargar)
