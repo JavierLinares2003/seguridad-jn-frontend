@@ -47,6 +47,20 @@
       </v-btn>
     </div>
 
+    <v-text-field
+      v-model="buscarEntrega"
+      class="mb-4"
+      clearable
+      density="comfortable"
+      hide-details
+      label="Buscar persona o número de boleta"
+      placeholder="Nombre o 000030"
+      prepend-inner-icon="mdi-magnify"
+      variant="outlined"
+      @click:clear="buscarEntrega = ''; cargar()"
+      @keyup.enter="cargar"
+    />
+
     <v-card elevation="2" rounded="xl">
       <v-data-table :headers="headers" :items="items" :loading="loading" :items-per-page="20">
         <template #item.fecha_entrega="{ item }">
@@ -417,7 +431,7 @@
         </v-card-title>
         <v-card-text class="pa-6">
           <v-alert class="mb-4" density="compact" type="warning" variant="tonal">
-            Para cuando pierden o dañan algo (gorra, radio, etc.). Un solo ítem. Tú decides si se cobra o no.
+            Para cuando pierden o dañan algo (gorra, radio, etc.). Puedes agregar varios productos. Tú decides si se cobra o no.
           </v-alert>
 
           <v-autocomplete
@@ -511,6 +525,33 @@
             variant="outlined"
           />
           <v-text-field v-model.number="draft.cantidad" class="mb-3" label="Cantidad *" min="1" type="number" variant="outlined" />
+          <div class="d-flex mb-3">
+            <v-spacer />
+            <v-btn color="warning" variant="tonal" @click="agregarItemReposicion">
+              <v-icon start>mdi-plus</v-icon>
+              Agregar producto
+            </v-btn>
+          </div>
+          <v-table v-if="form.items.length" class="mb-3" density="compact">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th v-if="form.cobrar">Precio</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(it, idx) in form.items" :key="idx">
+                <td>{{ it.nombre }} <span class="text-caption">{{ it.etiqueta }}</span></td>
+                <td>{{ it.cantidad }}</td>
+                <td v-if="form.cobrar">Q{{ formatMoney(it.precio_unitario) }}</td>
+                <td>
+                  <v-btn color="error" icon="mdi-delete" size="small" variant="text" @click="quitarItem(idx)" />
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
 
           <v-card border class="pa-4 mb-3" rounded="lg" variant="outlined">
             <div class="text-subtitle-2 font-weight-bold mb-2">¿Se cobra al trabajador?</div>
@@ -858,6 +899,7 @@
 
 <script setup>
   import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+  import { useRoute } from 'vue-router'
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
   import bodegaService from '@/services/bodegaService'
@@ -866,6 +908,8 @@
   import DevolucionBoletaDialog from '@/components/bodega/DevolucionBoletaDialog.vue'
 
   const authStore = useAuthStore()
+  const route = useRoute()
+  const buscarEntrega = ref(typeof route.query.buscar === 'string' ? route.query.buscar : '')
   const canManage = computed(() => authStore.hasPermission('manage-bodega'))
 
   const loading = ref(false)
@@ -1004,9 +1048,10 @@
   const puedeGuardarReposicion = computed(() => {
     if (!form.personal_id || !form.motivo_reposicion) return false
     if (form.via_operaciones && !form.personal_operaciones_id) return false
-    if (!draft.variante_id || !draft.cantidad) return false
+    if (!form.items.length && !draft.variante_id) return false
     if (form.cobrar) {
-      if (Number(draft.precio_unitario) <= 0) return false
+      const lineas = draft.variante_id ? [...form.items, draft] : form.items
+      if (lineas.some(it => Number(it.precio_unitario) <= 0)) return false
       if (!form.cuotas_totales || form.cuotas_totales < 1) return false
     }
     return true
@@ -1154,7 +1199,10 @@
   async function cargar () {
     loading.value = true
     try {
-      const res = await bodegaService.getEntregas({ per_page: 50 })
+      const params = { per_page: 50 }
+      const term = buscarEntrega.value.trim()
+      if (term) params.buscar = term
+      const res = await bodegaService.getEntregas(params)
       items.value = res.data?.data || res.data || []
     } finally {
       loading.value = false
@@ -1417,6 +1465,26 @@
     }
   }
 
+  function agregarItemReposicion () {
+    const item = buildItemFromDraft(!!form.cobrar)
+    if (!item) return
+    const ya = form.items.findIndex(i => i.variante_id === item.variante_id)
+    if (ya >= 0) {
+      const nuevaCant = form.items[ya].cantidad + item.cantidad
+      if (nuevaCant > item.existencia) {
+        itemError.value = `Stock insuficiente al acumular. Disponible: ${item.existencia}.`
+        return
+      }
+      form.items[ya].cantidad = nuevaCant
+      if (form.cobrar) form.items[ya].precio_unitario = item.precio_unitario
+    } else {
+      form.items.push(item)
+    }
+    limpiarBusquedaProducto()
+    draft.cantidad = 1
+    draft.precio_unitario = 0
+  }
+
   function agregarItemSimple () {
     const item = buildItemFromDraft(false)
     if (!item) return
@@ -1533,9 +1601,14 @@
       form.cobrar = !!form.a_cuotas
     } else if (form.tipo === 'reposicion') {
       if (!puedeGuardarReposicion.value) return
-      const item = buildItemFromDraft(form.cobrar)
-      if (!item) return
-      form.items = [item]
+      if (draft.variante_id) {
+        const item = buildItemFromDraft(!!form.cobrar)
+        if (!item) return
+        const ya = form.items.findIndex(i => i.variante_id === item.variante_id)
+        if (ya >= 0) form.items[ya].cantidad += item.cantidad
+        else form.items.push(item)
+      }
+      if (!form.items.length) return
     } else {
       if (!puedeGuardarSimple.value) return
       form.cobrar = false

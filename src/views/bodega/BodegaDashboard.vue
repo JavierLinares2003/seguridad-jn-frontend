@@ -42,6 +42,41 @@
       </v-btn>
     </div>
 
+    <div class="d-flex align-center ga-2 mb-4">
+      <v-text-field
+        v-model="buscarBoleta"
+        clearable
+        density="comfortable"
+        hide-details
+        label="Buscar persona o número de boleta"
+        placeholder="Nombre o 000030"
+        prepend-inner-icon="mdi-magnify"
+        variant="outlined"
+        @keyup.enter="buscarEnBodega"
+      />
+      <v-btn color="primary" :loading="buscandoBoleta" variant="elevated" @click="buscarEnBodega">
+        Buscar
+      </v-btn>
+    </div>
+    <v-card v-if="resultadosBusqueda.length" class="mb-4" elevation="2" rounded="lg">
+      <v-list density="compact">
+        <v-list-item
+          v-for="item in resultadosBusqueda"
+          :key="item.id"
+          :subtitle="item.numero_boleta || item.id"
+          :title="`${item.personal?.nombres || ''} ${item.personal?.apellidos || ''}`.trim()"
+          @click="verEntrega(item)"
+        >
+          <template #append>
+            <v-btn size="small" variant="tonal" @click.stop="verEntrega(item)">Boleta</v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+    <p v-else-if="busco && !buscandoBoleta" class="text-caption text-medium-emphasis mb-4">
+      No hay boletas con ese nombre o número.
+    </p>
+
     <v-row class="mb-4" dense>
       <v-col v-for="card in resumenCards" :key="card.title" cols="6" sm="4" md>
         <v-card
@@ -366,6 +401,7 @@
 
 <script setup>
   import { computed, onMounted, reactive, ref } from 'vue'
+  import { useRouter } from 'vue-router'
   import preciosUniforme from '@/assets/precios-uniforme.jpg'
   import { format } from 'date-fns'
   import { es } from 'date-fns/locale'
@@ -373,6 +409,11 @@
   import { useAuthStore } from '@/stores/auth'
 
   const authStore = useAuthStore()
+  const router = useRouter()
+  const buscarBoleta = ref('')
+  const resultadosBusqueda = ref([])
+  const buscandoBoleta = ref(false)
+  const busco = ref(false)
   const canManage = computed(() => authStore.hasPermission('manage-bodega'))
 
   const dashboard = ref(null)
@@ -583,6 +624,35 @@
     } finally {
       eliminandoCategoria.value = false
     }
+  }
+
+  async function buscarEnBodega () {
+    const term = buscarBoleta.value.trim()
+    busco.value = !!term
+    if (!term) {
+      resultadosBusqueda.value = []
+      return
+    }
+    buscandoBoleta.value = true
+    try {
+      const res = await bodegaService.getEntregas({ buscar: term, per_page: 8 })
+      const pagina = res.data
+      resultadosBusqueda.value = Array.isArray(pagina) ? pagina : (pagina?.data || [])
+    } catch (error) {
+      resultadosBusqueda.value = []
+      snackbar.color = 'error'
+      snackbar.text = error.apiMessage || 'No se pudo buscar'
+      snackbar.show = true
+    } finally {
+      buscandoBoleta.value = false
+    }
+  }
+
+  function verEntrega (item) {
+    router.push({
+      name: 'bodega-entregas',
+      query: { buscar: item.numero_boleta || buscarBoleta.value.trim() },
+    })
   }
 
   onMounted(async () => {
